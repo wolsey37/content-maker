@@ -1,0 +1,15 @@
+# OS / 에디터
+.DS_Store
+
+# 테스트·스크린샷 잔여물
+.playwright-mcp/
+*.png
+*.log
+
+# 루트의 옛 HTML(최신본은 console/content-orchestrator.html) — 사용자 선택으로 제외
+/content-maker.html
+/content-console.html
+
+# 로컬 산출물/내보내기
+content-pipeline-*.json
+content-pipeline-*.md
