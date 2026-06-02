@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>콘텐츠 제작 파이프라인 콘솔</title>
+<script>(function(){try{var p=localStorage.getItem('cp_theme_set')==='1';var t=p?localStorage.getItem('cp_theme'):(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light');}catch(e){}})();</script>
 <style>
   :root{
     --bg:#eef1f5; --panel:#ffffff; --ink:#1b2430; --muted:#6b7682;
@@ -75,7 +76,7 @@
   .spacer{flex:1;}
   .key-wrap{display:flex; gap:6px; align-items:stretch;}
   .key-wrap input{flex:1;}
-  .model-menu{position:absolute; top:calc(100% + 6px); right:0; z-index:60; background:var(--panel); border:1px solid var(--line);
+  .model-menu{position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:60; background:var(--panel); border:1px solid var(--line);
     border-radius:10px; box-shadow:var(--shadow-lg); padding:5px; min-width:240px; display:none; max-height:260px; overflow:auto;}
   .model-menu.open{display:block;}
   .model-menu .mh{font-size:11px; color:var(--muted); padding:4px 10px 4px;}
@@ -111,6 +112,9 @@
   .conn-pill.ok .dot{background:var(--ok);} .conn-pill.ok{color:var(--ok); border-color:var(--ok-line);}
   .conn-pill.bad .dot{background:var(--err);} .conn-pill.bad{color:var(--err); border-color:var(--err-line);}
   .conn-pill.checking .dot{background:var(--brand); animation:pulse 1s infinite;}
+  .conn-pill.llm-pill{color:var(--brand); border-color:var(--brand-line, var(--line)); max-width:230px;}
+  .conn-pill.llm-pill #llmInfoText{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .conn-pill.llm-pill:hover{border-color:var(--brand);}
   @keyframes pulse{50%{opacity:.3;}}
   .icon-btn{display:inline-flex; align-items:center; justify-content:center; width:34px; height:30px; padding:0; font-size:15px;}
   .rail{display:flex; gap:6px; align-items:center; margin-top:12px;}
@@ -124,6 +128,10 @@
   .rail .seg.loading .sn{background:var(--brand); color:#fff;} .rail .seg.loading{border-color:var(--brand); background:var(--brand-soft);}
   .rail .seg.error .sn{background:var(--err); color:#fff;} .rail .seg.error{border-color:var(--err-line); background:var(--err-soft);}
   .progress-line{display:flex; align-items:center; gap:10px; margin-top:9px; flex-wrap:wrap;}
+  body.no-type .progress-line, body.no-type .rail{ display:none; }
+  .step-detail-toggle{display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--muted); cursor:pointer; flex:0 0 auto; white-space:nowrap; user-select:none;}
+  .step-detail-toggle input{width:auto; flex:0 0 auto; margin:0; cursor:pointer;}
+  body.mode-advanced .step-detail-toggle{color:var(--brand);}
   .pbar{flex:1 1 200px; height:7px; background:var(--line-soft); border-radius:999px; overflow:hidden;}
   .pbar > div{height:100%; width:0; background:linear-gradient(90deg,var(--ok),#2bbf7a); transition:width .3s;}
 
@@ -197,35 +205,67 @@
   .topbar-actions{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px;}
   .footer-note{text-align:center; color:var(--muted); font-size:11px; margin-top:24px;}
   .provider-note{margin-top:8px;}
+  /* ===== 고급 설정 드로어(오른쪽 슬라이드) ===== */
+  .drawer-backdrop{ position:fixed; inset:0; background:rgba(10,15,22,.45); opacity:0; visibility:hidden;
+    transition:opacity .22s,visibility .22s; z-index:100; }
+  .drawer-backdrop.open{ opacity:1; visibility:visible; }
+  .drawer{ position:fixed; top:0; right:0; height:100%; width:min(440px,92vw); background:var(--panel); border-left:1px solid var(--line);
+    box-shadow:var(--shadow-lg); transform:translateX(102%); transition:transform .26s cubic-bezier(.4,0,.2,1); z-index:101;
+    display:flex; flex-direction:column; }
+  .drawer.open{ transform:translateX(0); }
+  .drawer-head{ display:flex; align-items:center; gap:10px; padding:15px 18px; border-bottom:1px solid var(--line); flex:0 0 auto; }
+  .drawer-head .dt{ font-size:15px; font-weight:800; flex:1; }
+  .drawer-body{ padding:16px 18px 28px; overflow:auto; flex:1 1 auto; }
+  .switch-row{ display:flex; align-items:center; gap:10px; font-size:13px; font-weight:600; padding:11px 13px;
+    border:1px solid var(--line); border-radius:10px; background:var(--head-bg); cursor:pointer; margin-bottom:18px; }
+  .switch-row input{ width:auto; flex:0 0 auto; }
+  .drawer-section{ margin-bottom:20px; }
+  .drawer-section > .dh{ font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin-bottom:9px; }
+  .drawer .help{ box-shadow:none; margin-bottom:0; }
   @media(max-width:680px){ .rail .seg .stitle{display:none;} .topbar-top h1{font-size:16px;} }
+
+  /* 진행 중 입력 잠금: '콘텐츠 종류' 칩만 비활성 (주제·분석 기준은 수정 가능) */
+  body.inputs-locked #platformGroups{ pointer-events:none; opacity:.5; }
+  .lock-hint{ margin-top:8px; font-size:12.5px; color:var(--muted); background:var(--brand-soft);
+    border:1px solid var(--line); border-radius:8px; padding:8px 11px; }
 
   /* ===== 모드 게이팅 (간단/고급) ===== */
   body.mode-simple .adv-only{ display:none !important; }
   body.mode-advanced .simple-only{ display:none !important; }
 
+  /* 단계별 상세 토글: 간단 모드에서 카드별 ⚙ 버튼으로 그 단계의 고급 옵션만 펼침
+     (missing-note 는 JS가 따로 제어하므로 제외, step-llm-row 는 flex 유지) */
+  .step-detail-btn{ flex:0 0 auto; background:transparent; border:1px solid var(--line); border-radius:7px;
+    padding:3px 9px; font-size:12px; line-height:1.4; cursor:pointer; color:var(--muted); }
+  .step-detail-btn:hover{ border-color:var(--brand); color:var(--brand); }
+  .card.detail-open .step-detail-btn{ background:var(--brand-soft); border-color:var(--brand); color:var(--brand); }
+  body.mode-advanced .step-detail-btn{ display:none; }   /* 고급 모드는 모든 단계가 이미 펼쳐짐 → 버튼 불필요 */
+  body.mode-simple .card.detail-open .adv-only:not(.missing-note):not(.step-llm-row){ display:block !important; }
+  body.mode-simple .card.detail-open .step-llm-row.adv-only{ display:flex !important; }
+
   /* ===== 히어로(주제 입력 → 만들기) ===== */
   .hero{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
-    box-shadow:var(--shadow); padding:22px 22px 20px; margin-bottom:16px; }
-  .hero .hero-q{ font-size:19px; font-weight:800; letter-spacing:-.01em; margin:0 0 6px; }
-  .hero .hero-hint{ font-size:12.5px; color:var(--muted); margin:0 0 14px; }
+    box-shadow:var(--shadow); padding:18px 20px 16px; margin-bottom:16px; }
+  .hero .hero-q{ font-size:14px; font-weight:700; letter-spacing:-.01em; margin:0 0 4px; }
+  .hero .hero-hint{ font-size:12px; color:var(--muted); margin:0 0 9px; }
   /* 간단 모드: 결과물 단계의 복사 버튼을 눈에 띄게 */
   body.mode-simple .deliverable .label-row .btn{ background:var(--brand); border-color:var(--brand); color:#fff; }
   body.mode-simple .deliverable .label-row .btn:hover{ background:var(--brand-d); }
-  .hero #g_topic{ font-size:15.5px; min-height:70px; padding:12px 14px; border-radius:11px; }
-  .hero .hero-label{ font-size:12.5px; color:var(--muted); font-weight:600; margin:16px 0 7px; }
+  .hero #g_topic{ font-size:14.5px; padding:12px 13px; border-radius:10px; }
+  .hero .hero-label{ font-size:12px; color:var(--muted); font-weight:600; margin:13px 0 6px; }
   .chips{ display:flex; flex-wrap:wrap; gap:8px; }
   .chip{ padding:8px 15px; border-radius:999px; border:1px solid var(--line); cursor:pointer; font-size:13px;
     font-weight:600; background:var(--panel); color:var(--ink); transition:.12s; }
   .chip:hover{ border-color:var(--brand); }
   .chip.sel{ background:var(--brand); color:#fff; border-color:var(--brand); }
-  .hero-extra{ margin-top:14px; }
-  .hero-extra summary{ cursor:pointer; font-size:12.5px; color:var(--muted); font-weight:600; list-style:none; }
-  .hero-extra summary::-webkit-details-marker{ display:none; }
-  .hero-extra summary::before{ content:"▸ "; }
-  .hero-extra[open] summary::before{ content:"▾ "; }
-  .hero-extra textarea{ margin-top:8px; }
-  .hero-run{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:18px; }
-  .btn.big{ font-size:15px; font-weight:700; padding:13px 26px; border-radius:12px; }
+  .platform-group{ margin-bottom:12px; } .platform-group:last-child{ margin-bottom:0; }
+  .pg-label{ font-size:11.5px; color:var(--muted); font-weight:700; margin-bottom:6px; }
+  .hero-run{ display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-top:16px;
+    padding-top:14px; border-top:1px solid var(--line-soft); }
+  .hero-run .spacer{ flex:1 1 16px; min-width:8px; }
+  .btn.big{ font-size:14.5px; font-weight:700; padding:11px 22px; border-radius:11px; }
+  .btn.danger:hover{ background:var(--err-soft); border-color:var(--err-line); color:var(--err); }
+  .hero-status-line{ margin-top:10px; min-height:16px; }
   .hero-status{ font-size:12.5px; color:var(--muted); }
   .hero-status b.ok{ color:var(--ok); } .hero-status b.bad{ color:var(--err); }
 
@@ -239,10 +279,7 @@
     padding:9px 12px; border-radius:8px; font-size:12.5px; }
   .notready ol{ margin:8px 0 0; padding-left:20px; font-size:13px; color:var(--ink); } .notready li{ margin:4px 0; }
 
-  /* 간단 모드: 결과물(4·5·6단계) 강조 */
-  body.mode-simple .card.deliverable{ border-left-color:var(--brand); }
-  body.mode-simple .card.deliverable .card-head .num{ background:var(--brand); }
-  body.mode-simple .card.state-done.deliverable .card-head .num{ background:var(--ok); }
+  /* 간단 모드: 결과물(4·5·6단계)은 '결과물' 배지로만 구분(왼쪽 바 색은 상태만 반영 — 미완료에 색 안 들어가도록) */
   .deliv-badge{ display:none; }
   body.mode-simple .deliverable .deliv-badge{ display:inline-block; }
   /* 간단 모드에서 카드 결과 영역을 더 키움 */
@@ -257,12 +294,13 @@
     <div class="topbar-top">
       <div class="titlewrap">
         <h1>콘텐츠 제작 파이프라인 콘솔</h1>
-        <p class="sub">로컬 LLM CLI 실행 · 이미지·영상 제작용 <b>스크립트까지</b></p>
+        <p class="sub">로컬 LLM CLI 실행 · 제작 스크립트 + <b>릴스는 영상 엔진(Higgsfield)으로 실제 영상까지</b></p>
       </div>
-      <span class="conn-pill checking" id="connPill" title="브리지 연결 상태 (클릭 시 재확인)"><span class="dot"></span><span id="connText">연결 확인 중…</span></span>
+      <button class="conn-pill llm-pill" id="llmInfo" type="button" title="전역 LLM 모델 (클릭하면 고급 설정)"><span>🤖</span><span id="llmInfoText">…</span></button>
+      <span class="conn-pill checking" id="connPill" role="button" tabindex="0" title="브리지 연결 상태 — 클릭하면 다시 확인"><span class="dot"></span><span id="connText">연결 확인 중…</span></span>
       <button class="btn primary" id="runAll" type="button">▶ 만들기</button>
       <button class="btn ghost sm adv-only" id="toggleAll" type="button">모두 펼치기</button>
-      <button class="btn ghost sm" id="modeToggle" type="button" title="간단/고급 모드 전환">고급 ⚙</button>
+      <button class="btn ghost sm" id="modeToggle" type="button" title="설정 열기">설정 ⚙</button>
       <button class="btn ghost icon-btn" id="themeToggle" type="button" title="다크/라이트 모드 전환" aria-label="테마 전환">🌙</button>
     </div>
     <div class="rail" id="rail"></div>
@@ -289,92 +327,104 @@
 
   <!-- ===== 히어로: 무엇을 만들까요? ===== -->
   <section class="hero">
-    <h2 class="hero-q">어떤 콘텐츠를 만들까요?</h2>
-    <p class="hero-hint">주제만 입력하면 <b>기획 → 대본 → 이미지·영상 프롬프트</b>까지 한 번에 만들어 드려요.</p>
-    <textarea id="g_topic" placeholder="예: 리들 토너 신제품, 진정·보습 셀링포인트 — 또는 분석할 제품/전성분/기사 텍스트를 붙여넣으세요"></textarea>
-    <div class="hero-label">플랫폼</div>
-    <div class="chips" id="platformChips"></div>
-    <input type="text" id="g_platform" placeholder="직접 입력 (예: 인스타그램 릴스)" style="margin-top:8px; max-width:340px;">
-    <details class="hero-extra">
-      <summary>분석 기준 (선택) — 규제·점수 기준을 넣으면 더 정확해요</summary>
+    <div class="hero-label">콘텐츠 종류 선택</div>
+    <div id="platformGroups"></div>
+    <div id="inputLockHint" class="lock-hint" style="display:none;">🔒 진행 중에는 <b>콘텐츠 종류</b>를 바꿀 수 없어요. (주제·분석 기준은 수정 가능) 바꾸려면 <b>[🗑 새로 시작]</b>을 누르세요.</div>
+    <h2 class="hero-q" style="margin-top:14px;">어떤 콘텐츠를 만들까요?</h2>
+    <p class="hero-hint">주제만 입력하면 <b>기획 → 대본 → 이미지·영상 프롬프트</b>까지 만들어 드려요. <span class="hint">(한 번에 끝내려면 <b>⏩ 전체 자동</b>)</span></p>
+    <input type="text" id="g_topic" placeholder="예: 리들 토너 신제품 · 진정·보습 셀링포인트 (한 줄 주제)">
+    <div style="margin-top:10px;">
+      <div class="hero-label">🔎 웹에서 자료 가져오기 (선택) — LLM이 사이트를 검색·요약해 <b>참조 자료</b>에 추가</div>
+      <div class="key-wrap">
+        <input type="text" id="g_refSite" placeholder="사이트·URL 입력 후 [＋추가] (예: oliveyoung.co.kr)">
+        <button class="btn" id="refAddBtn" type="button" title="대상 사이트 목록에 추가">＋ 추가</button>
+        <button class="btn primary" id="refFetchBtn" type="button" title="추가한 사이트들을 현재 LLM CLI 가 검색·페치해 참조 자료 칸에 결과를 추가">🔎 가져오기</button>
+      </div>
+      <div class="chips" id="refSiteChips" style="margin-top:8px;"></div>
+      <div class="hint" id="refFetchStatus" style="margin-top:6px;">미추가 시 웹 전체 검색 · 쉼표·공백으로 여러 개 추가 가능</div>
+    </div>
+    <div style="margin-top:12px;">
+      <div class="hero-label">📑 참조 자료 (선택) — 웹 조사 결과가 쌓여 <b>1단계</b>에 반영돼요 <span class="hint">(주제 칸과 별개 · 로그인 사이트는 직접 붙여넣기)</span></div>
+      <textarea id="g_refData" placeholder="🔎 가져오기 결과가 여기에 추가됩니다. 직접 붙여넣어도 돼요. (주제 칸과는 별개)"></textarea>
+    </div>
+    <div style="margin-top:12px;">
+      <div class="hero-label">분석 기준 (선택) — 규제·점수 기준을 넣으면 더 정확해요</div>
       <textarea id="g_rulepack" placeholder="예: 식약처 표시·광고 가이드, 1% 기준선, 성분 점수 규칙 등"></textarea>
-    </details>
+    </div>
     <div class="hero-run">
       <button class="btn primary big" id="heroRun" type="button">✨ 콘텐츠 만들기</button>
-      <button class="btn" id="heroExport" type="button" title="만든 결과를 파일로 저장">📥 결과 저장</button>
-      <span class="hero-status" id="heroStatus"></span>
+      <button class="btn ghost" id="heroAuto" type="button" title="모든 단계를 멈추지 않고 한 번에 자동 실행">⏩ 전체 자동</button>
+      <span class="spacer"></span>
+      <button class="btn ghost sm" id="heroExport" type="button" title="만든 결과를 파일로 저장">📥 결과 저장</button>
+      <button class="btn ghost sm danger" id="heroReset" type="button" title="입력·결과를 모두 지우고 새로 시작">🗑 새로 시작</button>
     </div>
+    <div class="hero-status-line"><span class="hero-status" id="heroStatus"></span></div>
   </section>
 
-  <!-- ===== 도움말 / 보안 (고급) ===== -->
-  <details class="help adv-only">
-    <summary>도움말 · 보안 안내 (처음이면 펼쳐 읽어주세요)</summary>
-    <div class="help-body">
-      <div class="sub-h">사전 준비 — 브리지 실행</div>
-      <ul>
-        <li>이 콘솔은 LLM을 직접 호출하지 않고, <b>로컬에 설치된 LLM CLI</b>(<code>codex</code> / <code>claude</code> / <code>gemini</code>)를 <b>브리지 서버</b>가 터미널에서 실행해 결과를 받아옵니다.</li>
-        <li>터미널에서 <code>console/</code> 폴더의 브리지를 실행: <code>node bridge.mjs</code></li>
-        <li>브리지가 출력한 주소(<code>http://127.0.0.1:8787</code>)를 브라우저로 열면 이 콘솔이 뜹니다(같은 origin이라 CORS 문제 없음).</li>
-        <li>사용할 CLI가 설치·로그인되어 있어야 합니다. 상단 <b>연결 상태 pill</b>로 점검하세요.</li>
-      </ul>
-      <div class="sub-h">사용법</div>
-      <ul>
-        <li>설정에서 <b>LLM(CLI) 선택 → 기본 모델명 → 전역 입력(주제·룰팩·플랫폼)</b>을 채웁니다.</li>
-        <li>각 단계 <b>실행</b>, 또는 상단 <b>전체 순차 실행</b>으로 1→6단계를 자동 진행합니다(오류 시 중단).</li>
-        <li>이전 단계 <b>결과</b>가 다음 단계 프롬프트에 자동 반영됩니다(carry-forward). 결과는 편집 가능.</li>
-        <li>결과의 <b>복사</b> 버튼으로 스크립트를 그대로 이미지/영상 툴에 붙여넣으세요.</li>
-        <li>입력·템플릿·결과는 localStorage에 저장됩니다. <b>JSON / Markdown 내보내기</b>로 백업하세요.</li>
-      </ul>
-      <div class="sub-h">보안 주의</div>
-      <div class="danger-note">
-        <b>API 키는 어디에도 저장하지 않습니다.</b> 각 CLI 자체 로그인을 사용합니다.<br>
-        · 브리지는 <code>127.0.0.1</code> 에만 바인딩되어 외부에 노출되지 않습니다. 콘솔을 쓸 때만 켜두고 끝나면 종료(Ctrl+C)하세요.<br>
-        · CLI는 임시 폴더에서 실행되어 이 저장소 파일을 읽지 않습니다.
-      </div>
-      <div class="sub-h">범위</div>
-      <div class="scope-note">본 콘솔은 <b>이미지·영상 제작용 "스크립트"까지만</b> 생성합니다. 실제 영상 생성(Hailuo/Kling/Premiere 등)은 별도 툴에서 진행합니다.</div>
+  <!-- ===== 고급 설정 드로어 (오른쪽 슬라이드) ===== -->
+  <div class="drawer-backdrop" id="drawerBackdrop"></div>
+  <aside class="drawer" id="drawer">
+    <div class="drawer-head">
+      <span class="dt">⚙️ 설정</span>
+      <button class="btn ghost icon-btn" id="drawerClose" type="button" title="닫기" aria-label="닫기">✕</button>
     </div>
-  </details>
+    <div class="drawer-body">
+      <label class="switch-row"><input type="checkbox" id="advStepsToggle"> 단계별 상세 옵션 표시</label>
 
-  <!-- ===== 설정 바 (고급, 접이식) ===== -->
-  <details class="fold adv-only" id="settingsFold">
-    <summary>⚙️ 고급 설정 (LLM·모델·내보내기)</summary>
-    <div class="fold-body">
-    <div class="row">
-      <div class="field">
-        <label for="provider">LLM (로컬 CLI)</label>
-        <select id="provider">
-          <option value="claude">Claude CLI (claude -p)</option>
-          <option value="codex">Codex CLI (codex exec)</option>
-          <option value="gemini">Gemini CLI (gemini -p)</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="defaultModel">기본 모델명 <span class="hint">(텍스트 입력 · 변경 가능)</span></label>
-        <div class="key-wrap" style="position:relative;">
-          <input type="text" id="defaultModel" spellcheck="false">
-          <button class="btn ghost" id="modelPickBtn" type="button" title="추천 모델에서 선택">모델 ▾</button>
-          <div class="model-menu" id="modelMenu"></div>
+      <div class="drawer-section">
+        <div class="row">
+          <div class="field">
+            <label for="provider">LLM (로컬 CLI)</label>
+            <select id="provider">
+              <option value="claude">Claude CLI (claude -p)</option>
+              <option value="codex">Codex CLI (codex exec)</option>
+              <option value="agy">Antigravity CLI (agy -p)</option>
+            </select>
+          </div>
+          <div class="field" id="modelField">
+            <label for="defaultModel">기본 모델 <span class="hint">(클릭해서 선택)</span></label>
+            <div class="key-wrap" style="position:relative;">
+              <input type="text" id="defaultModel" spellcheck="false" readonly style="cursor:pointer;" placeholder="클릭해서 모델 선택" title="클릭하면 추천 모델 목록이 열립니다">
+              <div class="model-menu" id="modelMenu"></div>
+            </div>
+          </div>
         </div>
+        <div class="hint" style="margin-top:6px;">모델 입력칸을 <b>클릭</b>하면 추천 목록에서 고를 수 있습니다. 최신 목록은 <b>[🔄 모델 최신화]</b>로 갱신하고, 연결 상태는 상단 <b>상태 배지</b>로 확인합니다.</div>
+        <div style="margin-top:8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <button class="btn ghost sm" id="refreshModelsBtn" type="button" title="각 CLI(codex 캐시 · agy --help)에서 모델 목록을 다시 불러옵니다">🔄 모델 최신화</button>
+          <span class="hint" id="refreshModelsStatus"></span>
+        </div>
+        <div class="provider-note" id="providerNote"></div>
       </div>
-    </div>
-    <div class="hint" style="margin-top:6px;">모델명은 직접 입력하거나 <b>[모델 ▾]</b>에서 고를 수 있습니다. 연결 상태는 상단 <b>상태 배지</b>를 클릭해 확인합니다. 주제·플랫폼·분석 기준은 위쪽 입력창에서 채웁니다.</div>
-    <div class="provider-note" id="providerNote"></div>
 
-    <div class="topbar-actions">
-      <button class="btn" id="exportJson" type="button">JSON 내보내기</button>
-      <button class="btn" id="exportMd" type="button">Markdown 내보내기 (스크립트 모음)</button>
-      <div class="spacer"></div>
-      <button class="btn ghost" id="resetAll" type="button" style="color:var(--err);">초기화</button>
+      <details class="help">
+        <summary>도움말 · 보안 안내</summary>
+        <div class="help-body">
+          <div class="sub-h">사전 준비 — 브리지 실행</div>
+          <ul>
+            <li>이 콘솔은 LLM을 직접 호출하지 않고, <b>로컬에 설치된 LLM CLI</b>(<code>claude</code> / <code>codex</code> / <code>agy</code>)를 <b>브리지 서버</b>가 터미널에서 실행해 결과를 받아옵니다. (<code>agy</code> = Google Antigravity 에이전트 · Gemini 모델)</li>
+            <li>터미널에서 <code>console/</code> 폴더의 브리지를 실행: <code>node bridge.mjs</code></li>
+            <li>브리지가 출력한 주소(<code>http://127.0.0.1:8787</code>)를 브라우저로 열면 이 콘솔이 뜹니다.</li>
+            <li>사용할 CLI가 설치·로그인되어 있어야 합니다. 상단 <b>연결 상태 배지</b>로 점검하세요.</li>
+            <li>LLM·모델은 상단 <b>[⚙ 설정]</b>에서 선택합니다. <code>codex</code>·<code>claude</code>는 <b>모델 입력칸을 클릭</b>해 목록에서 고르고(<b>[🔄 모델 최신화]</b>로 목록 갱신), <code>agy</code>는 <b>자체 기본 모델</b>을 사용합니다.</li>
+          </ul>
+          <div class="sub-h">보안 주의</div>
+          <div class="danger-note">
+            <b>API 키는 어디에도 저장하지 않습니다.</b> 각 CLI 자체 로그인을 사용합니다.<br>
+            · 브리지는 <code>127.0.0.1</code> 에만 바인딩되어 외부에 노출되지 않습니다. 콘솔을 쓸 때만 켜두고 끝나면 종료(Ctrl+C)하세요.<br>
+            · CLI는 임시 폴더에서 실행되어 이 저장소 파일을 읽지 않습니다.
+          </div>
+          <div class="sub-h">범위</div>
+          <div class="scope-note">기본은 <b>이미지·영상 제작용 스크립트</b>를 생성합니다. 카드뉴스·피드·스토리는 <b>codex·agy</b> 로 실제 이미지를, <b>릴스</b>는 영상 엔진(<b>Higgsfield</b>)을 <b>codex·claude</b> CLI→MCP 로 호출해 <b>실제 영상까지</b> 만들어 작업폴더 <code>output/</code> 에 저장합니다.</div>
+        </div>
+      </details>
     </div>
-    <div class="hint" style="margin-top:8px;">입력·템플릿·결과는 자동으로 localStorage에 저장됩니다. (API 키는 저장하지 않습니다 — CLI 자체 로그인 사용)</div>
-    </div>
-  </details>
+  </aside>
 
   <!-- ===== 단계 카드들 (JS가 채움) ===== -->
   <div id="steps"></div>
 
-  <p class="footer-note">단일 HTML + 로컬 브리지(Node, 의존성 0) · LLM은 로컬 CLI 실행 · 본 콘솔은 스크립트까지만 생성하며 실제 영상 생성은 별도 툴에서 진행합니다.</p>
+  <p class="footer-note">단일 HTML + 로컬 브리지(Node, 의존성 0) · LLM은 로컬 CLI 실행 · 릴스는 영상 엔진(Higgsfield)을 CLI→MCP 로 호출해 실제 영상까지 생성합니다.</p>
 </div>
 
 <script>
@@ -387,56 +437,120 @@
       cmd: function(m){ return "claude -p" + (m ? " --model " + m : "") + ' "<프롬프트>"'; },
       note: '로컬 <code>claude -p</code> print 모드. 정식 ID <code>claude-sonnet-4-6</code>(일반) · <code>claude-opus-4-8</code>(고성능) · <code>claude-haiku-4-5-20251001</code>(저렴). 별칭 sonnet/opus/haiku도 입력 가능.' },
     codex: { label: "Codex CLI (OpenAI)", cli: "codex", defaultModel: "gpt-5.5",
-      models: [{id:"gpt-5.5",tag:"기본"},{id:"gpt-5-mini",tag:"저렴"},{id:"gpt-5-nano",tag:"초저가"}],
+      models: [{id:"gpt-5.5",tag:"최신·권장"},{id:"gpt-5.4",tag:"이전 세대"},{id:"gpt-5.4-mini",tag:"저렴·빠름"},{id:"gpt-5.3-codex",tag:"코딩 특화"},{id:"gpt-5.2",tag:"구형"}],
       cmd: function(m){ return "codex exec --skip-git-repo-check" + (m ? " --model " + m : "") + ' "<프롬프트>"'; },
-      note: '로컬 <code>codex exec</code> 실행. 진행상황은 stderr, 최종 답변만 stdout. 브라우저 CORS 제약 없음(브리지가 실행).' },
-    gemini: { label: "Gemini CLI (Google)", cli: "gemini", defaultModel: "gemini-2.5-flash",
-      models: [{id:"gemini-2.5-flash",tag:"가성비"},{id:"gemini-2.5-pro",tag:"고성능"},{id:"gemini-2.5-flash-lite",tag:"저렴"}],
-      cmd: function(m){ return "gemini" + (m ? " -m " + m : "") + ' -p "<프롬프트>"'; },
-      note: '로컬 <code>gemini -p</code> 헤드리스 모드. 추천 모델: <code>gemini-2.5-flash</code> · <code>gemini-2.5-pro</code>.' }
+      note: '로컬 <code>codex exec</code> 실행. 진행상황은 stderr, 최종 답변만 stdout. 모델 목록은 <b>[🔄 모델 최신화]</b>로 codex 캐시에서 불러옵니다. (캐시에 없는 구버전 명은 400 → 자동으로 gpt-5.5로 교정)' },
+    agy: { label: "Antigravity CLI", cli: "agy", defaultModel: "Gemini 3.5 Flash",
+      models: [{id:"flash",name:"Gemini 3.5 Flash",tag:"가성비"},{id:"pro",name:"Gemini 3.1 Pro",tag:"고성능"},{id:"flash_lite",name:"Flash Lite",tag:"저렴"}],
+      cmd: function(m){ return m ? ('echo "<프롬프트>" | agy -p --model=' + m) : 'agy -p "<프롬프트>"'; },
+      note: '로컬 <code>agy -p</code> (Google Antigravity 에이전트 · Gemini 모델) print 모드. 기본은 <code>Gemini 3.5 Flash</code>(가성비)이며 <code>flash</code>·<code>pro</code>·<code>flash_lite</code> 중 선택 가능(브리지가 <code>--model</code> 지정 시 프롬프트를 stdin 으로 전달).' }
   };
 
   // 모델 ID → 소유 provider (다른 provider 모델이 섞여 잘못된 CLI로 호출되는 것 방지)
   var MODEL_OWNER = {};
-  Object.keys(PROVIDERS).forEach(function(pk){ (PROVIDERS[pk].models||[]).forEach(function(m){ MODEL_OWNER[m.id]=pk; }); });
+  function rebuildModelOwner(){ MODEL_OWNER={}; Object.keys(PROVIDERS).forEach(function(pk){ (PROVIDERS[pk].models||[]).forEach(function(m){ MODEL_OWNER[m.id]=pk; if(m.name) MODEL_OWNER[m.name]=pk; }); }); }
+  // 표시값(모델명 또는 id) → 실제 전송용 모델 id 로 변환. 매칭 없으면(커스텀 입력) 그대로.
+  function resolveModelId(provider, value){
+    var v=(value||"").trim(); if(!v) return v;
+    var ms=(PROVIDERS[provider]&&PROVIDERS[provider].models)||[];
+    for(var i=0;i<ms.length;i++){ if(ms[i].name===v || ms[i].id===v) return ms[i].id; }
+    return v;
+  }
+  rebuildModelOwner();
 
   /* ====== 단계 정의 (1~6) ====== */
   var STEPS = [
     { id:1, title:"주제·트렌드 정리", desc:"입력을 핵심 주제·앵글 후보로 정리", needs:[],
-      template:"당신은 숏폼 콘텐츠 기획자입니다. 아래 입력을 분석해 핵심 주제와 콘텐츠 앵글 후보를 정리하세요.\n\n[플랫폼]\n{{platform}}\n\n[입력: 주제/핫템/소스 텍스트]\n{{topic}}\n\n[출력 형식]\n1) 핵심 주제 요약 (2~3줄)\n2) 타깃 시청자 추정\n3) 콘텐츠 앵글 후보 3~5개 (각 앵글에 한 줄 설명 + 왜 통할지)\n4) 추천 우선순위와 이유\n간결한 한국어로 작성하세요." },
+      template:"당신은 인스타그램 콘텐츠 기획자입니다. 아래 입력을 분석해 선택한 {{platform}} 형식에 맞는 핵심 주제와 콘텐츠 앵글 후보를 정리하세요.\n\n[선택한 콘텐츠 종류]\n{{platform}}\n\n[입력: 주제/핫템/소스 텍스트]\n{{topic}}\n\n[인스타그램 포맷 기준]\n- 카드뉴스: 4:5 세로 캐러셀로 정보를 순서대로 전달\n- 피드: 4:5 세로 대표 이미지 1장과 캡션으로 메시지 전달\n- 스토리: 9:16 짧은 풀스크린 컷과 인터랙션으로 반응 유도\n- 릴스: 9:16 숏폼 영상으로 첫 2초 안에 관심 유도\n- 선택한 콘텐츠 종류의 기준만 적용하고, 다른 포맷의 산출물을 섞지 마세요.\n\n[출력 형식]\n1) 핵심 주제 요약 (2~3줄)\n2) 타깃 시청자 추정\n3) 콘텐츠 앵글 후보 3~5개 (각 앵글에 한 줄 설명 + 왜 선택한 인스타그램 형식에서 통할지)\n4) 추천 우선순위와 이유\n간결한 한국어로 작성하세요." },
     { id:2, title:"핵심 정보 분석·스코어링", desc:"핵심 데이터 + 룰팩으로 분석·점수·순위", needs:[1],
-      template:"당신은 도메인 분석가입니다. 아래 '도메인 룰팩'의 기준을 그대로 적용해 핵심 데이터를 분석·스코어링·순위화하세요. 룰팩에 없는 기준은 임의로 만들지 말고, 추정한 부분은 표시하세요.\n\n[도메인 룰팩: 규제기준/업계 암묵지/스코어링 기준/소스]\n{{rulepack}}\n\n[분석 대상 핵심 데이터 (예: 전성분 등)]\n{{topic}}\n\n[1단계 정리 결과 참고]\n{{step1_output}}\n\n[출력 형식]\n- 항목별 평가표 (항목 / 근거(룰팩의 어느 기준) / 점수)\n- 종합 점수와 순위\n- 강점 / 주의점\n- 콘텐츠에 쓸 핵심 메시지 후보\n근거를 명확히, 한국어로 작성하세요." },
-    { id:3, title:"소크라테스 기획", desc:"연속 질문으로 목표·타깃·앵글 구체화 → 기획안", needs:[1,2],
-      template:"당신은 기획 코치입니다. 소크라테스식으로 '먼저 핵심 질문을 던지고, 합리적인 가정으로 스스로 답하며' 콘텐츠 목표·타깃·앵글을 구체화한 뒤, 최종 기획안을 만드세요.\n\n[플랫폼]\n{{platform}}\n\n[1단계 주제·앵글]\n{{step1_output}}\n\n[2단계 분석·스코어링]\n{{step2_output}}\n\n[진행 방식]\n1) 목표/타깃/앵글/차별점을 정하기 위한 질문 5~7개를 나열하고, 각 질문에 합리적 가정으로 답하세요.\n2) 그 답을 종합한 '기획안'을 제시하세요: 한 줄 컨셉 · 핵심 메시지 1개 · 타깃 · 톤앤매너 · 영상 길이/구성(도입-전개-마무리) · 콜투액션.\n한국어로 작성하세요." },
+      template:"당신은 콘텐츠 제작을 돕는 도메인 분석가입니다. 아래 대상을 분석·스코어링·순위화해 콘텐츠에 쓸 핵심 메시지를 뽑아주세요.\n\n[분석 기준(도메인 룰팩) — 비어 있을 수 있음]\n{{rulepack}}\n\n[분석 대상 (제품/주제/전성분/스펙/소스 텍스트 등)]\n{{topic}}\n\n[1단계 정리 결과]\n{{step1_output}}\n\n[작성 지침]\n- '분석 기준(룰팩)'이 주어지면 그 기준을 최우선으로 적용하세요.\n- 룰팩이 비어 있거나 핵심 데이터(성분/함량/스펙 등)가 부족해도 **분석을 거부하지 말고**, 당신의 일반 지식과 합리적 추정으로 진행하세요. 단, 추정·일반지식에 근거한 부분은 '(추정)'으로 표시하고, 확인이 필요한 항목은 따로 짚어주세요.\n- 사실로 단정할 수 없는 효능·수치는 단정하지 말고 일반적 경향으로 서술하세요(특히 규제 민감 분야).\n\n[출력 형식]\n- 핵심 포인트 평가표 (항목 / 근거 / 점수 또는 평가)\n- 종합 평가와 우선순위\n- 강점 / 주의점 (추정은 표시)\n- 콘텐츠에 쓸 핵심 메시지 후보 2~3개\n한국어로 간결하게 작성하세요." },
+    { id:3, title:"콘텐츠 기획", desc:"목표·타깃·앵글을 구체화해 기획안 작성", needs:[1,2],
+      template:"당신은 인스타그램 콘텐츠 기획자입니다. 아래 1·2단계 결과를 바탕으로 {{platform}} 콘텐츠의 목표·타깃·앵글을 구체화하고 최종 기획안을 작성하세요.\n\n[선택한 콘텐츠 종류]\n{{platform}}\n\n[1단계 주제·앵글]\n{{step1_output}}\n\n[2단계 분석·스코어링]\n{{step2_output}}\n\n[인스타그램 포맷 기준]\n- 인스타그램 카드뉴스: 피드용 4:5 세로 캐러셀, 5~8장, 한 슬라이드에 핵심 메시지 1개\n- 인스타그램 피드: 4:5 세로 대표 이미지 1장, 캡션 첫 줄 후킹과 저장·공유 유도\n- 인스타그램 스토리: 9:16 세로 풀스크린, 3~5컷, 짧은 문구와 스티커 인터랙션\n- 인스타그램 릴스: 9:16 세로 숏폼, 첫 2초 후킹, 장면별 자막과 자연스러운 마무리\n- 위 네 가지 중 [선택한 콘텐츠 종류]에 해당하는 기준만 적용하세요. 다른 포맷의 산출물을 섞지 마세요.\n\n[출력: 기획안]\n1) 한 줄 컨셉\n2) 핵심 메시지 1개\n3) 타깃 시청자\n4) 톤앤매너\n5) 선택한 인스타그램 콘텐츠 종류에 맞는 분량·구성\n6) 콜투액션\n한국어로 간결하게 작성하세요." },
     { id:4, title:"후킹·각본 (Canonical 스크립트)", desc:"후킹 문구 + 키워드 중심 구술 각본", needs:[3],
-      template:"당신은 숏폼 카피라이터입니다. 아래 기획안을 바탕으로 후킹 문구와 키워드 중심 구술 각본을 작성하세요.\n\n[플랫폼]\n{{platform}}\n\n[기획안]\n{{step3_output}}\n\n[분석 근거(필요시 인용)]\n{{step2_output}}\n\n[출력 형식]\n1) 후킹 문구 후보 3개 (첫 2초용, 강·중·안정 톤 각 1개)\n2) 채택 후킹 1개 + 선정 이유\n3) Canonical 구술 각본: 장면 흐름에 따라 화자가 말하는 대사를 순서대로. 각 줄 앞에 [도입]/[전개1]/[전개2]/[마무리] 같은 비트 라벨. 핵심 키워드는 **굵게**.\n4) 콜투액션 한 줄.\n자연스러운 구어체 한국어로 작성하세요." },
-    { id:5, title:"이미지 생성 스크립트", desc:"각본 기반 인서트샷용 이미지 생성 프롬프트 (산출물)", needs:[4], output:true,
-      template:"당신은 이미지 생성 프롬프트 엔지니어입니다. 아래 각본을 바탕으로 인서트샷용 '이미지 생성 프롬프트'를 장면별로 작성하세요. (실제 이미지 생성은 별도 툴에서 진행)\n\n[플랫폼]\n{{platform}}\n\n[각본]\n{{step4_output}}\n\n[요구사항]\n- 화면비 9:16 (세로) 고정\n- 전체를 관통하는 일관된 비주얼 스타일 1개를 먼저 정의(라이팅/색감/무드/렌즈 느낌)\n- 각본의 비트에 맞춰 장면별 컷 6~10개\n- 각 컷마다: 컷 번호 / 대응 각본 비트 / 영문 이미지 프롬프트(피사체, 구도, 스타일, 9:16 명시) / 한국어 설명 / 네거티브 프롬프트\n- 각 프롬프트는 그대로 복사해 이미지 툴에 붙여넣을 수 있게.\n표 또는 번호 목록으로 정리하세요." },
+      template:"당신은 인스타그램 릴스 전문 카피라이터입니다. 아래 기획안을 바탕으로 9:16 세로형 릴스의 후킹 문구와 키워드 중심 구술 각본을 작성하세요.\n\n[플랫폼]\n{{platform}}\n\n[기획안]\n{{step3_output}}\n\n[분석 근거(필요시 인용)]\n{{step2_output}}\n\n[작성 원칙]\n- 전체 길이는 15~45초를 권장하고 첫 2초 안에 핵심 후킹을 배치하세요.\n- 모바일에서 소리 없이 봐도 이해되도록 장면별 화면 자막을 짧게 작성하세요.\n- 정보 전달 뒤 저장·공유·댓글 중 하나를 유도하고, 가능하면 첫 장면으로 자연스럽게 이어지는 마무리를 제안하세요.\n\n[출력 형식]\n1) 후킹 문구 후보 3개 (첫 2초용, 강·중·안정 톤 각 1개)\n2) 채택 후킹 1개 + 선정 이유\n3) 릴스 구술 각본 표: 비트 / 권장 길이(초) / 화자 대사 / 화면 자막(짧게) / 화면 아이디어\n4) 콜투액션 한 줄\n5) 예상 총 길이\n6) 릴스 커버 문구 + 커버 비주얼 아이디어\n7) 게시용 캡션(첫 줄에 후킹)\n8) 내용과 직접 관련된 구체적 해시태그 최대 5개\n자연스러운 구어체 한국어로 작성하세요." },
+    { id:5, title:"이미지 생성 스크립트", desc:"각본 기반 인서트샷용 이미지 생성 프롬프트 (산출물)", needs:[4], output:true, imageSource:true,
+      template:"당신은 인스타그램 릴스용 이미지 생성 프롬프트 엔지니어입니다. 아래 각본을 바탕으로 릴스 인서트샷용 '이미지 생성 프롬프트'를 장면별로 작성하세요. (실제 이미지 생성은 별도 툴에서 진행)\n\n[플랫폼]\n{{platform}}\n\n[각본]\n{{step4_output}}\n\n[요구사항]\n- 인스타그램 릴스용 9:16 세로형, 1080x1920px 고정\n- 상단 프로필 UI, 하단 캡션·답장 UI, 오른쪽 액션 UI(좋아요·댓글·공유)를 피하고 핵심 피사체·자막은 중앙 안전영역에 배치\n- 인서트컷은 비주얼 위주로 만들고 자막은 영상 편집 단계에서 입히므로, 자막이 들어갈 빈 공간을 확보\n- 전체를 관통하는 일관된 비주얼 스타일 1개를 먼저 정의(라이팅/색감/무드/렌즈 느낌)\n- 각본의 비트에 맞춰 장면별 컷 6~10개\n- 이미지 프롬프트의 피사체·구도·스타일·라이팅 묘사는 영어로 작성하세요(이미지 모델 품질이 더 좋음). 인서트컷에는 글자를 넣지 않습니다(자막은 영상 편집에서).\n- 각 컷마다: 컷 번호 / 대응 각본 비트 / 복사용 이미지 프롬프트(영어로 피사체·구도·스타일·라이팅과 'portrait 9:16, 1080x1920px' 명시) / 한국어 설명 / 자막 안전영역 메모 / 네거티브 프롬프트(영어)\n- 각 프롬프트는 한 장의 인서트샷만 생성하게 작성하고, 여러 장 미리보기·그리드·콜라주·스토리보드를 금지\n- 각 프롬프트는 그대로 복사해 이미지 툴에 붙여넣을 수 있게 번호 목록과 개별 코드 블록으로 정리하세요. 네거티브 프롬프트는 코드 블록으로 감싸지 말고 일반 텍스트 한 줄로 작성하세요." },
     { id:6, title:"영상 생성 스크립트 / 스토리보드", desc:"장면별 영상 프롬프트 + 스토리보드 + 나레이션/자막 (산출물 · 여기서 끝)", needs:[4,5], output:true,
-      template:"당신은 영상 생성 스크립트 디렉터입니다. 아래 각본과 이미지 컷을 바탕으로, 영상 생성툴에 넣을 장면별 '영상 프롬프트'와 스토리보드, 나레이션/자막 스크립트를 작성하세요. (실제 영상 생성은 Hailuo/Kling 등 별도 툴에서 진행 — 본 콘솔은 여기서 끝)\n\n[플랫폼]\n{{platform}}\n\n[각본]\n{{step4_output}}\n\n[이미지 컷 스크립트]\n{{step5_output}}\n\n[출력 형식]\n- 화면비 9:16, 장면(씬) 단위로 정리\n- 각 씬마다 표 형태로: 씬 번호 / 길이(초) / 화면(스토리보드: 무엇이 보이는지) / 영문 영상 생성 프롬프트(카메라 무빙·동작·전환 포함) / 나레이션(구술) / 화면 자막(짧게) / 사운드·효과 메모\n- 마지막에 총 길이 합계와 편집 순서 체크리스트\n그대로 제작에 넘길 수 있게 구체적으로, 한국어로 작성하세요." }
+      template:"당신은 인스타그램 릴스 전문 영상 생성 스크립트 디렉터입니다. 아래 각본과 이미지 컷을 바탕으로, 영상 생성툴에 넣을 장면별 '영상 프롬프트'와 스토리보드, 나레이션·자막 스크립트를 작성하세요. (실제 영상 생성은 Hailuo/Kling 등 별도 툴에서 진행 — 본 콘솔은 여기서 끝)\n\n[플랫폼]\n{{platform}}\n\n[각본]\n{{step4_output}}\n\n[이미지 컷 스크립트]\n{{step5_output}}\n\n[인스타그램 릴스 규칙]\n- 9:16 세로형, 1080x1920px 고정. 첫 2초에 후킹 장면을 배치하세요.\n- 핵심 피사체와 자막은 상단 프로필 UI, 하단 캡션·답장 UI, 오른쪽 액션 UI(좋아요·댓글·공유)를 피해 중앙 안전영역에 두세요.\n- 장면 전환은 모바일 숏폼 속도에 맞게 간결하게 하고, 소리 없이 봐도 이해되는 자막을 포함하세요.\n- 총 길이는 15~45초를 권장하세요.\n- 영상 생성 프롬프트의 카메라 무빙·동작·전환 묘사는 영어로 작성하세요(영상 모델 품질이 더 좋음). 나레이션·화면 자막은 한국어로.\n\n[출력 형식]\n- 각 씬마다 표 형태로: 씬 번호 / 길이(초) / 화면(스토리보드) / 복사용 영상 생성 프롬프트(영어로 카메라 무빙·동작·전환과 'portrait 9:16' 포함) / 나레이션 / 화면 자막(짧게) / 안전영역·사운드·효과 메모\n- 마지막에 총 길이 합계와 편집 순서 체크리스트\n그대로 제작에 넘길 수 있게 구체적으로, 한국어로 작성하세요." }
   ];
 
-  /* ====== 간단 모드용 친화적 단계 이름 ====== */
-  var SIMPLE_NAMES = {
-    1:{t:"① 주제 정리", d:"무엇을 다룰지 정리해요"},
-    2:{t:"② 정보 분석", d:"핵심 정보를 분석·평가해요"},
-    3:{t:"③ 콘텐츠 기획", d:"방향과 메시지를 잡아요"},
-    4:{t:"📝 대본", d:"촬영용 구술 대본"},
-    5:{t:"🖼️ 이미지 프롬프트", d:"인서트컷 이미지 생성 문구"},
-    6:{t:"🎬 영상 프롬프트 · 스토리보드", d:"영상 생성 문구 + 장면 구성"}
+  /* ====== 동적 파이프라인: 공통 3단계 + 콘텐츠 종류별 결과물 단계 ======
+     위 STEPS(릴스 전체) = 공통 3 + 릴스 결과물 3. 이를 분리해 종류별로 재조합한다.
+     이미지·영상은 '스크립트(프롬프트)'만 생성하고 실제 제작은 별도 툴에서 한다. */
+  var COMMON_STEPS = STEPS.slice(0,3);
+  COMMON_STEPS[0].simple={t:"① 주제 정리", d:"무엇을 다룰지 정리해요"};
+  COMMON_STEPS[1].simple={t:"② 정보 분석", d:"핵심 정보를 분석·평가해요"};
+  COMMON_STEPS[2].simple={t:"③ 콘텐츠 기획", d:"방향과 메시지를 잡아요"};
+  var REELS_DELIV = STEPS.slice(3);
+  REELS_DELIV[0].simple={t:"📝 대본", d:"촬영용 구술 대본"};
+  REELS_DELIV[1].simple={t:"🖼️ 이미지 프롬프트", d:"인서트컷 이미지 생성 문구"};
+  REELS_DELIV[2].simple={t:"🎬 영상 프롬프트 · 스토리보드", d:"영상 생성 문구 + 장면 구성"};
+  var TYPE_STEPS = {
+    reels: REELS_DELIV,
+    card: [
+      { title:"카드 구성 (흐름·후킹)", simple:{t:"🗂️ 카드 구성", d:"슬라이드 흐름과 후킹"}, needs:[3],
+        template:"당신은 인스타그램 카드뉴스 기획자입니다. 아래 기획안으로 인스타그램 피드용 카드뉴스(캐러셀) 구성을 설계하세요.\n\n[기획안]\n{{step3_output}}\n\n[분석 근거]\n{{step2_output}}\n\n[작성 원칙]\n- 카드뉴스는 4:5 세로형 캐러셀을 전제로 합니다.\n- 한 슬라이드에는 핵심 메시지 1개만 담고, 모바일에서 2~3초 안에 이해할 수 있게 구성하세요.\n- 표지는 강한 후킹, 본문은 자연스러운 흐름, 마지막은 저장·공유·댓글 중 하나의 행동을 유도하세요.\n\n[출력]\n1) 표지(1번 슬라이드) 후킹 문구 후보 3개 + 채택 1개\n2) 슬라이드 흐름(5~8장): 각 슬라이드의 역할 / 핵심 메시지 1개 / 권장 비주얼\n3) 마지막 슬라이드 콜투액션\n한국어로 작성하세요." },
+      { title:"슬라이드별 카피", simple:{t:"✍️ 슬라이드 카피", d:"각 슬라이드 텍스트"}, needs:[4], output:true,
+        template:"당신은 인스타그램 카드뉴스 카피라이터입니다. 아래 카드 구성으로 슬라이드별 실제 카피를 작성하세요.\n\n[카드 구성]\n{{step4_output}}\n\n[작성 원칙]\n- 모바일 피드에서 바로 읽히도록 문장을 짧고 선명하게 작성하세요.\n- 슬라이드마다 제목은 최대 18자, 본문은 최대 2~3줄로 제한하세요.\n- 한 슬라이드에는 핵심 메시지 1개만 담으세요.\n- 이미지에 그대로 넣을 최종 문구만 작성하고, 의미가 겹치는 표현은 줄이세요.\n\n[출력]\n- 슬라이드별 표: 슬라이드 번호 / 역할(표지·본문·CTA) / 제목(큰 글씨) / 본문(최대 2~3줄) / 강조할 단어 / 디자인 메모\n- 게시물 캡션 + 내용과 직접 관련된 구체적 해시태그 최대 5개\n읽기 쉽게, 한국어로." },
+      { title:"슬라이드별 이미지 프롬프트", simple:{t:"🖼️ 슬라이드 이미지", d:"슬라이드별 이미지 생성 문구"}, needs:[4,5], output:true, imageSource:true,
+        template:"당신은 인스타그램 카드뉴스 전문 이미지 생성 프롬프트 엔지니어입니다. 아래 슬라이드 구성·카피를 바탕으로, 이미지 생성 툴에 한 장씩 복사해 넣을 수 있는 '슬라이드별 이미지 생성 프롬프트'를 작성하세요. (실제 이미지 생성은 별도 툴에서 진행)\n\n[카드 구성]\n{{step4_output}}\n\n[슬라이드 카피]\n{{step5_output}}\n\n[핵심 제작 규칙]\n- 인스타그램 피드에 최적화된 4:5 세로형, 1080x1350px로 고정하세요. 1:1, 가로형, 9:16을 제안하지 마세요.\n- 각 프롬프트는 반드시 '캐러셀 중 슬라이드 1장만' 생성하게 작성하세요.\n- 여러 슬라이드를 한 이미지 안에 모은 미리보기, 2x3 그리드, 콜라주, 무드보드, 스토리보드, 목업, 분할 화면을 금지하세요.\n- 전체 슬라이드가 같은 디자인 시스템을 유지하게 하세요: 컬러 팔레트, 배경 질감, 타이포그래피 무드, 여백, 아이콘 스타일, 제품 표현 방식.\n- 모바일 가독성을 위해 핵심 요소는 가장자리에서 최소 80px 안쪽에 두고, 제목·본문을 위한 충분한 빈 공간과 높은 명암 대비를 확보하세요.\n- 제품 사진·일러스트·장식은 메시지를 보조해야 하며, 텍스트 영역을 침범하거나 화면을 지배하지 않게 하세요.\n- 비주얼·배경·스타일·라이팅 묘사는 영어로 작성하되(이미지 모델 품질이 더 좋음), 슬라이드 카피의 제목·본문은 '화면에 표시할 정확한 한국어 문구'를 따옴표로 그대로 넣어 이미지 안에 또렷하게 렌더링하세요(철자 정확히, 가짜 글자 금지).\n- 동일한 한국어 문구를 아래 '후편집용 텍스트 오버레이' 명세에도 적어, 렌더링이 어긋날 경우 편집 단계에서 교체할 수 있게 대비하세요.\n\n[출력 형식]\n1) 공통 디자인 시스템: 컬러 팔레트(HEX 권장) / 배경 / 타이포그래피 무드 / 여백 / 공통 비주얼 요소\n2) 슬라이드별로 아래 항목을 반복:\n- 슬라이드 번호와 역할\n- 복사용 이미지 프롬프트: 비주얼 묘사는 영어로, 화면에 표시할 문구는 한국어(따옴표)로. 코드 블록 하나에 완결된 프롬프트로 작성하고, 반드시 single Instagram carousel slide, portrait 4:5, 1080x1350px, no grid, no collage 와 함께 화면에 렌더링할 한국어 문구를 각 프롬프트에 명시\n- 후편집용 텍스트 오버레이: 제목 / 본문 / 강조 단어 / 권장 위치 / 정렬 / 크기 위계\n- 한국어 비주얼 설명\n- 네거티브 프롬프트(영어): multi-slide preview, grid, collage, moodboard, storyboard, mockup, split screen, illegible text, fake letters, watermark 를 반드시 포함. 네거티브 프롬프트는 코드 블록으로 감싸지 말고 일반 텍스트 한 줄로 작성\n\n표 안에 긴 프롬프트를 넣지 말고, 슬라이드별 번호 목록과 개별 코드 블록으로 정리하세요." }
+    ],
+    feed: [
+      { title:"캡션·후킹", simple:{t:"✍️ 캡션", d:"피드 캡션·후킹·해시태그"}, needs:[3], output:true,
+        template:"당신은 인스타그램 피드 전문 카피라이터입니다. 아래 기획안으로 단일 피드 게시물의 카피를 작성하세요.\n\n[기획안]\n{{step3_output}}\n\n[분석 근거]\n{{step2_output}}\n\n[작성 원칙]\n- 피드 본문이 접히기 전에 보이는 첫 줄에 핵심 후킹을 배치하세요.\n- 모바일에서 훑어보기 좋게 짧은 문단과 줄바꿈을 사용하세요.\n- 대표 이미지에는 핵심 메시지 1개만 담고, 캡션에는 저장·공유·댓글 중 하나를 유도하세요.\n\n[출력]\n1) 첫 줄 후킹 문구 후보 3개 + 채택 1개\n2) 대표 이미지에 표시할 짧은 제목 1개와 보조 문구 1개\n3) 본문 캡션(가독성 좋게, 줄바꿈 포함)\n4) 콜투액션\n5) 검색·분류에 도움이 되는 구체적 해시태그 최대 5개\n한국어로 작성하세요." },
+      { title:"대표 이미지 프롬프트", simple:{t:"🖼️ 이미지 프롬프트", d:"단일 대표 이미지 생성 문구"}, needs:[4], output:true, imageSource:true,
+        template:"당신은 인스타그램 피드 전문 이미지 생성 프롬프트 엔지니어입니다. 아래 캡션·기획으로 단일 피드 대표 이미지의 생성 프롬프트를 작성하세요. (실제 이미지 생성은 별도 툴에서 진행)\n\n[캡션]\n{{step4_output}}\n\n[기획안]\n{{step3_output}}\n\n[핵심 제작 규칙]\n- 인스타그램 피드에 최적화된 4:5 세로형, 1080x1350px로 고정하세요.\n- 각 시안은 반드시 대표 이미지 1장만 생성하게 작성하세요.\n- 캐러셀, 여러 장 미리보기, 그리드, 콜라주, 무드보드, 목업, 분할 화면을 금지하세요.\n- 모바일 가독성을 위해 핵심 요소는 가장자리에서 최소 80px 안쪽에 두고, 제목·보조 문구 영역에 충분한 여백과 명암 대비를 확보하세요.\n- 비주얼·배경·스타일 묘사는 영어로 작성하되, 제목과 보조 문구는 '화면에 표시할 정확한 한국어 문구'를 따옴표로 그대로 넣어 이미지에 또렷하게 렌더링하세요(철자 정확히, 가짜 글자 금지). 동일 문구를 아래 후편집용 텍스트 오버레이 명세에도 적어 보정에 대비하세요.\n\n[출력 형식]\n1) 공통 비주얼 방향: 컬러 팔레트 / 배경 / 타이포그래피 무드 / 핵심 비주얼\n2) 대표 이미지 시안 1~3개. 각 시안마다:\n- 복사용 이미지 프롬프트: 비주얼 묘사는 영어로, 화면 문구는 한국어(따옴표)로. 개별 코드 블록으로 작성하고 single Instagram feed image, portrait 4:5, 1080x1350px, no grid, no collage 와 화면에 렌더링할 한국어 문구를 명시\n- 후편집용 텍스트 오버레이: 제목 / 보조 문구 / 권장 위치 / 정렬 / 크기 위계\n- 한국어 설명\n- 네거티브 프롬프트(영어): carousel preview, grid, collage, moodboard, mockup, split screen, illegible text, fake letters, watermark 를 포함. 네거티브 프롬프트는 코드 블록으로 감싸지 말고 일반 텍스트 한 줄로 작성\n표 안에 긴 프롬프트를 넣지 마세요." }
+    ],
+    story: [
+      { title:"스토리 구성·카피", simple:{t:"📖 스토리 구성", d:"스토리 컷 구성과 카피"}, needs:[3], output:true,
+        template:"당신은 인스타그램 스토리 전문 기획자입니다. 아래 기획안으로 9:16 세로 풀스크린 스토리 구성을 만드세요.\n\n[기획안]\n{{step3_output}}\n\n[작성 원칙]\n- 스토리는 3~5컷으로 구성하고, 한 컷에는 핵심 메시지 1개만 담으세요.\n- 화면 텍스트는 모바일에서 즉시 읽히도록 짧게 작성하세요.\n- 첫 컷에는 후킹, 중간에는 설문·퀴즈·질문, 마지막에는 링크·DM·공유 등 적절한 행동 유도를 배치하세요.\n- 상단 프로필 영역과 하단 답장 영역을 피하고, 스티커를 놓을 여백을 확보하세요.\n\n[출력]\n- 스토리 컷별 표: 컷 번호 / 역할 / 화면 제목 / 보조 문구 / 인터랙션 스티커 / 스티커 권장 위치 / 전환\n- 마지막에 전체 흐름과 콜투액션을 한 줄로 요약\n한국어로 작성하세요." },
+      { title:"스토리 비주얼 프롬프트", simple:{t:"🖼️ 스토리 비주얼", d:"이미지/짧은 영상 생성 문구"}, needs:[4], output:true, imageSource:true,
+        template:"당신은 인스타그램 스토리 전문 비주얼 프롬프트 엔지니어입니다. 아래 스토리 구성으로 컷별 이미지 또는 짧은 영상 생성 프롬프트를 작성하세요. (실제 생성은 별도 툴에서 진행)\n\n[스토리 구성]\n{{step4_output}}\n\n[핵심 제작 규칙]\n- 인스타그램 스토리용 9:16 세로형, 1080x1920px로 고정하세요.\n- 각 프롬프트는 반드시 스토리 컷 1장만 생성하게 작성하세요.\n- 여러 컷 미리보기, 그리드, 콜라주, 무드보드, 스토리보드, 목업, 분할 화면을 금지하세요.\n- 상단 프로필 UI와 하단 답장 UI를 피하고, 텍스트와 인터랙션 스티커를 위한 중앙 안전영역을 확보하세요.\n- 전체 컷은 같은 컬러 팔레트, 배경 질감, 타이포그래피 무드, 아이콘 스타일을 유지하세요.\n- 비주얼·배경·스타일 묘사는 영어로 작성하되, 화면 문구는 '정확한 한국어 문구'를 따옴표로 그대로 넣어 이미지에 또렷하게 렌더링하고(철자 정확히, 가짜 글자 금지), 인터랙션 스티커가 들어갈 빈 공간도 확보하세요. 동일 문구를 아래 후편집용 텍스트 오버레이 명세에도 적어 보정에 대비하세요.\n\n[출력 형식]\n1) 공통 디자인 시스템: 컬러 팔레트 / 배경 / 타이포그래피 무드 / 공통 비주얼 요소\n2) 컷별로 아래 항목을 반복:\n- 컷 번호와 역할\n- 복사용 이미지 또는 영상 프롬프트: 비주얼 묘사는 영어로, 화면 문구는 한국어(따옴표)로. 개별 코드 블록으로 작성하고 single Instagram story frame, portrait 9:16, 1080x1920px, no grid, no collage 와 화면에 렌더링할 한국어 문구를 명시\n- 후편집용 텍스트 오버레이: 제목 / 보조 문구 / 권장 위치 / 정렬 / 크기 위계\n- 인터랙션 스티커: 종류 / 권장 위치 / 확보할 빈 공간\n- 한국어 비주얼 설명\n- 네거티브 프롬프트(영어): multi-frame preview, grid, collage, moodboard, storyboard, mockup, split screen, illegible text, fake letters, watermark 를 포함. 네거티브 프롬프트는 코드 블록으로 감싸지 말고 일반 텍스트 한 줄로 작성\n표 안에 긴 프롬프트를 넣지 마세요." }
+    ]
   };
-  function stepDisplay(s){
-    var simple=document.body.classList.contains("mode-simple");
-    if(simple && SIMPLE_NAMES[s.id]) return SIMPLE_NAMES[s.id];
-    return { t:s.title, d:s.desc };
+  function typeKey(platform){
+    var p=(platform||"");
+    if(p.indexOf("카드뉴스")>=0) return "card";
+    if(p.indexOf("피드")>=0) return "feed";
+    if(p.indexOf("스토리")>=0) return "story";
+    return "reels"; // 릴스/기본
   }
+  function cloneStep(s){ return JSON.parse(JSON.stringify(s)); }
+  function buildSteps(platform){
+    var arr = COMMON_STEPS.map(function(s,i){ var c=cloneStep(s); c.id=i+1; c.deliverable=false; return c; });
+    var typ = TYPE_STEPS[typeKey(platform)] || TYPE_STEPS.reels;
+    typ.forEach(function(s,i){ var c=cloneStep(s); c.id=4+i; c.deliverable=true; arr.push(c); });
+    return arr;
+  }
+  STEPS = buildSteps("");
+  function stepById(id){ for(var i=0;i<STEPS.length;i++){ if(STEPS[i].id===id) return STEPS[i]; } return null; }
+  function stepDisplay(s){
+    // 카드 제목/설명은 모드와 무관하게 항상 친근한 라벨(간단 표기)로 통일한다.
+    // (고급 모드는 '추가 컨트롤'만 노출 — 제목까지 기술 명칭으로 바꿔 혼란 주지 않도록.)
+    // 상세 명칭(s.title)은 내보내기(MD)에서 그대로 사용된다.
+    if(s.simple) return s.simple;
+    return { t:s.title, d:s.desc||"" };
+  }
+  function stepShort(id){ var s=stepById(id); var t=(s&&s.simple&&s.simple.t)||(s&&s.title)||("단계 "+id); return t.replace(/^\S+\s/,""); }
 
   /* ====== 상태 / 영속 ====== */
-  var LS_KEY = "content_pipeline_console_v2";
-  var state = { provider:"claude", defaultModel:PROVIDERS.claude.defaultModel,
-    topic:"", rulepack:"", platform:"", steps:{} };
+  var LS_KEY = "content_pipeline_console_v3";
+  // 프롬프트 템플릿 내용이 바뀌면 +1 → load 시 저장된 옛 템플릿을 최신 기본값으로 갱신(결과·입력은 보존).
+  var TEMPLATE_VERSION = 5;
+  var state = { provider:"agy", defaultModel:PROVIDERS.agy.defaultModel,
+    topic:"", rulepack:"", platform:"", refData:"", steps:{}, collapsed:{}, refSites:[], tplVersion:TEMPLATE_VERSION,
+    imageGen:{ prompts:"", runId:"", items:[], provider:"codex", concurrency:1 },   // 이미지 생성 기본 LLM: codex(한국어 프롬프트 네이티브 생성 안정적) · concurrency: 동시 생성 장수(1=순차)
+    videoGen:{ cuts:"", runId:"", items:[], provider:"claude", engine:"higgsfield", videoModel:"seedance_1_5", concurrency:1 } };   // 영상 제작 단계(릴스): 컷 프롬프트·생성 결과·LLM(claude 기본 — codex MCP 클라이언트는 긴 생성 호출을 취소함)·MCP 영상 엔진·엔진 모델   // refData: 참조 자료 / collapsed: 카드 접힘 / refSites: 웹 조사 사이트 / imageGen: 이미지 생성 단계
   function blankStep(s){ return { template:s.template, providerOverride:"", modelOverride:"", lastPrompt:"", lastReqInfo:"", output:"" }; }
-  STEPS.forEach(function(s){ state.steps[s.id] = blankStep(s); });
+  // 콘텐츠 종류에 맞게 STEPS 재빌드 + 단계 상태 초기화(공통 1~3 출력은 보존, 결과물 단계는 새 기본값)
+  function setSteps(platform){
+    var prev = state.steps || {};
+    STEPS = buildSteps(platform);
+    var ns = {};
+    STEPS.forEach(function(s){ ns[s.id] = (!s.deliverable && prev[s.id]) ? prev[s.id] : blankStep(s); });
+    state.steps = ns;
+  }
+  setSteps("");
 
   var runState = {};      // id -> 'idle'|'loading'|'done'|'error'  (런타임, 비영속)
   var bridgeConnected = null;  // null=미확인, true/false
@@ -446,17 +560,79 @@
     try{
       var raw = localStorage.getItem(LS_KEY); if(!raw) return;
       var saved = JSON.parse(raw);
-      ["provider","defaultModel","topic","rulepack","platform"].forEach(function(k){ if(typeof saved[k]==="string") state[k]=saved[k]; });
+      ["provider","defaultModel","topic","rulepack","platform","refData"].forEach(function(k){ if(typeof saved[k]==="string") state[k]=saved[k]; });
+      if(saved.collapsed && typeof saved.collapsed==="object") state.collapsed=saved.collapsed;   // 카드 접힘 상태 복원
+      if(Array.isArray(saved.refSites)) state.refSites=saved.refSites.filter(function(x){ return typeof x==="string" && x.trim(); });   // 웹 조사 대상 사이트 복원
+      if(saved.imageGen && typeof saved.imageGen==="object"){   // 이미지 생성 단계 상태 복원
+        var sp=(saved.imageGen.provider==="agy")?"agy":"codex";   // 기본 codex
+        state.imageGen={ prompts:(typeof saved.imageGen.prompts==="string"?saved.imageGen.prompts:""),
+          runId:(typeof saved.imageGen.runId==="string"?saved.imageGen.runId:""),
+          items:(Array.isArray(saved.imageGen.items)?saved.imageGen.items:[]), provider:sp,
+          concurrency:(parseInt(saved.imageGen.concurrency,10)||1) };
+      }
+      if(saved.videoGen && typeof saved.videoGen==="object"){   // 영상 제작 단계 상태 복원(claude 기본/codex 허용 — agy 는 MCP 미연동)
+        var vp=(saved.videoGen.provider==="codex")?"codex":"claude";
+        state.videoGen={ cuts:(typeof saved.videoGen.cuts==="string"?saved.videoGen.cuts:""),
+          runId:(typeof saved.videoGen.runId==="string"?saved.videoGen.runId:""),
+          items:(Array.isArray(saved.videoGen.items)?saved.videoGen.items:[]), provider:vp,
+          engine:(typeof saved.videoGen.engine==="string"?saved.videoGen.engine:"higgsfield"),
+          videoModel:(typeof saved.videoGen.videoModel==="string"?saved.videoGen.videoModel:"seedance_1_5"),
+          concurrency:(parseInt(saved.videoGen.concurrency,10)||1) };
+      }
+      setSteps(state.platform);   // 저장된 콘텐츠 종류에 맞는 단계 구성으로 빌드
       if(saved.steps){ STEPS.forEach(function(s){ var sv=saved.steps[s.id]; if(sv){ var t=state.steps[s.id];
         ["template","providerOverride","modelOverride","lastPrompt","lastReqInfo","output"].forEach(function(k){ if(typeof sv[k]==="string") t[k]=sv[k]; }); } }); }
       // 레거시 별칭 → 버전 핀 ID 정규화(버전까지 보이도록)
       var ALIAS={ sonnet:"claude-sonnet-4-6", opus:"claude-opus-4-8", haiku:"claude-haiku-4-5-20251001" };
       if(ALIAS[(state.defaultModel||"").trim()]) state.defaultModel=ALIAS[state.defaultModel.trim()];
+      // 구버전 provider 'gemini' → 'agy'(Antigravity)로 이관(저장된 gemini 모델은 agy가 무시)
+      if(state.provider==="gemini"){ state.provider="agy"; state.defaultModel=""; }
+      // ChatGPT 계정 codex 미지원 모델 자가치유 → 지원되는 gpt-5.5로
+      if(state.provider==="codex" && /^gpt-5(-mini|-nano|-codex)?$|-codex$/.test((state.defaultModel||"").trim())){
+        state.defaultModel="gpt-5.5";
+      }
       if(!PROVIDERS[state.provider]) state.provider="claude";
       // 저장된 모델이 '다른 provider의 모델'이면 현재 provider 기본값으로 교정(예: codex+claude-haiku 불일치 자가치유)
       if(MODEL_OWNER[(state.defaultModel||"").trim()] && MODEL_OWNER[state.defaultModel.trim()]!==state.provider){
         state.defaultModel=PROVIDERS[state.provider].defaultModel;
       }
+      // 2단계 구버전 프롬프트(룰팩 없으면 분석 거부) → 신버전(일반 지식으로 진행)으로 자동 교체
+      if(state.steps[2] && /룰팩에 없는 기준은 임의로 만들지 말고/.test(state.steps[2].template||"")){
+        state.steps[2].template = STEPS[1].template;
+      }
+      // 1·3단계 구버전(릴스/영상 중심 문구) → 플랫폼-적응형 신버전으로 자동 교체(수동 편집은 해당 문구가 없으면 보존)
+      if(state.steps[1] && /숏폼 콘텐츠 기획자/.test(state.steps[1].template||"")){ state.steps[1].template = STEPS[0].template; }
+      if(state.steps[1] && /플랫폼 형식 특성을 반영하세요 — 카드뉴스: 슬라이드로 정보 전달/.test(state.steps[1].template||"")) state.steps[1].template = STEPS[0].template;
+      if(state.steps[3] && /소크라테스/.test(state.steps[3].template||"")){ state.steps[3].template = STEPS[2].template; }
+      if(state.steps[3] && /카드뉴스: 슬라이드 장수와 흐름 \/ 피드: 캡션 길이/.test(state.steps[3].template||"")) state.steps[3].template = STEPS[2].template;
+      // 카드뉴스 구버전 템플릿 → 인스타그램 4:5 단일 슬라이드용 신버전으로 자동 교체
+      if(typeKey(state.platform)==="card"){
+        if(state.steps[4] && /슬라이드 흐름\(5~8장\): 각 슬라이드의 역할 \/ 한 줄 요지/.test(state.steps[4].template||"")) state.steps[4].template = STEPS[3].template;
+        if(state.steps[5] && /본문\(2~4줄\) \/ 디자인 메모/.test(state.steps[5].template||"")) state.steps[5].template = STEPS[4].template;
+        if(state.steps[6] && /1:1 또는 4:5 비율/.test(state.steps[6].template||"")) state.steps[6].template = STEPS[5].template;
+      }
+      // 피드 구버전 템플릿 → 인스타그램 4:5 단일 대표 이미지용 신버전으로 자동 교체
+      if(typeKey(state.platform)==="feed"){
+        if(state.steps[4] && /2\) 본문 캡션\(가독성 좋게, 줄바꿈 포함\)\n3\) 콜투액션\n4\) 해시태그 10~15개/.test(state.steps[4].template||"")) state.steps[4].template = STEPS[3].template;
+        if(state.steps[5] && /4:5\(또는 1:1\) 비율/.test(state.steps[5].template||"")) state.steps[5].template = STEPS[4].template;
+      }
+      // 스토리 구버전 템플릿 → 인스타그램 9:16 단일 프레임용 신버전으로 자동 교체
+      if(typeKey(state.platform)==="story"){
+        if(state.steps[4] && /스토리 컷 3~5개: 컷 번호/.test(state.steps[4].template||"")) state.steps[4].template = STEPS[3].template;
+        if(state.steps[5] && /9:16 세로 고정, 일관된 스타일/.test(state.steps[5].template||"")) state.steps[5].template = STEPS[4].template;
+      }
+      // 릴스 구버전 템플릿 → 인스타그램 9:16 릴스 전용 신버전으로 자동 교체
+      if(typeKey(state.platform)==="reels"){
+        if(state.steps[4] && /Canonical 구술 각본/.test(state.steps[4].template||"")) state.steps[4].template = STEPS[3].template;
+        if(state.steps[5] && /화면비 9:16 \(세로\) 고정/.test(state.steps[5].template||"")) state.steps[5].template = STEPS[4].template;
+        if(state.steps[6] && /화면비 9:16, 장면\(씬\) 단위/.test(state.steps[6].template||"")) state.steps[6].template = STEPS[5].template;
+      }
+      // 템플릿 버전 갱신: 저장된 버전이 낮으면 모든 단계 템플릿을 최신 기본값으로 일괄 교체(결과·입력은 보존).
+      // (이미지·영상 프롬프트 한국어화, 해시태그 기준, 안전영역 등 템플릿 개정을 기존 사용자에게도 반영)
+      if((saved.tplVersion||0) < TEMPLATE_VERSION){
+        STEPS.forEach(function(s){ if(state.steps[s.id]) state.steps[s.id].template = s.template; });
+      }
+      state.tplVersion = TEMPLATE_VERSION;
     }catch(e){}
   }
   var saveTimer=null;
@@ -467,10 +643,14 @@
   function bridgeBase(){ try{ var q=new URLSearchParams(location.search).get("bridge"); if(q) return q.replace(/\/+$/,""); }catch(e){} return ""; }
   function bridgePath(p){ return bridgeBase()+p; }
 
-  function expandTemplate(tpl){
+  function expandTemplate(tpl, id){
     var map={ "{{topic}}":state.topic||"", "{{rulepack}}":state.rulepack||"", "{{platform}}":state.platform||"" };
-    for(var i=1;i<=5;i++){ map["{{step"+i+"_output}}"]=(state.steps[i]&&state.steps[i].output)||""; }
-    var out=tpl; Object.keys(map).forEach(function(k){ out=out.split(k).join(map[k]); }); return out;
+    STEPS.forEach(function(s){ map["{{step"+s.id+"_output}}"]=(state.steps[s.id]&&state.steps[s.id].output)||""; });
+    var out=tpl; Object.keys(map).forEach(function(k){ out=out.split(k).join(map[k]); });
+    // 참조 자료는 1단계(주제 정리) 프롬프트에 별도 섹션으로 덧붙인다(템플릿을 바꾸지 않아 기존 사용자도 그대로 적용·마이그레이션 불필요).
+    var refs=(state.refData||"").trim();
+    if(refs && id===1){ out += "\n\n[참조 자료 — 위 입력과 함께 활용하세요]\n"+refs; }
+    return out;
   }
 
   function el(id){ return document.getElementById(id); }
@@ -485,17 +665,43 @@
 
   function renderSteps(){
     var container = el("steps"); container.innerHTML=""; stepEls={};
+    var hasType = !!(state.platform||"").trim();
+    document.body.classList.toggle("no-type", !hasType);
+    if(!hasType){
+      container.innerHTML='<div class="panel" style="text-align:center; color:var(--muted); padding:30px 16px;">👆 위에서 <b style="color:var(--ink)">콘텐츠 종류</b>를 선택하면 제작 단계가 나타나요.</div>';
+      el("rail").innerHTML=""; updateHeroBtn();
+      return;
+    }
     STEPS.forEach(function(s){
       var st = state.steps[s.id];
-      var card = document.createElement("div"); card.className="card"+(s.id>=4?" deliverable":""); card.id="card-"+s.id;
+      var card = document.createElement("div"); card.className="card"+(s.deliverable?" deliverable":""); card.id="card-"+s.id;
 
       var head = document.createElement("div"); head.className="card-head";
+      head.setAttribute("role","button"); head.setAttribute("tabindex","0");   // aria-label 은 applyState 가 상태까지 포함해 동적 설정(정적 라벨이 상태 칩을 가리지 않도록)
       var disp = stepDisplay(s);
       head.innerHTML = '<span class="num">'+s.id+'</span>'+
-        '<div style="flex:1 1 auto; min-width:0;"><div class="title">'+esc(disp.t)+(s.id>=4?' <span class="badge ok deliv-badge">결과물</span>':'')+'</div>'+
+        '<div style="flex:1 1 auto; min-width:0;"><div class="title">'+esc(disp.t)+(s.deliverable?' <span class="badge ok deliv-badge">결과물</span>':'')+'</div>'+
         '<div class="desc">'+esc(disp.d)+'</div></div>'+
+        '<button type="button" class="step-detail-btn" title="이 단계 상세 옵션(프롬프트·모델) 보기/숨기기">⚙ 상세</button>'+
         '<span class="chip" data-chip>'+STATE_LABEL.idle+'</span><span class="chev">▾</span>';
       head.addEventListener("click", function(){ card.classList.toggle("collapsed"); });
+      // 키보드(Enter/Space)로 헤더 펼치기/접기 — 내부 버튼 키 입력은 제외(중복 토글 방지)
+      head.addEventListener("keydown", function(e){
+        if(e.target!==head) return;
+        if(e.key==="Enter" || e.key===" " || e.key==="Spacebar"){ e.preventDefault(); card.classList.toggle("collapsed"); }
+      });
+      // 접힘 상태를 보조기술에 노출 — 어디서 토글되든 자동 동기화
+      new MutationObserver(function(){
+        var col=card.classList.contains("collapsed");
+        head.setAttribute("aria-expanded", col?"false":"true");
+        if(state.collapsed[s.id]!==col){ state.collapsed[s.id]=col; save(); }   // 접힘 상태가 바뀌면 기억(누가 토글했든)
+      }).observe(card, { attributes:true, attributeFilter:["class"] });
+      head.setAttribute("aria-expanded","true");
+      var detailBtn=head.querySelector(".step-detail-btn");
+      detailBtn.addEventListener("click", function(e){ e.stopPropagation();
+        card.classList.toggle("detail-open");
+        if(card.classList.contains("detail-open")) card.classList.remove("collapsed"); // 펼쳐서 보이게
+      });
       card.appendChild(head);
 
       var body = document.createElement("div"); body.className="card-body";
@@ -510,7 +716,7 @@
       tplTa.addEventListener("input", function(){ st.template=tplTa.value; save(); });
       body.appendChild(tplH); body.appendChild(tplTa);
       var varHint=document.createElement("div"); varHint.className="hint adv-only"; varHint.style.marginTop="4px";
-      varHint.innerHTML="변수: <code>{{topic}}</code> <code>{{rulepack}}</code> <code>{{platform}}</code> <code>{{step1_output}}</code> … <code>{{step5_output}}</code>";
+      varHint.innerHTML="변수: <code>{{topic}}</code> <code>{{rulepack}}</code> <code>{{platform}}</code> <code>{{step1_output}}</code> … <code>{{step5_output}}</code> <span class='hint'>(실행 시 실제 값으로 채워집니다)</span>";
       body.appendChild(varHint);
 
       // 이 단계 LLM + 모델 + 실행 — 고급
@@ -528,21 +734,20 @@
       var modelField=document.createElement("div"); modelField.className="field";
       modelField.innerHTML='<label>이 단계 모델 (선택)</label>';
       var mwrap=document.createElement("div"); mwrap.className="key-wrap"; mwrap.style.position="relative";
-      var modelInput=document.createElement("input"); modelInput.type="text"; modelInput.spellcheck=false;
-      modelInput.placeholder="비우면 위 LLM 기본 모델"; modelInput.value=st.modelOverride;
-      modelInput.addEventListener("input", function(){ st.modelOverride=modelInput.value; save(); updateEff(s.id); });
-      var pickBtn=document.createElement("button"); pickBtn.className="btn ghost"; pickBtn.type="button"; pickBtn.textContent="모델 ▾";
+      var modelInput=document.createElement("input"); modelInput.type="text"; modelInput.spellcheck=false; modelInput.readOnly=true; modelInput.style.cursor="pointer";
+      modelInput.placeholder="클릭해서 선택(비우면 기본)"; modelInput.value=st.modelOverride; modelInput.title="클릭하면 추천 모델 목록이 열립니다";
       var pmenu=document.createElement("div"); pmenu.className="model-menu";
-      pickBtn.addEventListener("click", function(e){ e.stopPropagation(); closeAllMenus(); renderStepMenu(s.id); pmenu.classList.toggle("open"); });
+      var openStepMenu=function(e){ e.stopPropagation(); var wasOpen=pmenu.classList.contains("open"); closeAllMenus(); if(!wasOpen){ renderStepMenu(s.id); pmenu.classList.add("open"); } };
+      modelInput.addEventListener("click", openStepMenu);   // 입력칸 클릭으로 메뉴 열림(별도 버튼 없음)
       pmenu.addEventListener("click", function(e){ e.stopPropagation(); });
-      mwrap.appendChild(modelInput); mwrap.appendChild(pickBtn); mwrap.appendChild(pmenu);
+      mwrap.appendChild(modelInput); mwrap.appendChild(pmenu);
       modelField.appendChild(mwrap); ctrl.appendChild(modelField);
       // 미리보기/실행
       var runWrap=document.createElement("div"); runWrap.className="step-run";
       var previewBtn=document.createElement("button"); previewBtn.className="btn ghost"; previewBtn.type="button"; previewBtn.textContent="미리보기";
       previewBtn.addEventListener("click", function(){ previewStep(s.id); });
       var runBtn=document.createElement("button"); runBtn.className="btn primary"; runBtn.type="button"; runBtn.textContent="실행";
-      runBtn.addEventListener("click", function(){ runStep(s.id); });
+      runBtn.addEventListener("click", function(){ runOne(s.id); });   // runOne 경유 → 전역 실행 가드(pipelineBusy)로 동시 실행 방지
       runWrap.appendChild(previewBtn); runWrap.appendChild(runBtn); ctrl.appendChild(runWrap);
       body.appendChild(ctrl);
       // 실효 LLM·모델 표시 — 고급
@@ -563,11 +768,13 @@
       // 결과 + 복사
       var lr=document.createElement("div"); lr.className="label-row";
       var oH=document.createElement("div"); oH.className="sub-h"; oH.textContent="결과";
+      var rerunBtn=document.createElement("button"); rerunBtn.className="btn ghost sm"; rerunBtn.type="button"; rerunBtn.textContent="🔄 다시"; rerunBtn.title="이 단계만 다시 만들기";
+      rerunBtn.addEventListener("click", function(){ runOne(s.id); });
       var copyBtn=document.createElement("button"); copyBtn.className="btn ghost sm"; copyBtn.type="button"; copyBtn.textContent="📋 복사";
       copyBtn.addEventListener("click", function(){ copyText(oTa.value, copyBtn); });
-      lr.appendChild(oH); var sp=document.createElement("div"); sp.className="spacer"; lr.appendChild(sp); lr.appendChild(copyBtn);
+      lr.appendChild(oH); var sp=document.createElement("div"); sp.className="spacer"; lr.appendChild(sp); lr.appendChild(rerunBtn); lr.appendChild(copyBtn);
       var oTa=document.createElement("textarea"); oTa.className="result-ta"; oTa.value=st.output;
-      oTa.addEventListener("input", function(){ st.output=oTa.value; runState[s.id]=oTa.value.trim()?"done":"idle"; applyState(s.id); save(); });
+      oTa.addEventListener("input", function(){ st.output=oTa.value; runState[s.id]=oTa.value.trim()?"done":"idle"; applyState(s.id); save(); updateHeroBtn(); markStale(dependentsOf(s.id)); });
       body.appendChild(lr); body.appendChild(oTa);
 
       var status=document.createElement("div"); status.className="status idle"; status.textContent="대기 중";
@@ -577,20 +784,24 @@
       stepEls[s.id]={ card:card, head:head, chip:head.querySelector("[data-chip]"), miss:miss,
         template:tplTa, provSel:provSel, model:modelInput, pmenu:pmenu, effHint:effHint,
         prompt:pPre, reqinfo:rPre, output:oTa, status:status,
-        runBtn:runBtn, previewBtn:previewBtn, copyBtn:copyBtn };
+        runBtn:runBtn, previewBtn:previewBtn, copyBtn:copyBtn, rerunBtn:rerunBtn };
       applyState(s.id);
       updateMissing(s.id);
       updateEff(s.id);
     });
-    // 초기 펼침: 간단 모드=완성된 '결과물'(4~6)만 펼쳐 전면에, 분석·기획(1~3)은 접음 / 고급=완료 접고 첫 미완료만 펼침
-    if(document.body.classList.contains("mode-simple")){
-      STEPS.forEach(function(s){ stepEls[s.id].card.classList.toggle("collapsed", !(runState[s.id]==="done" && s.id>=4)); });
-    } else {
-      var firstOpen=null;
-      STEPS.forEach(function(s){ if(firstOpen===null && runState[s.id]!=="done") firstOpen=s.id; });
-      STEPS.forEach(function(s){ if(s.id!==firstOpen) stepEls[s.id].card.classList.add("collapsed"); });
-    }
-    renderRail(); updateProgress();
+    // 초기 펼침 기본값: 간단 모드=완성된 '결과물'(4~6)만 펼쳐 전면에 / 고급=완료 접고 첫 미완료만 펼침.
+    // 단, 사용자가 직접 접거나 펼친 기록(state.collapsed)이 있으면 그 선택을 우선 복원한다(새로고침해도 유지).
+    var simpleMode=document.body.classList.contains("mode-simple");
+    var firstOpen=null;
+    if(!simpleMode){ STEPS.forEach(function(s){ if(firstOpen===null && runState[s.id]!=="done") firstOpen=s.id; }); }
+    STEPS.forEach(function(s){
+      var def = simpleMode ? !(runState[s.id]==="done" && s.deliverable) : (s.id!==firstOpen);
+      var col = (s.id in state.collapsed) ? !!state.collapsed[s.id] : def;
+      stepEls[s.id].card.classList.toggle("collapsed", col);
+    });
+    renderImageGenCard(container);   // 이미지 생성 단계(STEPS 밖 별도 카드) 추가
+    renderVideoGenCard(container);   // 영상 제작 단계(릴스 전용 별도 카드) 추가
+    renderRail(); updateProgress(); updateHeroBtn();
   }
 
   /* ====== 상태 반영 ====== */
@@ -602,12 +813,21 @@
     e.chip.className="chip"+(k==="idle"?"":" "+k);
     e.chip.textContent=STATE_LABEL[k];
     e.output.classList.toggle("done", k==="done");
+    // 결과 영역 버튼을 상태에 맞게: 아직 안 한 단계면 '▶ 실행', 한 번이라도 했으면 '🔄 다시'. 빈 결과면 '복사' 비활성.
+    var hasOut=(e.output && (e.output.value||"").trim());
+    if(e.rerunBtn){
+      e.rerunBtn.disabled = (k==="loading");
+      e.rerunBtn.textContent = (k==="loading") ? "⏳ 실행 중…" : (k==="done"||k==="error"||hasOut) ? "🔄 다시" : "▶ 실행";
+    }
+    if(e.copyBtn) e.copyBtn.disabled = !hasOut;
+    if(e.head){ var sd=stepById(id); e.head.setAttribute("aria-label", id+"단계 "+((sd&&stepDisplay(sd).t)||"")+" — 상태: "+STATE_LABEL[k]+", 펼치기/접기"); }   // 동적 라벨(상태 포함) — 정적 라벨이 상태를 가리던 문제 해결
     renderRailSeg(id); updateProgress();
   }
 
   function updateMissing(id){
-    var e=stepEls[id]; var s=STEPS.find(function(x){return x.id===id;});
-    var missing=(s.needs||[]).filter(function(n){ return !((state.steps[n].output||"").trim()); });
+    var e=stepEls[id]; if(!e||!e.miss) return;   // 단계 카드가 아직 렌더되지 않았으면(플랫폼 미선택 등) 건너뜀
+    var s=STEPS.find(function(x){return x.id===id;}); if(!s) return;
+    var missing=(s.needs||[]).filter(function(n){ return !((state.steps[n]&&state.steps[n].output||"").trim()); });
     if(missing.length){
       e.miss.style.display="block";
       e.miss.innerHTML="⚠ 이전 단계 결과가 비어 있습니다: "+missing.map(function(n){return n+"단계";}).join(", ")+
@@ -616,30 +836,574 @@
   }
   function updateAllMissing(){ STEPS.forEach(function(s){ updateMissing(s.id); }); }
 
+  /* ====== stale 전파 ======
+     상위 입력(주제·룰팩)이나 상위 단계 결과가 바뀌면, 그에 (직접·간접) 의존하는 하위 단계는
+     낡은 결과가 된다. 이를 idle 로 되돌려 '다시 만들기' 대상으로 표시한다(결과 텍스트는 보존 — 비파괴적). */
+  function dependentsOf(id){
+    var out=[];
+    STEPS.forEach(function(s){
+      if(s.id===id) return;
+      var stack=(s.needs||[]).slice(), seen={}, hit=false;
+      while(stack.length){ var n=stack.pop(); if(seen[n]) continue; seen[n]=1;
+        if(n===id){ hit=true; break; } var sn=stepById(n); if(sn&&sn.needs) stack=stack.concat(sn.needs); }
+      if(hit) out.push(s.id);
+    });
+    return out;
+  }
+  function markStale(ids){
+    var changed=false;
+    ids.forEach(function(id){ if(runState[id]==="done"){ runState[id]="idle"; if(stepEls[id]) applyState(id); changed=true; } });
+    if(changed){ updateAllMissing(); updateHeroBtn(); }
+  }
+
   /* ====== 진행 레일 / 프로그레스 ====== */
   function renderRail(){
     var rail=el("rail"); rail.innerHTML="";
     STEPS.forEach(function(s){
       var seg=document.createElement("div"); seg.className="seg "+(runState[s.id]||"idle"); seg.id="seg-"+s.id;
-      seg.innerHTML='<span class="sn">'+s.id+'</span><span class="stitle">'+esc(s.title)+'</span>';
-      seg.title=s.id+". "+s.title;
+      seg.innerHTML='<span class="sn">'+s.id+'</span><span class="stitle">'+esc(stepShort(s.id))+'</span>';
+      seg.title=s.id+". "+stepDisplay(s).t;
       seg.addEventListener("click", function(){ openAndScroll(s.id); });
       rail.appendChild(seg);
     });
+    // 이미지 생성 단계(별도 구성요소) — 레일 끝에 추가(이미지 생성이 필요한 유형만)
+    if(imageStepEnabled()){
+      var n=STEPS.length+1;
+      var iseg=document.createElement("div"); iseg.className="seg "+(imageGenDone()?"done":"idle"); iseg.id="seg-img";
+      iseg.innerHTML='<span class="sn">'+n+'</span><span class="stitle">'+esc(imageGenLabel())+'</span>';
+      iseg.title=n+". "+imageGenLabel()+" 생성";
+      iseg.addEventListener("click", function(){ var c=el("card-img"); if(c){ c.classList.remove("collapsed"); c.scrollIntoView({behavior:"smooth",block:"start"}); } });
+      rail.appendChild(iseg);
+    }
+    // 영상 제작 단계(별도 구성요소) — 레일 끝에 추가(릴스만)
+    if(videoStepEnabled()){
+      var vn=STEPS.length+1;
+      var vseg=document.createElement("div"); vseg.className="seg "+(videoGenDone()?"done":"idle"); vseg.id="seg-vid";
+      vseg.innerHTML='<span class="sn">'+vn+'</span><span class="stitle">🎬 영상 제작</span>';
+      vseg.title=vn+". 영상 제작";
+      vseg.addEventListener("click", function(){ var c=el("card-vid"); if(c){ c.classList.remove("collapsed"); c.scrollIntoView({behavior:"smooth",block:"start"}); } });
+      rail.appendChild(vseg);
+    }
   }
   function renderRailSeg(id){
     var seg=el("seg-"+id); if(!seg) return;
     seg.className="seg "+(runState[id]||"idle");
   }
   function updateProgress(){
-    var done=STEPS.filter(function(s){ return runState[s.id]==="done"; }).length;
-    el("pbarFill").style.width=(done/STEPS.length*100)+"%";
-    el("progressText").textContent=done+" / "+STEPS.length+" 완료";
+    var hasImg=imageStepEnabled(), hasVid=videoStepEnabled();
+    var total=STEPS.length+(hasImg?1:0)+(hasVid?1:0);
+    var done=STEPS.filter(function(s){ return runState[s.id]==="done"; }).length
+      + (hasImg && imageGenDone() ? 1 : 0) + (hasVid && videoGenDone() ? 1 : 0);
+    el("pbarFill").style.width=(total?(done/total*100):0)+"%";
+    el("progressText").textContent=done+" / "+total+" 완료";
   }
 
   function openAndScroll(id){
     var c=stepEls[id].card; c.classList.remove("collapsed");
     c.scrollIntoView({behavior:"smooth", block:"start"});
+  }
+
+  /* ====== 이미지 생성 단계 (STEPS 배열 밖 별도 구성요소 — 텍스트 파이프라인과 분리) ======
+     직전 '이미지 프롬프트' 단계 출력의 코드블록을 편집 가능한 목록으로 추출 → agy 로 실제 이미지 생성
+     → 작업폴더 output/<runId>/ 에 저장하고 갤러리로 표시. (codex/claude 무관, 이미지는 agy 전용) */
+  var IMAGE_MAX = 30;   // 생성 장수 절대 상한(런어웨이 비용 방지용 천장). 기본값은 추출된 프롬프트 개수에 자동 맞춤 → 보통 '프롬프트 전부' 생성.
+  var IMAGE_CONC_MAX = 10;   // 이미지 동시 생성 상한(codex/agy 로컬 CLI 동시 실행 — 과도하면 CPU·레이트리밋 부담)
+  var igEls = {};
+  // 이미지 생성 단계가 필요한 콘텐츠 유형(릴스=영상 중심 → 제외, 카드뉴스·피드·스토리=이미지 결과물 → 포함)
+  var TYPE_IMAGEGEN = { reels:false, card:true, feed:true, story:true };
+  function typeNeedsImageGen(){ return TYPE_IMAGEGEN[typeKey(state.platform)] !== false; }
+  function findImageSourceStep(){ for(var i=0;i<STEPS.length;i++){ if(STEPS[i].imageSource) return STEPS[i]; } return null; }
+  function imageStepEnabled(){ return !!findImageSourceStep() && typeNeedsImageGen(); }   // 단계 표시 여부(유형 게이팅)
+  // 콘텐츠 유형에 맞는 결과물 명칭(제너릭 '이미지' 대신)
+  var IMAGEGEN_LABEL = { card:"슬라이드 이미지", feed:"피드 이미지", story:"스토리 이미지" };
+  function imageGenLabel(){ return IMAGEGEN_LABEL[typeKey(state.platform)] || "이미지"; }
+  function isNegativePromptText(text){
+    var t=(text||"").trim();
+    if(/^(?:negative\s*prompt|avoid|exclude)\s*:/i.test(t)) return true;
+    var hits=t.match(/multi[- ]?(?:slide|frame)|carousel preview|grid|collage|moodboard|storyboard|mockup|split screen|illegible text|fake letters|watermark/gi)||[];
+    return hits.length>=3 && !/(?:create|design|render|generate|single Instagram|portrait|subject|scene|화면|슬라이드)/i.test(t);
+  }
+  function extractImagePrompts(text){
+    var out=[], source=text||"", re=/```[^\n]*\n([\s\S]*?)```/g, m, lastEnd=0;
+    while((m=re.exec(source))){
+      var t=m[1].trim();
+      // 모델이 네거티브 프롬프트까지 별도 코드블록으로 감쌀 때가 있다.
+      // 그것을 실제 생성 프롬프트로 보내면 추상 배경 같은 엉뚱한 이미지가 짝수 슬롯에 끼어든다.
+      var before=source.slice(Math.max(lastEnd,m.index-180),m.index);
+      var negativeLabel=/(?:네거티브|negative)\s*(?:프롬프트|prompt)/i.test(before);
+      if(t && !negativeLabel && !isNegativePromptText(t)) out.push(t);
+      lastEnd=re.lastIndex;
+    }
+    return out;
+  }
+  function imagePromptList(){ return (state.imageGen.prompts||"").split(/\n-{3,}\n/).map(function(s){return s.trim();}).filter(function(s){ return s && !isNegativePromptText(s); }); }
+  function imageGenDone(){ return (state.imageGen.items||[]).filter(Boolean).length>0; }   // 사전할당 배열의 빈 슬롯 제외
+  function reextractImagePrompts(){
+    var src=findImageSourceStep();
+    var arr = src ? extractImagePrompts((state.steps[src.id]&&state.steps[src.id].output)||"") : [];
+    state.imageGen.prompts = arr.join("\n---\n"); save();
+    if(igEls.prompts) igEls.prompts.value=state.imageGen.prompts;
+    if(igEls.count && arr.length) igEls.count.value=String(Math.max(1, Math.min(IMAGE_MAX, arr.length)));   // 최대 생성 장수를 추출된 프롬프트 개수에 자동 맞춤
+    if(igEls.status){ igEls.status.className="status idle"; igEls.status.textContent = arr.length
+      ? (arr.length+"개 프롬프트를 추출했어요. 확인·편집한 뒤 [이미지 생성]을 누르세요.")
+      : "추출된 이미지 프롬프트가 없어요. 먼저 이미지 프롬프트 단계를 만들거나, 직접 입력하세요('---'로 구분)."; }
+    updateIgCount();
+  }
+  function updateIgCount(){
+    if(!igEls.countInfo) return;
+    var n=imagePromptList().length;
+    if(igEls.count){
+      igEls.count.max=String(Math.max(1, Math.min(IMAGE_MAX, n||1)));   // 입력 상한 = 내 프롬프트 수(절대천장 IMAGE_MAX 내)
+      if(n && parseInt(igEls.count.value,10) > Math.min(IMAGE_MAX, n)) igEls.count.value=String(Math.min(IMAGE_MAX, n));
+    }
+    var cap=Math.max(1, Math.min(IMAGE_MAX, parseInt(igEls.count&&igEls.count.value,10)||3));
+    igEls.countInfo.textContent = n ? ("프롬프트 "+n+"개 중 최대 "+Math.min(n,cap)+"장 생성") : "프롬프트 없음";
+  }
+  function applyImageGenState(){
+    var card=el("card-img");
+    if(card){ var done=imageGenDone(); card.classList.toggle("state-done", done);
+      var chip=card.querySelector("[data-chip]"); if(chip){ chip.className="chip"+(done?" done":""); chip.textContent=done?"완료":"대기"; } }
+    renderRail(); updateProgress();
+  }
+  function renderGallery(){
+    var gal=igEls.gallery; if(!gal) return; gal.innerHTML="";
+    (state.imageGen.items||[]).forEach(function(it,i){
+      if(!it) return;   // 병렬 생성 중 아직 안 끝난 슬롯(빈/ null) 건너뜀
+      var fig=document.createElement("div"); fig.style.cssText="border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--head-bg);";
+      var a=document.createElement("a"); a.href=bridgePath(it.url); a.target="_blank"; a.rel="noopener"; a.title="원본 보기";
+      var img=document.createElement("img"); img.src=bridgePath(it.url); img.loading="lazy"; img.alt=it.prompt?it.prompt.slice(0,60):("이미지 "+(i+1));
+      img.style.cssText="width:100%; display:block; aspect-ratio:1/1; object-fit:cover; background:var(--code-bg);";
+      a.appendChild(img); fig.appendChild(a);
+      var cap=document.createElement("div"); cap.style.cssText="padding:6px 8px; display:flex; gap:6px; align-items:center; justify-content:space-between;";
+      var nm=document.createElement("span"); nm.className="hint"; nm.textContent="#"+(i+1); nm.title=it.path||""; nm.style.cssText="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;";
+      var links=document.createElement("span"); links.style.cssText="display:flex; gap:5px; flex:0 0 auto;";
+      var re=document.createElement("button"); re.className="btn ghost sm"; re.type="button"; re.textContent="🔄"; re.title="이 이미지만 다시 생성(주제와 안 맞거나 그리드로 나왔을 때)";
+      re.addEventListener("click", function(){ regenerateImage(i); });
+      var dl=document.createElement("a"); dl.className="btn ghost sm"; dl.textContent="📥"; dl.href=bridgePath(it.url); dl.download="image-"+(i+1)+"."+String(it.url).split(".").pop(); dl.title="다운로드";
+      links.appendChild(re); links.appendChild(dl);
+      cap.appendChild(nm); cap.appendChild(links); fig.appendChild(cap); gal.appendChild(fig);
+    });
+  }
+  // 갤러리의 한 장만 다시 생성(잘못 나온 이미지 재시도 — 전체 재생성 없이 비용 절약). 새 파일명으로 저장해 캐시 회피.
+  function regenerateImage(i){
+    if(pipelineBusy) return;
+    var it=(state.imageGen.items||[])[i]; if(!it||!it.prompt){ return; }
+    var setStat=function(kind,txt,spin){ if(!igEls.status) return; igEls.status.className="status "+kind; if(spin){ igEls.status.innerHTML='<span class="spinner"></span>'+esc(txt); } else igEls.status.textContent=txt; };
+    if(bridgeConnected===false){ setStat("error","브리지가 연결되지 않았습니다."); return; }
+    var prov=(state.imageGen.provider==="codex")?"codex":"agy";
+    var runId=state.imageGen.runId||("r"+timestamp().replace(/[^0-9]/g,""));
+    pipelineBusy=true; setRunButtonsEnabled(false); if(igEls.genBtn) igEls.genBtn.disabled=true;
+    setStat("loading","#"+(i+1)+" 이미지 다시 생성 중… ("+prov+" · 수십 초)", true);
+    fetch(bridgePath("/image"), { method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ provider:prov, prompt:it.prompt, runId:runId, idx:(i+1)+"-r"+Math.random().toString(36).slice(2,5) }) })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        pipelineBusy=false; setRunButtonsEnabled(bridgeConnected!==false); if(igEls.genBtn) igEls.genBtn.disabled=false;
+        if(d && d.ok){ state.imageGen.items[i]={ url:d.url, path:d.path, mime:d.mime, prompt:it.prompt }; save(); renderGallery(); applyImageGenState(); setStat("done","✓ #"+(i+1)+" 다시 생성 완료"); }
+        else { setStat("error","#"+(i+1)+" 재생성 실패: "+((d&&d.error)||"실패")); }
+      })
+      .catch(function(err){ pipelineBusy=false; setRunButtonsEnabled(bridgeConnected!==false); if(igEls.genBtn) igEls.genBtn.disabled=false;
+        var m=(err&&err.message)?err.message:String(err); if(/Failed to fetch|NetworkError|Load failed/i.test(m)){ bridgeConnected=false; refreshConn(); } setStat("error","재생성 오류: "+m); });
+  }
+  function generateImages(){
+    if(pipelineBusy) return;
+    var prompts=imagePromptList();
+    var setStat=function(kind,txt,spin){ if(!igEls.status) return; igEls.status.className="status "+kind; if(spin){ igEls.status.innerHTML='<span class="spinner"></span>'+esc(txt); } else igEls.status.textContent=txt; };
+    if(!prompts.length){ setStat("error","생성할 프롬프트가 없습니다. 위에서 추출하거나 직접 입력하세요."); return; }
+    if(bridgeConnected===false){ setStat("error","브리지가 연결되지 않았습니다. 위 안내대로 연결 프로그램을 켜주세요."); return; }
+    var cap=Math.max(1, Math.min(IMAGE_MAX, parseInt(igEls.count.value,10)||3));
+    var list=prompts.slice(0, cap);
+    var prov=(state.imageGen.provider==="codex")?"codex":"agy";
+    var conc=Math.max(1, Math.min(IMAGE_CONC_MAX, list.length, parseInt(state.imageGen.concurrency,10)||1));   // 동시 처리 개수(1=순차)
+    var runId="r"+timestamp().replace(/[^0-9]/g,"")+"-"+Math.random().toString(36).slice(2,6);
+    state.imageGen.runId=runId; state.imageGen.items=new Array(list.length); save(); renderGallery(); applyImageGenState();   // 인덱스 보존(병렬 완료 순서 무관)
+    pipelineBusy=true; setRunButtonsEnabled(false); igEls.genBtn.disabled=true;
+    var cursor=0, completed=0, okCount=0, lastErr="";
+    function tick(){ setStat("loading","이미지 생성 중… ("+completed+"/"+list.length+" 완료"+(conc>1?(" · 동시 "+conc+"장"):"")+") · "+prov+" (장당 수십 초)", true); }
+    function worker(){
+      if(cursor>=list.length) return;   // 더 가져올 작업 없음 → 이 워커 종료
+      var idx=cursor++;
+      tick();
+      fetch(bridgePath("/image"), { method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({ provider:prov, prompt:list[idx], runId:runId, idx:String(idx+1) }) })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          if(d && d.ok){ state.imageGen.items[idx]={ url:d.url, path:d.path, mime:d.mime, prompt:list[idx] }; okCount++; }
+          else { lastErr=(d&&d.error)||"실패"; }
+        })
+        .catch(function(err){ lastErr=(err&&err.message)?err.message:String(err); if(/Failed to fetch|NetworkError|Load failed/i.test(lastErr)){ bridgeConnected=false; refreshConn(); } })
+        .then(function(){ completed++; save(); renderGallery(); applyImageGenState();
+          if(completed>=list.length) finish(); else worker(); });   // 이 워커가 다음 작업을 이어받음
+    }
+    function finish(){
+      pipelineBusy=false; setRunButtonsEnabled(bridgeConnected!==false); igEls.genBtn.disabled=false;
+      applyImageGenState();
+      if(okCount===list.length){ setStat("done","✓ 이미지 "+okCount+"장 생성·저장 완료 (output/"+runId+"/). 이미지를 클릭하면 원본, 📥 로 다운로드."); }
+      else if(okCount>0){ setStat("done","일부 완료: "+okCount+"/"+list.length+"장"+(lastErr?(" · 마지막 오류: "+lastErr):"")); }
+      else { setStat("error","이미지를 생성하지 못했습니다"+(lastErr?(": "+lastErr):"")+". "+prov+" 설치·로그인 상태를 확인하거나 다른 LLM 으로 바꿔보세요."); }
+      updateHeroBtn();
+    }
+    for(var w=0; w<conc; w++) worker();   // conc 개 워커 동시 시작
+  }
+  function renderImageGenCard(container){
+    igEls={};
+    if(!imageStepEnabled()) return;   // 이미지 생성이 필요한 유형(카드뉴스·피드·스토리)에만 표시
+    var src=findImageSourceStep();
+    var num=STEPS.length+1;
+    var lbl=imageGenLabel();   // 콘텐츠 유형에 맞는 명칭(슬라이드/피드/스토리 이미지)
+    var card=document.createElement("div"); card.className="card deliverable"; card.id="card-img";
+    if(imageGenDone()) card.classList.add("state-done");
+
+    var head=document.createElement("div"); head.className="card-head";
+    head.setAttribute("role","button"); head.setAttribute("tabindex","0");
+    head.setAttribute("aria-label", num+"단계 "+lbl+" 생성 — 펼치기/접기");
+    head.innerHTML='<span class="num">'+num+'</span>'+
+      '<div style="flex:1 1 auto; min-width:0;"><div class="title">🖼️ '+esc(lbl)+' 생성 <span class="badge ok deliv-badge">결과물</span></div>'+
+      '<div class="desc">위 프롬프트로 실제 '+esc(lbl)+'를 만들어 작업폴더에 저장</div></div>'+
+      '<span class="chip'+(imageGenDone()?" done":"")+'" data-chip>'+(imageGenDone()?"완료":"대기")+'</span><span class="chev">▾</span>';
+    var toggle=function(){ card.classList.toggle("collapsed"); };
+    head.addEventListener("click", toggle);
+    head.addEventListener("keydown", function(e){ if(e.target!==head) return; if(e.key==="Enter"||e.key===" "||e.key==="Spacebar"){ e.preventDefault(); toggle(); } });
+    new MutationObserver(function(){ var c=card.classList.contains("collapsed"); head.setAttribute("aria-expanded",c?"false":"true"); if(state.collapsed["img"]!==c){ state.collapsed["img"]=c; save(); } }).observe(card,{attributes:true,attributeFilter:["class"]});
+    head.setAttribute("aria-expanded","true");
+    card.appendChild(head);
+
+    var body=document.createElement("div"); body.className="card-body";
+    var info=document.createElement("div"); info.className="scope-note"; info.style.marginTop="0";
+    info.innerHTML="아래 프롬프트로 <b>선택한 LLM</b>이 실제 이미지를 만들어 작업폴더 <code>output/</code> 에 저장합니다. <b>1장당 실제 호출</b>(장당 수십 초·비용 발생). 이미지 생성은 <b>codex·agy</b> 만 지원합니다(claude 제외). 텍스트 단계 LLM 선택과는 별개입니다.";
+    body.appendChild(info);
+
+    var lr=document.createElement("div"); lr.className="label-row";
+    var h=document.createElement("div"); h.className="sub-h"; h.textContent="이미지 프롬프트 (편집 가능 · '---' 로 구분)";
+    var sp=document.createElement("div"); sp.className="spacer";
+    var reBtn=document.createElement("button"); reBtn.className="btn ghost sm"; reBtn.type="button"; reBtn.textContent="🔄 프롬프트 추출";
+    reBtn.title=src.id+"단계 결과의 코드블록에서 프롬프트를 다시 가져옵니다";
+    reBtn.addEventListener("click", reextractImagePrompts);
+    lr.appendChild(h); lr.appendChild(sp); lr.appendChild(reBtn); body.appendChild(lr);
+    var ta=document.createElement("textarea"); ta.className="mono"; ta.style.minHeight="120px"; ta.value=state.imageGen.prompts||"";
+    ta.addEventListener("input", function(){ state.imageGen.prompts=ta.value; save(); updateIgCount(); });
+    body.appendChild(ta); igEls.prompts=ta;
+
+    var ctrl=document.createElement("div"); ctrl.style.cssText="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px;";
+    // 이미지 생성 LLM 선택(codex·agy 만 — claude 는 실사 생성 부적합)
+    var provWrap=document.createElement("label"); provWrap.className="hint"; provWrap.style.cssText="display:flex; align-items:center; gap:6px;"; provWrap.appendChild(document.createTextNode("LLM"));
+    var provSel=document.createElement("select"); provSel.style.cssText="width:auto; flex:0 0 auto;";
+    provSel.innerHTML='<option value="codex">Codex (gpt-image · 권장)</option><option value="agy">Antigravity (Nano Banana)</option>';
+    provSel.value=(state.imageGen.provider==="agy")?"agy":"codex";
+    provSel.addEventListener("change", function(){ state.imageGen.provider=provSel.value; save(); });
+    provWrap.appendChild(provSel); igEls.provSel=provSel;
+    var cntWrap=document.createElement("label"); cntWrap.className="hint"; cntWrap.style.cssText="display:flex; align-items:center; gap:6px;"; cntWrap.appendChild(document.createTextNode("최대 생성 장수"));
+    var cnt=document.createElement("input"); cnt.type="number"; cnt.min="1"; cnt.max=String(IMAGE_MAX); cnt.value=String(Math.max(1, Math.min(IMAGE_MAX, imagePromptList().length||3))); cnt.style.cssText="width:64px; flex:0 0 auto;";
+    cnt.addEventListener("input", updateIgCount); cntWrap.appendChild(cnt); igEls.count=cnt;
+    // 동시 처리(병렬) 선택 — 1=순차, N=동시 N장
+    var concWrap=document.createElement("label"); concWrap.className="hint"; concWrap.style.cssText="display:flex; align-items:center; gap:6px;"; concWrap.appendChild(document.createTextNode("동시 처리"));
+    var concSel=document.createElement("select"); concSel.style.cssText="width:auto; flex:0 0 auto;"; concSel.title="한 번에 몇 장씩 동시 생성할지(순차=1). 많을수록 빠르지만 CPU·레이트리밋 부담↑";
+    for(var ci=1; ci<=IMAGE_CONC_MAX; ci++){ var co=document.createElement("option"); co.value=String(ci); co.textContent=(ci===1?"순차(1장)":ci+"장 동시"); concSel.appendChild(co); }
+    concSel.value=String(Math.max(1, Math.min(IMAGE_CONC_MAX, parseInt(state.imageGen.concurrency,10)||1)));
+    concSel.addEventListener("change", function(){ state.imageGen.concurrency=parseInt(concSel.value,10)||1; save(); });
+    concWrap.appendChild(concSel); igEls.conc=concSel;
+    var genBtn=document.createElement("button"); genBtn.className="btn primary"; genBtn.type="button"; genBtn.textContent="🖼️ "+lbl+" 생성";
+    genBtn.addEventListener("click", generateImages);
+    var cntInfo=document.createElement("span"); cntInfo.className="hint";
+    ctrl.appendChild(provWrap); ctrl.appendChild(cntWrap); ctrl.appendChild(concWrap); ctrl.appendChild(genBtn); ctrl.appendChild(cntInfo);
+    body.appendChild(ctrl); igEls.genBtn=genBtn; igEls.countInfo=cntInfo;
+
+    var status=document.createElement("div"); status.className="status idle"; status.style.cssText="margin-top:10px; min-height:18px;";
+    body.appendChild(status); igEls.status=status;
+
+    var gal=document.createElement("div");
+    gal.style.cssText="display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; margin-top:12px;";
+    body.appendChild(gal); igEls.gallery=gal;
+
+    card.appendChild(body); container.appendChild(card);
+
+    if(!(state.imageGen.prompts||"").trim()) reextractImagePrompts(); else updateIgCount();
+    renderGallery();
+    var col = ("img" in state.collapsed) ? !!state.collapsed["img"] : false;   // 기본 펼침(최종 단계라 바로 보이게)
+    card.classList.toggle("collapsed", col);
+  }
+
+  /* ====== 영상 제작 단계 (STEPS 배열 밖 별도 구성요소 — 릴스 전용) ======
+     릴스의 '이미지 프롬프트(컷)'와 '영상 프롬프트(모션)'를 컷 단위로 묶어, 선택한 LLM CLI(codex/claude)가
+     자기 MCP 영상 엔진(현재 Higgsfield)을 호출해 ① 스틸 이미지를 엔진에 등록(생성)하고 ② 그 스틸로 영상을 만든다.
+     → 브리지가 결과 mp4 를 output/<runId>/ 에 저장하고 갤러리로 표시. (agy 는 MCP 영상 엔진 미연동 → 제외) */
+  var VIDEO_MAX = 20;   // 영상 생성 컷수 절대 상한(런어웨이 비용 방지용 천장). 기본값은 추출된 컷 개수에 자동 맞춤(비용은 [영상 제작] 옆 예상 크레딧으로 표시).
+  var VIDEO_CONC_MAX = 3;   // 영상 동시 제작 상한(MCP 엔진 병렬 한도 고려 — Higgsfield 무료/STARTER 는 동시 영상 1~2개)
+  var vgEls = {};
+  // 영상 제작 단계가 필요한 콘텐츠 유형(릴스만 — 카드뉴스·피드·스토리는 이미지 결과물)
+  var TYPE_VIDEOGEN = { reels:true, card:false, feed:false, story:false };
+  function typeNeedsVideoGen(){ return TYPE_VIDEOGEN[typeKey(state.platform)] === true; }
+  // 영상 제작 엔진(셀렉트박스 — 추후 추가용). 현재 Higgsfield 만 활성, 나머지는 placeholder(disabled).
+  var VIDEO_ENGINE_OPTS = [
+    { id:"higgsfield", label:"Higgsfield (힉스필드)", enabled:true },
+    { id:"hailuo", label:"Hailuo (준비 중)", enabled:false },
+    { id:"kling", label:"Kling (준비 중)", enabled:false }
+  ];
+  // 엔진별 MCP 영상 모델(Higgsfield: 9:16 세로·start_image 지원 모델 위주). cr=컷당 예상 크레딧(이미지+영상 합산, 대략).
+  var VIDEO_MODEL_OPTS = {
+    higgsfield: [
+      { id:"seedance_1_5", label:"Seedance 1.5 · 가성비·권장 (≈7크레딧/컷)", cr:7 },
+      { id:"kling3_0", label:"Kling 3.0 · 멀티샷·오디오 (≈11크레딧/컷)", cr:11 },
+      { id:"seedance_2_0", label:"Seedance 2.0 · 고품질·고크레딧 (≈24크레딧/컷)", cr:24 }
+    ]
+  };
+  function videoEngineKey(){ var e=state.videoGen.engine; return VIDEO_ENGINE_OPTS.some(function(o){return o.id===e&&o.enabled;})?e:"higgsfield"; }
+  function videoModelsFor(eng){ return VIDEO_MODEL_OPTS[eng]||VIDEO_MODEL_OPTS.higgsfield; }
+  function videoModelCr(){ var ms=videoModelsFor(videoEngineKey()), cur=state.videoGen.videoModel; for(var i=0;i<ms.length;i++){ if(ms[i].id===cur) return ms[i].cr||0; } return (ms[0]&&ms[0].cr)||0; }
+  function findVideoSourceStep(){
+    // 모션(영상) 프롬프트 출처: 이미지 프롬프트 단계 다음의 결과물 단계(릴스 6단계). 없으면 마지막 단계.
+    var img=findImageSourceStep();
+    if(img){ for(var i=0;i<STEPS.length;i++){ if(STEPS[i].id===img.id+1) return STEPS[i]; } }
+    return STEPS.length?STEPS[STEPS.length-1]:null;
+  }
+  function videoStepEnabled(){ return typeNeedsVideoGen() && !!findImageSourceStep(); }   // 릴스 + 이미지 프롬프트 단계 존재 시 표시
+  function videoGenDone(){ return (state.videoGen.items||[]).filter(Boolean).length>0; }   // 사전할당 배열의 빈 슬롯 제외
+  function videoCutList(){ return (state.videoGen.cuts||"").split(/\n-{3,}\n/).map(function(s){return s.trim();}).filter(Boolean); }
+  function parseCut(block){
+    var t=String(block||""), im="", mo="";
+    var mi=t.match(/IMAGE:\s*([\s\S]*?)(?:\n\s*MOTION:|$)/i);
+    var mm=t.match(/MOTION:\s*([\s\S]*)$/i);
+    if(mi) im=mi[1].trim();
+    if(mm) mo=mm[1].trim();
+    if(!mi && !mm) im=t.trim();   // 라벨 없으면 전체를 이미지 프롬프트로 간주
+    return { image:im, motion:mo };
+  }
+  function reextractVideoCuts(){
+    var imgStep=findImageSourceStep(), vidStep=findVideoSourceStep();
+    var imgs = imgStep ? extractImagePrompts((state.steps[imgStep.id]&&state.steps[imgStep.id].output)||"") : [];
+    var mots = vidStep ? extractImagePrompts((state.steps[vidStep.id]&&state.steps[vidStep.id].output)||"") : [];
+    var n=Math.max(imgs.length, mots.length), blocks=[];
+    for(var i=0;i<n;i++){ blocks.push("IMAGE: "+(imgs[i]||"")+"\nMOTION: "+(mots[i]||"")); }
+    state.videoGen.cuts = blocks.join("\n---\n"); save();
+    if(vgEls.cuts) vgEls.cuts.value=state.videoGen.cuts;
+    if(vgEls.count && n) vgEls.count.value=String(Math.max(1, Math.min(VIDEO_MAX, n)));
+    if(vgEls.status){ vgEls.status.className="status idle";
+      var noMotion = n>0 && mots.length===0;   // 영상 프롬프트 단계가 표 형식이면 코드블록이 없어 MOTION 이 빈다
+      vgEls.status.textContent = n
+        ? (n+"개 컷을 추출했어요(IMAGE=스틸 프롬프트 · MOTION=움직임). 확인·편집한 뒤 [영상 제작]을 누르세요."
+            + (noMotion ? " ⚠ 영상 프롬프트 단계에 코드블록이 없어 MOTION 은 비어 있습니다 — 모델이 자연 모션을 추론하거나, 각 컷에 'MOTION: …' 으로 직접 적어주세요." : ""))
+        : "추출된 컷이 없어요. 먼저 이미지·영상 프롬프트 단계를 만들거나, 직접 입력하세요(컷은 '---' 로 구분, 각 컷에 IMAGE:/MOTION:)."; }
+    updateVgCount();
+  }
+  function updateVgCount(){
+    if(!vgEls.countInfo) return;
+    var n=videoCutList().length;
+    var cap=Math.max(1, Math.min(VIDEO_MAX, parseInt(vgEls.count&&vgEls.count.value,10)||3));
+    if(vgEls.count){
+      vgEls.count.max=String(Math.max(1, Math.min(VIDEO_MAX, n||1)));   // 입력 상한 = 내 컷 수(절대천장 VIDEO_MAX 내)
+      if(n && parseInt(vgEls.count.value,10) > Math.min(VIDEO_MAX, n)) vgEls.count.value=String(Math.min(VIDEO_MAX, n));
+    }
+    if(!n){ vgEls.countInfo.textContent="컷을 추출하거나 입력하세요"; return; }
+    var make=Math.min(n,cap), est=make*videoModelCr();
+    vgEls.countInfo.innerHTML="컷 "+n+"개 중 <b>"+make+"개</b> 생성 · 예상 <b>≈"+est+" 크레딧</b>";
+  }
+  function applyVideoGenState(){
+    var card=el("card-vid");
+    if(card){ var done=videoGenDone(); card.classList.toggle("state-done", done);
+      var chip=card.querySelector("[data-chip]"); if(chip){ chip.className="chip"+(done?" done":""); chip.textContent=done?"완료":"대기"; } }
+    renderRail(); updateProgress();
+  }
+  function renderVideoGallery(){
+    var gal=vgEls.gallery; if(!gal) return; gal.innerHTML="";
+    (state.videoGen.items||[]).forEach(function(it,i){
+      if(!it) return;   // 병렬 제작 중 아직 안 끝난 슬롯 건너뜀
+      var fig=document.createElement("div"); fig.style.cssText="border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--head-bg);";
+      var src=it.url?bridgePath(it.url):(it.videoUrl||"");   // 로컬 사본 우선, 없으면 엔진 원격 URL
+      var vid=document.createElement("video"); vid.src=src; vid.controls=true; vid.playsInline=true; vid.preload="metadata";
+      vid.style.cssText="width:100%; display:block; aspect-ratio:9/16; object-fit:cover; background:#000;";
+      if(it.imageUrl) vid.poster=it.imageUrl;
+      fig.appendChild(vid);
+      var cap=document.createElement("div"); cap.style.cssText="padding:6px 8px; display:flex; gap:6px; align-items:center; justify-content:space-between;";
+      var nm=document.createElement("span"); nm.className="hint"; nm.textContent="컷 #"+(i+1); nm.title=it.path||it.videoUrl||""; nm.style.cssText="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;";
+      var links=document.createElement("span"); links.style.cssText="display:flex; gap:5px; flex:0 0 auto;";
+      var re=document.createElement("button"); re.className="btn ghost sm"; re.type="button"; re.textContent="🔄"; re.title="이 컷만 다시 제작(크레딧 재소모)";
+      re.addEventListener("click", function(){ regenerateVideo(i); }); links.appendChild(re);
+      if(it.url){ var dl=document.createElement("a"); dl.className="btn ghost sm"; dl.textContent="📥"; dl.href=bridgePath(it.url); dl.download="reels-"+(i+1)+"."+String(it.url).split(".").pop(); dl.title="영상 다운로드"; links.appendChild(dl); }
+      if(it.videoUrl){ var op=document.createElement("a"); op.className="btn ghost sm"; op.textContent="↗"; op.href=it.videoUrl; op.target="_blank"; op.rel="noopener"; op.title="엔진 원본 열기"; links.appendChild(op); }
+      cap.appendChild(nm); cap.appendChild(links); fig.appendChild(cap); gal.appendChild(fig);
+    });
+  }
+  // 영상 갤러리의 한 컷만 다시 제작(전체 재생성 없이 — 영상은 컷당 비싸므로 유용). 새 파일명으로 저장해 캐시 회피.
+  function regenerateVideo(i){
+    if(pipelineBusy) return;
+    var it=(state.videoGen.items||[])[i]; if(!it||!it.prompt){ return; }
+    var setStat=function(kind,txt,spin){ if(!vgEls.status) return; vgEls.status.className="status "+kind; if(spin){ vgEls.status.innerHTML='<span class="spinner"></span>'+esc(txt); } else vgEls.status.textContent=txt; };
+    if(bridgeConnected===false){ setStat("error","브리지가 연결되지 않았습니다."); return; }
+    var prov=(state.videoGen.provider==="codex")?"codex":"claude";
+    var engine=videoEngineKey(), vModel=state.videoGen.videoModel||videoModelsFor(engine)[0].id;
+    var runId=state.videoGen.runId||("v"+timestamp().replace(/[^0-9]/g,""));
+    var c=parseCut(it.prompt);
+    pipelineBusy=true; setRunButtonsEnabled(false); if(vgEls.genBtn) vgEls.genBtn.disabled=true;
+    setStat("loading","#"+(i+1)+" 영상 다시 제작 중… ("+prov+" → "+engine+" · 수 분)", true);
+    fetch(bridgePath("/video"), { method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ provider:prov, engine:engine, videoModel:vModel, aspect:"9:16", imagePrompt:c.image, motionPrompt:c.motion, runId:runId, idx:(i+1)+"-r"+Math.random().toString(36).slice(2,5) }) })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        pipelineBusy=false; setRunButtonsEnabled(bridgeConnected!==false); if(vgEls.genBtn) vgEls.genBtn.disabled=false;
+        if(d && d.ok){ state.videoGen.items[i]={ url:d.url, path:d.path, videoUrl:d.videoUrl, imageUrl:d.imageUrl, imageJobId:d.imageJobId, videoJobId:d.videoJobId, saveError:d.saveError||null, prompt:it.prompt }; save(); renderVideoGallery(); applyVideoGenState(); setStat("done","✓ #"+(i+1)+" 다시 제작 완료"+(d.saveError?" (로컬 저장 실패 · ↗ 원본)":"")); }
+        else { setStat("error","#"+(i+1)+" 재제작 실패: "+((d&&d.error)||"실패")); }
+      })
+      .catch(function(err){ pipelineBusy=false; setRunButtonsEnabled(bridgeConnected!==false); if(vgEls.genBtn) vgEls.genBtn.disabled=false;
+        var m=(err&&err.message)?err.message:String(err); if(/Failed to fetch|NetworkError|Load failed/i.test(m)){ bridgeConnected=false; refreshConn(); } setStat("error","재제작 오류: "+m); });
+  }
+  function generateVideos(){
+    if(pipelineBusy) return;
+    var cuts=videoCutList();
+    var setStat=function(kind,txt,spin){ if(!vgEls.status) return; vgEls.status.className="status "+kind; if(spin){ vgEls.status.innerHTML='<span class="spinner"></span>'+esc(txt); } else vgEls.status.textContent=txt; };
+    if(!cuts.length){ setStat("error","제작할 컷이 없습니다. 위에서 추출하거나 직접 입력하세요."); return; }
+    if(bridgeConnected===false){ setStat("error","브리지가 연결되지 않았습니다. 위 안내대로 연결 프로그램을 켜주세요."); return; }
+    var cap=Math.max(1, Math.min(VIDEO_MAX, parseInt(vgEls.count.value,10)||3));
+    var list=cuts.slice(0, cap);
+    var prov=(state.videoGen.provider==="codex")?"codex":"claude";
+    var engine=videoEngineKey();
+    var vModel=state.videoGen.videoModel||videoModelsFor(engine)[0].id;
+    // 분 단위 timestamp 만으로는 같은 분 재실행·다중 탭에서 runId 충돌 → 파일 덮어쓰기. 랜덤 접미사로 회피.
+    var runId="v"+timestamp().replace(/[^0-9]/g,"")+"-"+Math.random().toString(36).slice(2,6);
+    var conc=Math.max(1, Math.min(VIDEO_CONC_MAX, list.length, parseInt(state.videoGen.concurrency,10)||1));   // 동시 제작 개수(1=순차)
+    state.videoGen.runId=runId; state.videoGen.items=new Array(list.length); save(); renderVideoGallery(); applyVideoGenState();   // 인덱스 보존
+    pipelineBusy=true; setRunButtonsEnabled(false); vgEls.genBtn.disabled=true;
+    var cursor=0, completed=0, okCount=0, saveFails=0, lastErr="";
+    function tick(){ setStat("loading","영상 제작 중… ("+completed+"/"+list.length+" 완료"+(conc>1?(" · 동시 "+conc+"컷"):"")+") · "+prov+" → "+engine+" (컷당 수 분)", true); }
+    function worker(){
+      if(cursor>=list.length) return;
+      var idx=cursor++;
+      var c=parseCut(list[idx]);
+      tick();
+      fetch(bridgePath("/video"), { method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({ provider:prov, engine:engine, videoModel:vModel, aspect:"9:16",
+            imagePrompt:c.image, motionPrompt:c.motion, runId:runId, idx:String(idx+1) }) })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          if(d && d.ok){ if(d.saveError) saveFails++; state.videoGen.items[idx]={ url:d.url, path:d.path, videoUrl:d.videoUrl, imageUrl:d.imageUrl, imageJobId:d.imageJobId, videoJobId:d.videoJobId, saveError:d.saveError||null, prompt:list[idx] }; okCount++; }
+          else { lastErr=(d&&d.error)||"실패"; }
+        })
+        .catch(function(err){ lastErr=(err&&err.message)?err.message:String(err); if(/Failed to fetch|NetworkError|Load failed/i.test(lastErr)){ bridgeConnected=false; refreshConn(); } })
+        .then(function(){ completed++; save(); renderVideoGallery(); applyVideoGenState();
+          if(completed>=list.length) finish(); else worker(); });
+    }
+    function finish(){
+      pipelineBusy=false; setRunButtonsEnabled(bridgeConnected!==false); vgEls.genBtn.disabled=false;
+      applyVideoGenState();
+      var saveNote = saveFails>0 ? (" · ⚠ "+saveFails+"컷은 원격 생성됐지만 로컬 저장 실패(엔진 ↗ 원본으로 확인·다운로드)") : "";
+      if(okCount===list.length && saveFails===0){ setStat("done","✓ 영상 "+okCount+"컷 제작·저장 완료 (output/"+runId+"/). 갤러리에서 재생, 📥 로 다운로드."); }
+      else if(okCount>0){ setStat("done","일부 완료: "+okCount+"/"+list.length+"컷"+saveNote+(lastErr?(" · 마지막 오류: "+lastErr):"")); }
+      else {
+        var hint;
+        if(/plan|basic|credit|크레딧|플랜/i.test(lastErr)) hint="Higgsfield 유료 플랜(basic+)·크레딧을 확인하세요.";
+        else if(/cancel|취소/i.test(lastErr) && prov==="codex") hint="codex 가 서버 오류를 ‘취소’로 가렸을 수 있어요 — Higgsfield 무료 플랜은 생성 불가(basic+ 필요). LLM 을 claude 로 바꾸면 실제 사유가 보입니다.";
+        else hint=prov+" 의 MCP 영상 엔진("+engine+") 연결·로그인·플랜 상태를 확인하세요.";
+        setStat("error","영상을 제작하지 못했습니다"+(lastErr?(": "+lastErr):"")+". "+hint);
+      }
+      updateHeroBtn();
+    }
+    for(var w=0; w<conc; w++) worker();   // conc 개 워커 동시 시작
+  }
+  function renderVideoGenCard(container){
+    vgEls={};
+    if(!videoStepEnabled()) return;   // 릴스에만 표시
+    var src=findImageSourceStep();
+    var num=STEPS.length+1;
+    var card=document.createElement("div"); card.className="card deliverable"; card.id="card-vid";
+    if(videoGenDone()) card.classList.add("state-done");
+
+    var head=document.createElement("div"); head.className="card-head";
+    head.setAttribute("role","button"); head.setAttribute("tabindex","0");
+    head.setAttribute("aria-label", num+"단계 영상 제작 — 펼치기/접기");
+    head.innerHTML='<span class="num">'+num+'</span>'+
+      '<div style="flex:1 1 auto; min-width:0;"><div class="title">🎬 영상 제작 <span class="badge ok deliv-badge">결과물</span></div>'+
+      '<div class="desc">스틸을 영상 엔진에 등록하고 그 스틸로 릴스 영상까지 생성</div></div>'+
+      '<span class="chip'+(videoGenDone()?" done":"")+'" data-chip>'+(videoGenDone()?"완료":"대기")+'</span><span class="chev">▾</span>';
+    var toggle=function(){ card.classList.toggle("collapsed"); };
+    head.addEventListener("click", toggle);
+    head.addEventListener("keydown", function(e){ if(e.target!==head) return; if(e.key==="Enter"||e.key===" "||e.key==="Spacebar"){ e.preventDefault(); toggle(); } });
+    new MutationObserver(function(){ var c=card.classList.contains("collapsed"); head.setAttribute("aria-expanded",c?"false":"true"); if(state.collapsed["vid"]!==c){ state.collapsed["vid"]=c; save(); } }).observe(card,{attributes:true,attributeFilter:["class"]});
+    head.setAttribute("aria-expanded","true");
+    card.appendChild(head);
+
+    var body=document.createElement("div"); body.className="card-body";
+    var info=document.createElement("div");
+    info.style.cssText="font-size:12px; color:var(--muted); background:var(--head-bg); border:1px solid var(--line); border-radius:8px; padding:9px 12px; margin:0 0 4px; line-height:1.65;";
+    info.innerHTML="컷마다 <b style=\"color:var(--ink)\">스틸 이미지 → 9:16 릴스 영상</b>을 실제로 생성해 <code>output/</code> 에 저장합니다 <span style=\"opacity:.85\">(컷당 수 분·크레딧 소요)</span>. "+
+      "LLM은 <b style=\"color:var(--ink)\">Claude 권장</b> — Codex는 생성 호출이 취소될 수 있어요. <span style=\"opacity:.85\">예상 비용은 아래 [영상 제작] 옆에 표시됩니다.</span>";
+    body.appendChild(info);
+
+    // 엔진 / LLM / 영상 모델 선택 줄
+    var sel=document.createElement("div"); sel.className="row"; sel.style.marginTop="12px";
+    // 영상 엔진(셀렉트박스 — 추후 추가)
+    var engWrap=document.createElement("div"); engWrap.className="field"; engWrap.style.cssText="flex:1 1 180px;";
+    var engLbl=document.createElement("label"); engLbl.textContent="영상 엔진"; engWrap.appendChild(engLbl);
+    var engSel=document.createElement("select");
+    VIDEO_ENGINE_OPTS.forEach(function(o){ var op=document.createElement("option"); op.value=o.id; op.textContent=o.label; if(!o.enabled) op.disabled=true; engSel.appendChild(op); });
+    engSel.value=videoEngineKey();
+    engWrap.appendChild(engSel);
+    // LLM(codex/claude)
+    var provWrap=document.createElement("div"); provWrap.className="field"; provWrap.style.cssText="flex:1 1 160px;";
+    var provLbl=document.createElement("label"); provLbl.textContent="LLM (CLI→MCP)"; provWrap.appendChild(provLbl);
+    var provSel=document.createElement("select");
+    provSel.innerHTML='<option value="claude">Claude (claude · 권장)</option><option value="codex">Codex (codex · 생성 호출 취소될 수 있음)</option>';
+    provSel.value=(state.videoGen.provider==="codex")?"codex":"claude";
+    provSel.addEventListener("change", function(){ state.videoGen.provider=provSel.value; save(); });
+    provWrap.appendChild(provSel);
+    // 영상 모델(엔진별)
+    var modWrap=document.createElement("div"); modWrap.className="field"; modWrap.style.cssText="flex:1 1 180px;";
+    var modLbl=document.createElement("label"); modLbl.textContent="영상 모델"; modWrap.appendChild(modLbl);
+    var modSel=document.createElement("select");
+    function fillModels(){ modSel.innerHTML=""; videoModelsFor(videoEngineKey()).forEach(function(m){ var op=document.createElement("option"); op.value=m.id; op.textContent=m.label; modSel.appendChild(op); });
+      var cur=state.videoGen.videoModel; if(!videoModelsFor(videoEngineKey()).some(function(m){return m.id===cur;})) cur=videoModelsFor(videoEngineKey())[0].id; modSel.value=cur; state.videoGen.videoModel=cur; }
+    fillModels();
+    modWrap.appendChild(modSel);
+    modSel.addEventListener("change", function(){ state.videoGen.videoModel=modSel.value; save(); updateVgCount(); });
+    engSel.addEventListener("change", function(){ state.videoGen.engine=engSel.value; save(); fillModels(); updateVgCount(); });
+    sel.appendChild(engWrap); sel.appendChild(modWrap); sel.appendChild(provWrap);   // 엔진 → 모델 → LLM
+    body.appendChild(sel);
+
+    // 컷 프롬프트(편집 가능)
+    var lr=document.createElement("div"); lr.className="label-row";
+    var h=document.createElement("div"); h.className="sub-h"; h.textContent="🎞 영상 컷";
+    var spc=document.createElement("div"); spc.className="spacer";
+    var reBtn=document.createElement("button"); reBtn.className="btn ghost sm"; reBtn.type="button"; reBtn.textContent="🔄 컷 추출";
+    reBtn.title="이미지 프롬프트 단계(스틸)와 영상 프롬프트 단계(모션)의 코드블록을 컷 단위로 다시 가져옵니다";
+    reBtn.addEventListener("click", reextractVideoCuts);
+    lr.appendChild(h); lr.appendChild(spc); lr.appendChild(reBtn); body.appendChild(lr);
+    var fmt=document.createElement("div"); fmt.className="hint"; fmt.style.cssText="margin:-3px 0 7px;";
+    fmt.innerHTML="컷은 <code>---</code> 로 구분 · 각 컷에 <code>IMAGE:</code>(스틸)·<code>MOTION:</code>(움직임). 위 <b>[🔄 컷 추출]</b>로 이미지·영상 프롬프트 단계에서 자동으로 가져옵니다.";
+    body.appendChild(fmt);
+    var ta=document.createElement("textarea"); ta.className="mono"; ta.style.minHeight="140px"; ta.value=state.videoGen.cuts||"";
+    ta.placeholder="IMAGE: 스틸 이미지 묘사 (영어 권장 · 예: a skincare bottle on marble, soft light)\nMOTION: 카메라 움직임 (예: slow gentle push-in)\n---\nIMAGE: …\nMOTION: …";
+    ta.addEventListener("input", function(){ state.videoGen.cuts=ta.value; save(); updateVgCount(); });
+    body.appendChild(ta); vgEls.cuts=ta;
+
+    // 컷수 + 제작 버튼
+    var ctrl=document.createElement("div"); ctrl.style.cssText="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px;";
+    var cntWrap=document.createElement("label"); cntWrap.className="hint"; cntWrap.style.cssText="display:flex; align-items:center; gap:6px;"; cntWrap.appendChild(document.createTextNode("최대 생성 컷수"));
+    var cnt=document.createElement("input"); cnt.type="number"; cnt.min="1"; cnt.max=String(VIDEO_MAX); cnt.value=String(Math.max(1, Math.min(VIDEO_MAX, videoCutList().length||3))); cnt.style.cssText="width:64px; flex:0 0 auto;";
+    cnt.addEventListener("input", updateVgCount); cntWrap.appendChild(cnt); vgEls.count=cnt;
+    // 동시 처리(병렬) — 영상은 엔진 병렬 한도(무료/STARTER 1~2)와 크레딧 동시 소모 주의
+    var concWrap=document.createElement("label"); concWrap.className="hint"; concWrap.style.cssText="display:flex; align-items:center; gap:6px;"; concWrap.appendChild(document.createTextNode("동시 처리"));
+    var concSel=document.createElement("select"); concSel.style.cssText="width:auto; flex:0 0 auto;"; concSel.title="한 번에 몇 컷씩 동시 제작할지(순차=1). 엔진 병렬 한도·크레딧 동시 소모에 주의";
+    for(var ci=1; ci<=VIDEO_CONC_MAX; ci++){ var co=document.createElement("option"); co.value=String(ci); co.textContent=(ci===1?"순차(1컷)":ci+"컷 동시"); concSel.appendChild(co); }
+    concSel.value=String(Math.max(1, Math.min(VIDEO_CONC_MAX, parseInt(state.videoGen.concurrency,10)||1)));
+    concSel.addEventListener("change", function(){ state.videoGen.concurrency=parseInt(concSel.value,10)||1; save(); });
+    concWrap.appendChild(concSel); vgEls.conc=concSel;
+    var genBtn=document.createElement("button"); genBtn.className="btn primary"; genBtn.type="button"; genBtn.textContent="🎬 영상 제작";
+    genBtn.addEventListener("click", generateVideos);
+    var cntInfo=document.createElement("span"); cntInfo.className="hint";
+    ctrl.appendChild(cntWrap); ctrl.appendChild(concWrap); ctrl.appendChild(genBtn); ctrl.appendChild(cntInfo);
+    body.appendChild(ctrl); vgEls.genBtn=genBtn; vgEls.countInfo=cntInfo;
+
+    var status=document.createElement("div"); status.className="status idle"; status.style.cssText="margin-top:10px; min-height:18px;";
+    body.appendChild(status); vgEls.status=status;
+
+    var gal=document.createElement("div");
+    gal.style.cssText="display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; margin-top:12px;";
+    body.appendChild(gal); vgEls.gallery=gal;
+
+    card.appendChild(body); container.appendChild(card);
+
+    if(!(state.videoGen.cuts||"").trim()) reextractVideoCuts(); else updateVgCount();
+    renderVideoGallery();
+    var col = ("vid" in state.collapsed) ? !!state.collapsed["vid"] : false;   // 기본 펼침(최종 단계라 바로 보이게)
+    card.classList.toggle("collapsed", col);
   }
 
   function setStatus(id, kind, html){
@@ -663,17 +1427,19 @@
     var prov=stepProvider(id); var p=PROVIDERS[prov];
     var provOv=(state.steps[id].providerOverride||"").trim();
     var modelOv=(state.steps[id].modelOverride||"").trim();
+    // agy 는 모델 지정 시에만 프롬프트를 stdin 으로 전달(브리지 stdinPrompt). 그 외엔 argv.
+    var usesStdin = prov==="agy" && !!(resolveModelId(prov, model)||"").trim();
     return [
       "실행 방식 : 로컬 CLI (브리지가 터미널에서 실행)",
       "LLM       : "+p.label+(provOv?"  (이 단계 override)":"  (전역)"),
       "CLI 명령  : "+p.cmd(model),
-      "프롬프트  : 명령 인자(argv)로 전달 · stdin 무시(주입 안전)",
-      "모델      : "+model+(modelOv?"  (이 단계 override)":"  (기본 모델)"),
+      "프롬프트  : "+(usesStdin ? "표준입력(stdin)으로 전달(주입 안전)" : "명령 인자(argv)로 전달 · stdin 무시(주입 안전)"),
+      "모델      : "+(model||"자동(CLI 기본값)")+(modelOv?"  (이 단계 override)":"  (기본 모델)"),
       "브리지    : "+(bridgeBase()||"(현재 페이지와 동일 origin)")+"  → POST /run"
     ].join("\n");
   }
   function previewStep(id){
-    var prompt=expandTemplate(state.steps[id].template); var model=currentModel(id);
+    var prompt=expandTemplate(state.steps[id].template, id); var model=currentModel(id);
     state.steps[id].lastPrompt=prompt; state.steps[id].lastReqInfo=reqInfoText(id,model);
     stepEls[id].prompt.textContent=prompt; stepEls[id].reqinfo.textContent=state.steps[id].lastReqInfo;
     setStatus(id,"idle","미리보기 갱신됨 (전송 안 함)"); save();
@@ -683,6 +1449,7 @@
     STEPS.forEach(function(s){ var e=stepEls[s.id]; if(e) e.runBtn.disabled=!enabled; });
     el("runAll").disabled=!enabled;
     var hr=el("heroRun"); if(hr) hr.disabled=!enabled;
+    var ha=el("heroAuto"); if(ha) ha.disabled=!enabled;
   }
 
   // 단계 실행 → Promise<boolean>(성공 여부)
@@ -690,11 +1457,11 @@
     opts=opts||{};
     if(bridgeConnected===false){ setStatus(id,"error","아직 준비가 안 됐어요. 위 안내대로 연결 프로그램을 켜고 [다시 확인]을 누르세요."); return Promise.resolve(false); }
     var prov=stepProvider(id); var p=PROVIDERS[prov];
-    var prompt=expandTemplate(state.steps[id].template); var model=currentModel(id);
+    var prompt=expandTemplate(state.steps[id].template, id); var model=currentModel(id);
     state.steps[id].lastPrompt=prompt; state.steps[id].lastReqInfo=reqInfoText(id,model);
     stepEls[id].prompt.textContent=prompt; stepEls[id].reqinfo.textContent=state.steps[id].lastReqInfo; save();
 
-    if(!model){ setStatus(id,"error","모델명이 비어 있습니다."); return Promise.resolve(false); }
+    // 모델이 비어 있으면 해당 CLI 의 기본 모델을 사용(agy 등). 별도 오류 아님.
     var owner=MODEL_OWNER[model];
     if(owner && owner!==prov){
       runState[id]="error"; applyState(id);
@@ -711,8 +1478,8 @@
     var timer=setInterval(function(){ setStatus(id,"loading","로컬 "+p.cli+" CLI 실행 중… ("+Math.round((Date.now()-t0)/1000)+"s)"); }, 1000);
     setStatus(id,"loading","로컬 "+p.cli+" CLI 실행 중… (0s)");
 
-    return fetch(bridgePath("/run"), { method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ provider:prov, model:model, prompt:prompt }) })
+    return fetch(bridgePath("/run"), { method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ provider:prov, model:resolveModelId(prov, model), prompt:prompt }) })
       .then(function(resp){ return resp.text().then(function(text){ var j=null; try{j=JSON.parse(text);}catch(e){} return {status:resp.status,json:j,text:text}; }); })
       .then(function(r){
         if(!r.json) throw new Error("브리지 응답을 해석할 수 없습니다 (HTTP "+r.status+"):\n"+(r.text||"").slice(0,500));
@@ -752,7 +1519,7 @@
     var runAllBtn=el("runAll"), heroBtn=el("heroRun"), hs=el("heroStatus");
     runAllBtn.textContent="만드는 중…"; if(heroBtn) heroBtn.textContent="⏳ 만드는 중…";
     var i=0;
-    function shortName(id){ return ((SIMPLE_NAMES[id]&&SIMPLE_NAMES[id].t)||("단계 "+id)).replace(/^\S+\s/,""); }
+    function shortName(id){ return stepShort(id); }
     function next(){
       if(i>=STEPS.length){ finish(true); return; }
       var id=STEPS[i].id; i++;
@@ -760,12 +1527,12 @@
       if(!simple) openAndScroll(id);   // 고급: 단계로 스크롤 / 간단: 화면 점프 없이 진행 메시지만
       runStep(id, {fromAll:true}).then(function(ok){
         if(!ok){ finish(false, id); return; }
-        if(simple){ stepEls[id].card.classList.toggle("collapsed", id<4); }  // 결과물(4~6)만 펼침
+        if(simple){ var stp=stepById(id); stepEls[id].card.classList.toggle("collapsed", !(stp&&stp.deliverable)); }  // 결과물만 펼침
         next();
       });
     }
     function finish(allOk, stoppedAt){
-      pipelineBusy=false; runAllBtn.textContent="▶ 만들기"; if(heroBtn) heroBtn.textContent="✨ 콘텐츠 만들기";
+      pipelineBusy=false;
       setRunButtonsEnabled(bridgeConnected!==false);
       if(allOk){
         if(hs) hs.innerHTML="🎉 <b class='ok'>완성!</b> 아래 결과물(대본·이미지·영상 프롬프트)을 복사해 사용하세요.";
@@ -774,8 +1541,82 @@
         if(hs) hs.innerHTML="⚠ <b class='bad'>"+esc(shortName(stoppedAt))+"</b>에서 멈췄어요. 해당 카드의 메시지를 확인하세요.";
         openAndScroll(stoppedAt);
       }
+      updateHeroBtn();
     }
     next();
+  }
+
+  /* ====== 단계별 진행(한 단계씩) ====== */
+  function runOne(id){
+    if(pipelineBusy) return Promise.resolve(false);
+    if(bridgeConnected===false){ el("notReady").classList.add("show"); el("notReady").scrollIntoView({behavior:"smooth",block:"center"}); return Promise.resolve(false); }
+    pipelineBusy=true; setRunButtonsEnabled(false);
+    var hb=el("heroRun"); if(hb) hb.textContent="⏳ 만드는 중…";
+    var hs=el("heroStatus"); var nm=stepShort(id);
+    if(hs) hs.innerHTML="⏳ <b>"+esc(nm)+"</b> 만드는 중… ("+id+"/"+STEPS.length+")";
+    if(stepEls[id]){ stepEls[id].card.classList.remove("collapsed"); stepEls[id].card.scrollIntoView({behavior:"smooth",block:"start"}); }
+    return runStep(id, {fromAll:true}).then(function(ok){
+      pipelineBusy=false; setRunButtonsEnabled(bridgeConnected!==false);
+      if(stepEls[id]) stepEls[id].card.classList.remove("collapsed");
+      if(hs && ok){
+        var allDone=STEPS.every(function(s){ return runState[s.id]==="done"; });
+        hs.innerHTML = allDone ? "🎉 <b class='ok'>완성!</b> 결과물을 복사·저장하세요."
+                               : "✓ <b class='ok'>"+esc(nm)+"</b> 완료 · 결과를 확인하고 [다음 단계]를 누르세요.";
+      }
+      updateHeroBtn();
+      return ok;
+    });
+  }
+  function runNext(){
+    var nextId=null, doneCount=0;
+    for(var k=0;k<STEPS.length;k++){ var sid=STEPS[k].id; if(runState[sid]==="done") doneCount++; else if(nextId===null) nextId=sid; }
+    if(nextId===null){
+      // 모두 완료 → '다시 만들기': 확인 후 처음부터 재생성(기존 결과 덮어씀)
+      if(doneCount>0 && !window.confirm("이미 만든 결과를 처음부터 다시 만들까요?\n(기존 결과는 덮어써집니다)")) return;
+      STEPS.forEach(function(s){ runState[s.id]="idle"; applyState(s.id); });
+      nextId = STEPS.length ? STEPS[0].id : null;
+      if(nextId===null){ updateHeroBtn(); return; }
+    }
+    runOne(nextId);
+  }
+  // 진행(완료/실행 중) 상태에서는 주제·콘텐츠 종류 변경을 막는다(결과와 어긋나지 않도록).
+  function inputsLocked(){
+    if(pipelineBusy) return true;
+    for(var k=0;k<STEPS.length;k++){ var st=runState[STEPS[k].id]; if(st==="loading"||st==="done") return true; }
+    return false;
+  }
+  function updateInputsLock(){
+    // 잠금 대상은 '콘텐츠 종류'만. 주제·분석 기준은 진행 중에도 자유롭게 수정 가능.
+    var locked=inputsLocked();
+    document.body.classList.toggle("inputs-locked", locked);
+    var lh=el("inputLockHint"); if(lh) lh.style.display=locked?"":"none";
+  }
+  // 히어로/상단 실행 버튼 라벨을 '다음 단계' 기준으로 갱신
+  function updateHeroBtn(){
+    updateInputsLock();
+    if(pipelineBusy) return;
+    var hb=el("heroRun"), tb=el("runAll"), ha=el("heroAuto"), hs=el("heroStatus");
+    var done=0, nextId=null;
+    for(var k=0;k<STEPS.length;k++){ var id=STEPS[k].id; if(runState[id]==="done") done++; else if(nextId===null) nextId=id; }
+    // 시작하려면 '주제'와 '콘텐츠 종류'가 모두 채워져야 함
+    var hasInput = !!((state.topic||"").trim()) && !!((state.platform||"").trim());
+    var off=(bridgeConnected===false) || !hasInput;
+    if(hb){
+      if(nextId===null && done>0){ hb.textContent="🔄 다시 만들기"; hb.disabled=off; }   // 모두 완료 → 처음부터 재생성 가능
+      else if(done===0){ hb.textContent="✨ 콘텐츠 만들기"; hb.disabled=off; }
+      else { hb.textContent="▶ 다음 단계: "+stepShort(nextId)+" ("+nextId+"/"+STEPS.length+")"; hb.disabled=off; }
+    }
+    if(ha){ ha.disabled = off || nextId===null; }
+    if(tb){ tb.textContent = nextId===null ? "✅ 완료" : "▶ 다음 단계"; tb.disabled = off || nextId===null; }
+    // 시작 전 안내: 무엇을 채워야 하는지
+    if(hs && done===0 && bridgeConnected!==false){
+      if(!hasInput){
+        var need=[]; if(!((state.topic||"").trim())) need.push("주제"); if(!((state.platform||"").trim())) need.push("콘텐츠 종류");
+        hs.innerHTML="<b>"+need.join("</b> · <b>")+"</b> 를 입력·선택하면 시작할 수 있어요.";
+      } else {
+        hs.innerHTML="<b class='ok'>준비 완료</b> · [✨ 콘텐츠 만들기]를 누르세요.";
+      }
+    }
   }
 
   /* ====== 복사 ====== */
@@ -784,6 +1625,94 @@
     if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(done, function(){ fallback(); }); }
     else fallback();
     function fallback(){ try{ var ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); done(); }catch(e){ btn.textContent="복사 실패"; } }
+  }
+
+  /* ====== 웹 자료 가져오기 (현재 LLM CLI 의 웹 검색·페치 사용) ======
+     기존 /run 을 그대로 재사용: 현재 provider/model 에게 '대상 사이트에서 주제 검색·요약'을 시키고
+     결과를 편집 가능한 참조 자료 칸에 덧붙인다(LLM 투입 전 사용자가 확인·편집). 별도 브리지 엔드포인트 불필요.
+     pipelineBusy 가드로 단계 실행과 동시 실행되지 않게 한다(동시 CLI 실행 방지). */
+  function renderRefSites(){
+    var box=el("refSiteChips"); if(!box) return; box.innerHTML="";
+    (state.refSites||[]).forEach(function(s,i){
+      var c=document.createElement("button"); c.type="button"; c.className="chip sel";
+      c.innerHTML=esc(s)+' <span aria-hidden="true" style="margin-left:4px;">✕</span>';
+      c.title="클릭하면 제거"; c.setAttribute("aria-label", s+" 제거");
+      c.addEventListener("click", function(){ state.refSites.splice(i,1); save(); renderRefSites(); });
+      box.appendChild(c);
+    });
+  }
+  function addRefSite(){
+    var input=el("g_refSite"); if(!input) return;
+    var raw=(input.value||"").trim(); if(!raw) return;
+    if(!state.refSites) state.refSites=[];
+    raw.split(/[\s,]+/).map(function(x){ return x.trim(); }).filter(Boolean).forEach(function(s){   // 쉼표·공백으로 여러 개 한 번에
+      if(state.refSites.indexOf(s)<0) state.refSites.push(s);
+    });
+    input.value=""; save(); renderRefSites();
+    var st=el("refFetchStatus"); if(st){ st.style.color="var(--muted)"; st.textContent=state.refSites.length+"개 사이트 대상 · [🔎 가져오기]를 누르세요."; }
+  }
+  function fetchFromWeb(){
+    if(pipelineBusy) return;
+    var btn=el("refFetchBtn"), st=el("refFetchStatus");
+    addRefSite();   // 입력칸에 남은 텍스트도 목록에 반영(누락 방지)
+    var topic=(state.topic||"").trim();
+    if(!topic){ st.style.color="var(--err)"; st.textContent="먼저 위 주제 칸에 검색할 주제를 입력하세요."; el("g_topic").focus(); return; }
+    if(bridgeConnected===false){ st.style.color="var(--err)"; st.textContent="브리지가 연결되지 않았습니다. 위 안내대로 연결 프로그램을 켜주세요."; return; }
+    var sites=(state.refSites||[]).slice();
+    var prov=state.provider, p=PROVIDERS[prov];
+    var model=(state.defaultModel||"").trim()||p.defaultModel;
+    var scope = sites.length
+      ? ("아래 '대상 소스 목록'의 각 사이트에서 관련 페이지를 여러 개 검색·페치해 깊이 있게 조사하세요.\n[대상 소스 목록]\n- "+sites.join("\n- ")+"\n")
+      : "웹에서 신뢰할 수 있는 여러 출처를 검색·페치해 폭넓게 조사하세요.\n";
+    var platform=(state.platform||"").trim();
+    var platLine = platform ? ("\n[제작할 콘텐츠 종류]\n"+platform+" — 이 형식으로 만들기 좋은 자료 위주로 모으세요.\n") : "";
+    var prompt="당신은 인스타그램 콘텐츠 기획을 위한 리서치 전문가입니다. 웹 검색·페치 도구를 적극적으로 사용해(필요하면 여러 번 검색·여러 페이지 탐색) 아래 주제로 인스타그램 콘텐츠를 만드는 데 '실제로 쓸 수 있는' 자료만 모으세요.\n"+scope+platLine+
+      "\n[조사 주제]\n"+topic+
+      "\n[무엇을 모을까 — 인스타그램 콘텐츠 관점]\n"+
+      "- 일반 시청자(비전문가)가 흥미를 느끼고 공감·저장·공유할 만한 내용 위주로.\n"+
+      "- 전문적·학술적 디테일(화학식·CAS번호·분자량·논문 수치·내부 메커니즘 등)은 그 자체로 넣지 말고, 후킹이나 설득에 쓸 수 있을 때만 쉬운 말로 풀어서 넣으세요.\n"+
+      "- 수치·고유명사·인용은 정확히 적고, 각 항목 끝에 [출처: URL · 게시일/확인일]을 붙이세요. 트렌드·반응은 최근 자료를 우선하고 한국 이용자에게 적용되는지 구분하며, 확인되지 않은 내용은 (추정).\n"+
+      "\n[출력 형식 — 한국어, 주제에 맞게 채우세요]\n"+
+      "1) 한 줄 요약 (이 주제가 왜 지금 관심을 끄는지)\n"+
+      "2) 후킹 포인트 (첫 2초·표지에 쓸 의외의·흥미로운·공감되는 사실 여러 개)\n"+
+      "3) 시청자 베네핏·셀링포인트 (소비자 언어로 '나에게 왜 좋은지')\n"+
+      "4) 자주 묻는 질문·오해 (콘텐츠 소재가 될 Q&A)\n"+
+      "5) 트렌드·반응·사례 (요즘 화제·실제 후기·인기 키워드/해시태그)\n"+
+      "6) 비주얼 아이디어 (영상·이미지로 보여줄 장면·소재)\n"+
+      "7) 표현 주의 (과장·단정·규제상 조심할 표현)\n"+
+      "8) 참고 출처 (URL 목록)\n"+
+      "- 군더더기 인사말 없이 위 구조로만 출력하고, 콘텐츠에 안 쓰일 백과사전식 정보는 빼세요.\n"+
+      "- 웹 접근이 전혀 불가능하면 다른 말 없이 정확히 NO_WEB_ACCESS 라고만 답하세요.";
+    pipelineBusy=true; setRunButtonsEnabled(false); if(btn) btn.disabled=true;
+    st.style.color="var(--muted)"; st.innerHTML='<span class="spinner"></span>'+esc(p.cli)+' CLI 로 '+(sites.length?(sites.length+'개 사이트'):'웹')+' 깊이 조사 중… (자료를 충분히 모으느라 최대 1~2분 걸릴 수 있어요)';
+    fetch(bridgePath("/run"), { method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ provider:prov, model:resolveModelId(prov, model), prompt:prompt }) })
+      .then(function(r){ return r.text().then(function(t){ var j=null; try{j=JSON.parse(t);}catch(e){} return {json:j,text:t,status:r.status}; }); })
+      .then(function(r){
+        if(!r.json) throw new Error("브리지 응답을 해석할 수 없습니다 (HTTP "+r.status+")");
+        var d=r.json;
+        if(!d.ok){ var em=d.error||("CLI 실행 실패 (종료코드 "+d.code+")"); if(d.stderr) em+="\n"+String(d.stderr).slice(0,300); throw new Error(em); }
+        var out=(d.output||"").trim();
+        if(!out) throw new Error("응답이 비어 있습니다.");
+        if(/^NO_WEB_ACCESS\s*$/.test(out)){
+          st.style.color="var(--warn)";
+          var tip = prov==="codex" ? "잠시 후 다시 시도하거나, " : "⚙ 설정에서 codex 로 바꾸면 웹 검색이 됩니다. 또는 ";
+          st.textContent="이 LLM("+p.cli+")이 지금 웹에 접근하지 못했어요. "+tip+"자료를 아래 '참조 자료' 칸에 직접 붙여넣으세요.";
+          return;
+        }
+        var ta=el("g_refData");
+        ta.value=(ta.value||"").replace(/\s+$/,"")+(ta.value.trim()?"\n\n":"")+"[웹 조사"+(sites.length?(" · "+sites.join(", ")):"")+"]\n"+out;
+        state.refData=ta.value; save(); updateAllMissing(); updateHeroBtn();
+        markStale(STEPS.map(function(s){ return s.id; }));   // 참조 자료는 1단계에 반영 → 하위 단계 stale
+        st.style.color="var(--ok)";
+        st.textContent="✓ 조사 결과 "+out.length+"자를 아래 '참조 자료' 칸에 추가했어요. 확인·편집한 뒤 콘텐츠를 만드세요."+(typeof d.durationMs==="number"?"  ("+Math.round(d.durationMs/1000)+"s)":"");
+      })
+      .catch(function(err){
+        var msg=(err&&err.message)?err.message:String(err);
+        if(/Failed to fetch|NetworkError|Load failed/i.test(msg)){ bridgeConnected=false; refreshConn(); msg="브리지에 연결할 수 없습니다."; }
+        st.style.color="var(--err)"; st.textContent="가져오기 실패: "+msg;
+      })
+      .then(function(){ pipelineBusy=false; setRunButtonsEnabled(bridgeConnected!==false); if(btn) btn.disabled=false; updateHeroBtn(); });
   }
 
   /* ====== 연결 상태 ====== */
@@ -795,12 +1724,14 @@
     else if(bridgeConnected===false){ txt.textContent="연결 안 됨"; if(nr) nr.classList.add("show");
       if(hs) hs.innerHTML="<b class='bad'>⚠ 준비 안 됨</b> · 위 안내를 따라 연결 프로그램을 켜주세요"; }
     else { txt.textContent="확인 중…"; if(hs) hs.textContent="연결 확인 중…"; }
-    setRunButtonsEnabled(bridgeConnected!==false && !pipelineBusy);
+    setRunButtonsEnabled(bridgeConnected!==false && !pipelineBusy); updateHeroBtn();
   }
   function checkBridge(){
     bridgeConnected=null; refreshConn();
-    fetch(bridgePath("/health")).then(function(r){ return r.json(); })
+    fetch(bridgePath("/health")+"?_="+Date.now(), { cache:"no-store" })
+      .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
       .then(function(d){
+        if(!d || d.ok!==true) throw new Error("브리지 응답 형식 오류");   // 엉뚱한 대상이 200/JSON 을 줘도 '준비됨' 오탐 방지
         bridgeConnected=true;
         var ps=(d&&d.providers)||{};
         var parts=Object.keys(PROVIDERS).map(function(k){ return PROVIDERS[k].cli+(ps[k]?" ✓":" ✗"); });
@@ -820,18 +1751,24 @@
   function exportJson(){ download("content-pipeline-"+timestamp()+".json", JSON.stringify(state,null,2), "application/json"); }
   function exportMarkdown(){
     var L=["# 콘텐츠 제작 파이프라인 산출물","","- 생성: "+new Date().toLocaleString("ko-KR"),"- LLM(CLI): "+PROVIDERS[state.provider].label,
-      "- 기본 모델: "+(state.defaultModel||""),"- 플랫폼: "+(state.platform||"(미입력)"),"","## 전역 입력","","### 주제 / 소스","",(state.topic||"(미입력)"),"","### 도메인 룰팩","",(state.rulepack||"(미입력)"),""];
+      "- 기본 모델: "+(state.defaultModel||""),"- 플랫폼: "+(state.platform||"(미입력)"),"","## 전역 입력","","### 주제 / 소스","",(state.topic||"(미입력)"),"","### 참조 자료 (웹 조사 등)","",(state.refData||"(없음)"),"","### 도메인 룰팩","",(state.rulepack||"(미입력)"),""];
     STEPS.forEach(function(s){ var st=state.steps[s.id]; L.push("## "+s.id+". "+s.title,"","_"+s.desc+"_","","**사용 모델:** "+((st.modelOverride||"").trim()||(state.defaultModel||"")||"(기본)"),"","### 결과","",(st.output||"(아직 결과 없음)"),""); });
-    L.push("---","","> 본 산출물은 이미지·영상 제작용 스크립트까지만 포함합니다. 실제 영상 생성은 별도 툴에서 진행하세요.");
+    var imgs=(state.imageGen&&state.imageGen.items)||[];
+    if(imgs.length){ L.push("## 생성 이미지","",""); imgs.forEach(function(it,i){ L.push("- #"+(i+1)+": `"+(it.path||it.url)+"`"); }); L.push(""); }
+    var vids=(state.videoGen&&state.videoGen.items)||[];
+    if(vids.length){ L.push("## 생성 영상 ("+(state.videoGen.engine||"higgsfield")+" / "+(state.videoGen.videoModel||"")+")",""); vids.forEach(function(it,i){ L.push("- 컷 #"+(i+1)+": `"+(it.path||"")+"`"+(it.videoUrl?(" · 원본 "+it.videoUrl):"")); }); L.push(""); }
+    L.push("---","","> 본 산출물은 제작용 스크립트와 생성 이미지를 포함합니다. 릴스는 영상 엔진(Higgsfield)으로 실제 영상까지 생성할 수 있으며, 결과 mp4 는 작업폴더 output/ 에 저장됩니다.");
     download("content-pipeline-"+timestamp()+".md", L.join("\n"), "text/markdown;charset=utf-8");
   }
   function resetAll(){
-    if(!window.confirm("모든 설정·템플릿·산출물을 초기화합니다. 계속할까요?")) return;
+    if(!window.confirm("지금까지의 입력과 결과를 모두 지우고 새로 시작할까요?")) return;
     try{ localStorage.removeItem(LS_KEY); }catch(e){}
     state.provider="claude"; state.defaultModel=PROVIDERS.claude.defaultModel;
-    state.topic=""; state.rulepack=""; state.platform="";
-    STEPS.forEach(function(s){ state.steps[s.id]=blankStep(s); });
-    initRunState(); bindSettingsToUI(); renderSteps(); save();
+    state.topic=""; state.rulepack=""; state.platform=""; state.refData="";
+    state.steps={}; state.collapsed={}; state.refSites=[]; state.imageGen={ prompts:"", runId:"", items:[], provider:"codex", concurrency:1 };
+    state.videoGen={ cuts:"", runId:"", items:[], provider:"claude", engine:"higgsfield", videoModel:"seedance_1_5", concurrency:1 };   // 출력·접힘·웹조사·이미지·영상 생성까지 초기화
+    setSteps("");
+    initRunState(); bindSettingsToUI(); renderSteps(); updateHeroBtn(); save();
   }
 
   /* ====== 설정 바인딩 ====== */
@@ -843,12 +1780,14 @@
     var list=(PROVIDERS[state.provider].models)||[];
     var cur=(state.defaultModel||"").trim();
     menu.innerHTML='<div class="mh">'+esc(PROVIDERS[state.provider].label)+' 추천 모델 (클릭하면 입력칸에 채워집니다)</div>';
+    if(!list.length){ menu.innerHTML+='<div class="mi" style="color:var(--muted); cursor:default;">이 도구는 콘솔에서 모델 지정이 필요 없습니다 (CLI 기본값 사용)</div>'; return; }
     list.forEach(function(m){
-      var item=document.createElement("div"); item.className="mi"+(m.id===cur?" current":"");
-      item.innerHTML='<span class="mid">'+esc(m.id)+'</span><span class="tag">'+esc(m.tag||"")+'</span>';
+      var disp=m.name||m.id;
+      var item=document.createElement("div"); item.className="mi"+(disp===cur?" current":"");
+      item.innerHTML='<span class="mid">'+esc(disp)+'</span><span class="tag">'+esc(m.tag||"")+'</span>';
       item.addEventListener("click", function(){
-        state.defaultModel=m.id; el("defaultModel").value=m.id; save();
-        menu.classList.remove("open");
+        state.defaultModel=disp; el("defaultModel").value=disp; save();
+        menu.classList.remove("open"); updateAllEff(); updateLlmInfo();
       });
       menu.appendChild(item);
     });
@@ -856,17 +1795,63 @@
 
   function closeAllMenus(){ document.querySelectorAll(".model-menu.open").forEach(function(m){ m.classList.remove("open"); }); }
 
+  /* ====== 모델 목록 최신화 (CLI 출처에서 조회) ====== */
+  var MODELS_LS_KEY = "cp_models_v2";
+  // 가져온 모델 목록을 PROVIDERS 에 반영(메모리). map: { codex:{models,source}, agy:{...}, claude:{...} }
+  function applyFetchedModels(map){
+    if(!map) return;
+    Object.keys(map).forEach(function(pk){
+      if(!PROVIDERS[pk]) return;
+      var entry=map[pk]; var list=entry&&entry.models;
+      if(Array.isArray(list) && list.length){
+        PROVIDERS[pk].models = list.map(function(m){ var o={ id:String(m.id), tag:String(m.tag||"") }; if(m.name) o.name=String(m.name); return o; });
+        if(entry.source) PROVIDERS[pk].sourceLabel = entry.source;
+      }
+    });
+    rebuildModelOwner();
+    if(el("modelMenu") && el("modelMenu").classList.contains("open")) renderModelMenu();
+    updateAllEff(); updateLlmInfo();
+  }
+  // 저장/복원(새로고침 후에도 최신화 결과 유지, 하드코딩 기본값 위에 덮어씀)
+  function saveFetchedModels(map){ try{ localStorage.setItem(MODELS_LS_KEY, JSON.stringify({ at:Date.now(), providers:map })); }catch(e){} }
+  function loadFetchedModels(){ try{ var raw=localStorage.getItem(MODELS_LS_KEY); if(!raw) return; var d=JSON.parse(raw); if(d&&d.providers) applyFetchedModels(d.providers); }catch(e){} }
+  function refreshModels(){
+    var btn=el("refreshModelsBtn"), st=el("refreshModelsStatus");
+    if(st){ st.style.color="var(--muted)"; st.textContent="조회 중…"; }
+    if(btn) btn.disabled=true;
+    fetch(bridgePath("/models")+"?_="+Date.now(), { cache:"no-store" }).then(function(r){ return r.json(); }).then(function(d){
+      if(!d||!d.ok){ throw new Error((d&&d.error)||"응답 오류"); }
+      applyFetchedModels(d.providers); saveFetchedModels(d.providers);
+      var parts=[]; Object.keys(d.providers).forEach(function(pk){
+        var e=d.providers[pk]; var n=(e&&e.models&&e.models.length)||0;
+        parts.push(PROVIDERS[pk] ? (PROVIDERS[pk].label.split(" ")[0]+" "+n+"종") : (pk+" "+n));
+      });
+      if(st){ st.style.color="var(--ok)"; st.textContent="✓ 최신화 완료 · "+parts.join(" · ")+" (출처: codex 캐시 · agy --help · claude 기본)"; }
+    }).catch(function(err){
+      if(st){ st.style.color="var(--err)"; st.textContent="최신화 실패: "+(err&&err.message?err.message:err)+" — 브리지 실행 여부 확인"; }
+    }).then(function(){ if(btn) btn.disabled=false; });
+  }
+
   // 단계별 모델 추천 메뉴(이 단계 실효 LLM의 모델 목록)
   function renderStepMenu(id){
     var e=stepEls[id]; if(!e||!e.pmenu) return;
     var prov=stepProvider(id); var list=PROVIDERS[prov].models||[];
     var cur=(state.steps[id].modelOverride||"").trim();
     e.pmenu.innerHTML='<div class="mh">'+esc(PROVIDERS[prov].label)+' 추천 모델</div>';
+    // 첫 항목: 단계 모델 override 해제(전역 기본값으로 복귀) — 한 번 고르면 못 비우던 문제 해결
+    var clr=document.createElement("div"); clr.className="mi"+(cur?"":" current");
+    clr.innerHTML='<span class="mid">전역 기본값 사용</span><span class="tag">비움</span>';
+    clr.addEventListener("click", function(){
+      state.steps[id].modelOverride=""; e.model.value=""; save();
+      e.pmenu.classList.remove("open"); updateEff(id);
+    });
+    e.pmenu.appendChild(clr);
     list.forEach(function(m){
-      var item=document.createElement("div"); item.className="mi"+(m.id===cur?" current":"");
-      item.innerHTML='<span class="mid">'+esc(m.id)+'</span><span class="tag">'+esc(m.tag||"")+'</span>';
+      var disp=m.name||m.id;
+      var item=document.createElement("div"); item.className="mi"+(disp===cur?" current":"");
+      item.innerHTML='<span class="mid">'+esc(disp)+'</span><span class="tag">'+esc(m.tag||"")+'</span>';
       item.addEventListener("click", function(){
-        state.steps[id].modelOverride=m.id; e.model.value=m.id; save();
+        state.steps[id].modelOverride=disp; e.model.value=disp; save();
         e.pmenu.classList.remove("open"); updateEff(id);
       });
       e.pmenu.appendChild(item);
@@ -879,15 +1864,23 @@
     var prov=stepProvider(id); var model=currentModel(id);
     var provOv=(state.steps[id].providerOverride||"").trim();
     var modelOv=(state.steps[id].modelOverride||"").trim();
-    e.effHint.innerHTML="실행 시: <b>"+esc(PROVIDERS[prov].label)+"</b> · <code>"+esc(model)+"</code>"+
+    e.effHint.innerHTML="실행 시: <b>"+esc(PROVIDERS[prov].label)+"</b> · <code>"+esc(model||"자동(CLI 기본값)")+"</code>"+
       (provOv||modelOv ? " <span class='ov'>(이 단계 전용)</span>" : " <span class='hint'>(전역 설정 상속)</span>");
   }
   function updateAllEff(){ STEPS.forEach(function(s){ updateEff(s.id); }); }
 
   function bindSettingsToUI(){
     el("provider").value=state.provider; el("defaultModel").value=state.defaultModel;
-    el("g_topic").value=state.topic; el("g_rulepack").value=state.rulepack; el("g_platform").value=state.platform;
-    updateProviderNote(); renderPlatformChips();
+    el("g_topic").value=state.topic; el("g_rulepack").value=state.rulepack; el("g_refData").value=state.refData;
+    updateProviderNote(); renderPlatformGroups(); updateLlmInfo(); renderRefSites();
+  }
+  function updateLlmInfo(){
+    var b=el("llmInfo"); if(!b) return;
+    var p=PROVIDERS[state.provider]||PROVIDERS.claude;
+    var name=(p.label||"").split(" ")[0]||state.provider;
+    var model=(state.defaultModel||"").trim()||p.defaultModel;
+    var t=el("llmInfoText"); if(t) t.textContent=model?(name+" · "+model):name;
+    b.title="전역 LLM: "+p.label+(model?" · 모델 "+model:" · 모델 자동(CLI 기본값)")+"  (클릭하면 고급 설정에서 변경)";
   }
   var allExpanded=false;
   function toggleAll(){
@@ -895,16 +1888,28 @@
     STEPS.forEach(function(s){ stepEls[s.id].card.classList.toggle("collapsed", !allExpanded); });
     el("toggleAll").textContent=allExpanded?"모두 접기":"모두 펼치기";
   }
-  /* ====== 테마(다크/라이트) ====== */
-  function currentTheme(){ try{ return localStorage.getItem("cp_theme")||"light"; }catch(e){ return "light"; } }
+  /* ====== 테마: 기본은 시스템(OS) 테마 따라감, 사용자가 토글하면 그 선택을 고정 ====== */
+  function systemTheme(){ try{ return (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light"; }catch(e){ return "light"; } }
+  function themePinned(){ try{ return localStorage.getItem("cp_theme_set")==="1"; }catch(e){ return false; } }
+  function currentTheme(){ if(themePinned()){ try{ return localStorage.getItem("cp_theme")||systemTheme(); }catch(e){} } return systemTheme(); }
   function applyTheme(t){
-    var dark = (t==="dark");
+    var dark=(t==="dark");
     document.documentElement.setAttribute("data-theme", dark?"dark":"light");
-    var b=el("themeToggle"); if(b) b.textContent = dark?"☀️":"🌙";
-    try{ localStorage.setItem("cp_theme", dark?"dark":"light"); }catch(e){}
+    var b=el("themeToggle"); if(b){ b.textContent=dark?"☀️":"🌙"; b.title="테마 전환"+(themePinned()?"":" · 시스템 테마 따라가는 중"); }
   }
-  function initTheme(){ applyTheme(currentTheme()); }
-  function toggleTheme(){ applyTheme(currentTheme()==="dark"?"light":"dark"); }
+  function initTheme(){
+    applyTheme(currentTheme());
+    // 사용자가 직접 고르지 않았으면 시스템 테마 변경을 실시간으로 따라감
+    try{ var mq=window.matchMedia("(prefers-color-scheme: dark)");
+      var h=function(){ if(!themePinned()) applyTheme(systemTheme()); };
+      if(mq.addEventListener) mq.addEventListener("change", h); else if(mq.addListener) mq.addListener(h);
+    }catch(e){}
+  }
+  function toggleTheme(){
+    var next = currentTheme()==="dark" ? "light" : "dark";
+    try{ localStorage.setItem("cp_theme", next); localStorage.setItem("cp_theme_set","1"); }catch(e){}
+    applyTheme(next);
+  }
 
   /* ====== 모드(간단/고급) ====== */
   function currentMode(){ try{ return localStorage.getItem("cp_mode")||"simple"; }catch(e){ return "simple"; } }
@@ -912,21 +1917,41 @@
     var simple=(m!=="advanced");
     document.body.classList.toggle("mode-simple", simple);
     document.body.classList.toggle("mode-advanced", !simple);
-    var b=el("modeToggle"); if(b) b.textContent = simple? "고급 ⚙" : "← 간단히";
+    var sw=el("advStepsToggle"); if(sw) sw.checked=!simple;
     try{ localStorage.setItem("cp_mode", simple?"simple":"advanced"); }catch(e){}
   }
   function initMode(){ applyMode(currentMode()); }
-  function toggleMode(){ applyMode(document.body.classList.contains("mode-simple")?"advanced":"simple"); renderSteps(); }
+  function setMode(m){ applyMode(m); renderSteps(); }
+
+  /* ====== 고급 설정 드로어 ====== */
+  function openDrawer(){ el("drawer").classList.add("open"); el("drawerBackdrop").classList.add("open"); }
+  function closeDrawer(){ el("drawer").classList.remove("open"); el("drawerBackdrop").classList.remove("open"); }
 
   /* ====== 플랫폼 칩 ====== */
-  var PLATFORMS=["인스타그램 릴스","유튜브 쇼츠","틱톡"];
-  function renderPlatformChips(){
-    var box=el("platformChips"); if(!box) return; box.innerHTML="";
+  // 플랫폼별 콘텐츠 종류 (선택만 가능). 추후 유튜브/틱톡 등은 아래 그룹을 추가하면 자동 노출됩니다.
+  var PLATFORM_GROUPS=[
+    { platform:"인스타그램", types:[
+      {l:"카드뉴스", v:"인스타그램 카드뉴스"},
+      {l:"피드",     v:"인스타그램 피드"},
+      {l:"스토리",   v:"인스타그램 스토리"},
+      {l:"릴스",     v:"인스타그램 릴스"}
+    ]}
+    // ,{ platform:"유튜브", types:[ {l:"쇼츠", v:"유튜브 쇼츠"}, {l:"롱폼", v:"유튜브 롱폼"} ] }
+    // ,{ platform:"틱톡",   types:[ {l:"영상", v:"틱톡 영상"} ] }
+  ];
+  function renderPlatformGroups(){
+    var box=el("platformGroups"); if(!box) return; box.innerHTML="";
     var cur=(state.platform||"").trim();
-    PLATFORMS.forEach(function(p){
-      var c=document.createElement("button"); c.type="button"; c.className="chip"+(cur===p?" sel":""); c.textContent=p;
-      c.addEventListener("click", function(){ state.platform=p; var gp=el("g_platform"); if(gp) gp.value=p; save(); renderPlatformChips(); });
-      box.appendChild(c);
+    PLATFORM_GROUPS.forEach(function(g){
+      var grp=document.createElement("div"); grp.className="platform-group";
+      var gl=document.createElement("div"); gl.className="pg-label"; gl.textContent=g.platform;
+      var chips=document.createElement("div"); chips.className="chips";
+      g.types.forEach(function(t){
+        var c=document.createElement("button"); c.type="button"; c.className="chip"+(cur===t.v?" sel":""); c.textContent=t.l;
+        c.addEventListener("click", function(){ if(inputsLocked()) return; state.platform=t.v; setSteps(state.platform); save(); renderPlatformGroups(); renderSteps(); });
+        chips.appendChild(c);
+      });
+      grp.appendChild(gl); grp.appendChild(chips); box.appendChild(grp);
     });
   }
 
@@ -936,35 +1961,45 @@
       // 현재 모델이 '이전 provider의 모델'(기본값 또는 추천목록)이면 새 provider 기본값으로 교체.
       // 사용자가 직접 타이핑한 커스텀 값은 보존.
       var cur=(state.defaultModel||"").trim();
-      var prevIds=(PROVIDERS[prev].models||[]).map(function(m){return m.id;});
+      var prevIds=[]; (PROVIDERS[prev].models||[]).forEach(function(m){ prevIds.push(m.id); if(m.name) prevIds.push(m.name); });
       if(!cur || cur===PROVIDERS[prev].defaultModel || prevIds.indexOf(cur)>=0){
         state.defaultModel=PROVIDERS[state.provider].defaultModel; el("defaultModel").value=state.defaultModel;
       }
-      updateProviderNote(); updateAllEff(); save(); if(bridgeConnected) checkBridge();
+      updateProviderNote(); updateAllEff(); updateLlmInfo(); save(); if(bridgeConnected) checkBridge();
     });
-    el("defaultModel").addEventListener("input", function(){ state.defaultModel=el("defaultModel").value; save(); updateAllEff(); });
-    el("g_topic").addEventListener("input", function(){ state.topic=el("g_topic").value; save(); updateAllMissing(); });
-    el("g_rulepack").addEventListener("input", function(){ state.rulepack=el("g_rulepack").value; save(); });
-    el("g_platform").addEventListener("input", function(){ state.platform=el("g_platform").value; save(); renderPlatformChips(); });
+    el("defaultModel").addEventListener("input", function(){ state.defaultModel=el("defaultModel").value; save(); updateAllEff(); updateLlmInfo(); });
+    el("g_topic").addEventListener("input", function(){ state.topic=el("g_topic").value; save(); updateAllMissing(); updateHeroBtn(); markStale(STEPS.map(function(s){return s.id;})); });   // 주제 변경 → 전 단계 stale
+    el("g_rulepack").addEventListener("input", function(){ state.rulepack=el("g_rulepack").value; save(); markStale([2].concat(dependentsOf(2))); });   // 룰팩 변경 → 2단계(분석)부터 stale
+    el("g_refData").addEventListener("input", function(){ state.refData=el("g_refData").value; save(); updateAllMissing(); markStale([1].concat(dependentsOf(1))); });   // 참조 자료 변경 → 1단계부터 stale
+    el("refAddBtn").addEventListener("click", addRefSite);
+    el("refFetchBtn").addEventListener("click", fetchFromWeb);
+    el("g_refSite").addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); addRefSite(); } });   // Enter = 목록에 추가(검색 아님)
     el("connPill").addEventListener("click", checkBridge);
+    el("connPill").addEventListener("keydown", function(e){ if(e.key==="Enter"||e.key===" "||e.key==="Spacebar"){ e.preventDefault(); checkBridge(); } });   // span[role=button] 은 Enter/Space 클릭을 자동 합성하지 않음
+    el("llmInfo").addEventListener("click", openDrawer);
+    el("refreshModelsBtn").addEventListener("click", refreshModels);
     el("recheckBtn").addEventListener("click", checkBridge);
-    el("modelPickBtn").addEventListener("click", function(e){ e.stopPropagation(); var open=el("modelMenu").classList.contains("open"); closeAllMenus(); if(!open){ renderModelMenu(); el("modelMenu").classList.add("open"); } });
+    var openModelMenu=function(e){ e.stopPropagation(); var open=el("modelMenu").classList.contains("open"); closeAllMenus(); if(!open){ renderModelMenu(); el("modelMenu").classList.add("open"); } };
+    el("defaultModel").addEventListener("click", openModelMenu);   // 읽기 전용 입력칸 클릭 시 모델 메뉴 열림(별도 버튼 없음)
     el("modelMenu").addEventListener("click", function(e){ e.stopPropagation(); });
     document.addEventListener("click", closeAllMenus);
-    el("runAll").addEventListener("click", runAll);
+    el("runAll").addEventListener("click", runNext);
     el("toggleAll").addEventListener("click", toggleAll);
     el("themeToggle").addEventListener("click", toggleTheme);
-    el("modeToggle").addEventListener("click", toggleMode);
-    el("heroRun").addEventListener("click", runAll);
+    el("modeToggle").addEventListener("click", openDrawer);
+    el("drawerClose").addEventListener("click", closeDrawer);
+    el("drawerBackdrop").addEventListener("click", closeDrawer);
+    document.addEventListener("keydown", function(e){ if(e.key==="Escape") closeDrawer(); });
+    el("advStepsToggle").addEventListener("change", function(){ setMode(el("advStepsToggle").checked?"advanced":"simple"); });
+    el("heroRun").addEventListener("click", runNext);
+    el("heroAuto").addEventListener("click", runAll);
     el("heroExport").addEventListener("click", exportMarkdown);
+    el("heroReset").addEventListener("click", resetAll);
     el("copyCmd").addEventListener("click", function(){ copyText(el("bridgeCmd").textContent, el("copyCmd")); });
-    el("exportJson").addEventListener("click", exportJson);
-    el("exportMd").addEventListener("click", exportMarkdown);
-    el("resetAll").addEventListener("click", resetAll);
   }
 
   /* ====== init ====== */
-  initTheme(); initMode(); load(); initRunState(); bindSettingsToUI(); wireSettings(); renderSteps(); refreshConn(); checkBridge();
+  initTheme(); initMode(); loadFetchedModels(); load(); initRunState(); bindSettingsToUI(); wireSettings(); renderSteps(); refreshConn(); checkBridge();
 })();
 </script>
 </body>

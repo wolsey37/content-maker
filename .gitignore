@@ -13,3 +13,8 @@
 # 로컬 산출물/내보내기
 content-pipeline-*.json
 content-pipeline-*.md
+
+# 생성 이미지 출력 폴더(작업폴더 기준)
+/output/
+console/output/
+output/
