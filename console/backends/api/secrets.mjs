@@ -10,7 +10,7 @@
  * @aws-sdk/client-secrets-manager 는 SECRETS_ID 가 있을 때만 동적 import → 로컬 env 모드는 SDK 미로드.
  * ========================================================================== */
 
-const KNOWN_KEYS = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY"];
+const KNOWN_KEYS = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "JWT_SECRET"];
 let cached = null;   // 모듈 레벨 캐시(Lambda 컨테이너 재사용 시 유지)
 
 export async function loadSecrets(env) {
@@ -19,6 +19,9 @@ export async function loadSecrets(env) {
 
   const fromEnv = {};
   for (const k of KNOWN_KEYS) if (env[k]) fromEnv[k] = env[k];
+  // 시크릿 JSON 의 'jwt-secret'(하이픈) 키. 로컬/테스트는 env JWT_SECRET 로도 받는다.
+  if (env["jwt-secret"]) fromEnv["jwt-secret"] = env["jwt-secret"];
+  if (env.JWT_SECRET && !fromEnv["jwt-secret"]) fromEnv["jwt-secret"] = env.JWT_SECRET;
 
   if (env.SECRETS_ID) {
     try {

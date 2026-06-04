@@ -290,11 +290,47 @@
   .job-row .job-title{ font-weight:600; font-size:13.5px; color:var(--ink); word-break:break-word; }
   .job-row .job-sub{ font-size:11.5px; color:var(--muted); margin-top:2px; }
   .job-acts{ display:flex; gap:6px; flex:0 0 auto; }
+  /* ===== 서버 모드 로그인 오버레이 ===== */
+  .login-overlay{ position:fixed; inset:0; z-index:200; background:var(--bg); display:flex; align-items:center; justify-content:center; padding:20px; }
+  .login-card{ width:100%; max-width:360px; background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:28px 24px; box-shadow:0 10px 40px rgba(0,0,0,.18); }
+  .login-badge{ display:inline-block; font-size:11px; font-weight:800; letter-spacing:.12em; color:var(--brand); background:var(--brand-soft); padding:4px 10px; border-radius:999px; }
+  .login-title{ font-size:20px; margin:14px 0 4px; color:var(--ink); }
+  .login-sub{ font-size:13px; color:var(--muted); margin:0 0 18px; }
+  .login-field{ margin-bottom:12px; }
+  .login-field label{ display:block; font-size:12.5px; color:var(--muted); margin-bottom:5px; }
+  .login-field input{ width:100%; box-sizing:border-box; padding:11px 12px; border:1px solid var(--line); border-radius:9px; background:var(--input-bg); color:var(--ink); font-size:14px; }
+  .login-field input:focus{ outline:none; border-color:var(--brand); }
+  .login-submit{ width:100%; margin-top:6px; padding:11px; font-size:15px; }
+  .tfa-timer{ float:right; font-weight:700; color:var(--brand); }
+  .tfa-timer.expired{ color:var(--err); }
+  .login-err{ margin-top:12px; padding:9px 11px; border-radius:8px; background:rgba(220,60,60,.12); color:var(--err); font-size:12.5px; }
+  .login-note{ margin-top:16px; font-size:12px; color:var(--muted); text-align:center; }
 </style>
 </head>
 <body>
 
 <!-- ===== 상단 고정 바 ===== -->
+<!-- ===== 서버 모드 로그인 오버레이 (로컬 모드에선 표시 안 됨) ===== -->
+<div id="loginOverlay" class="login-overlay" style="display:none;">
+  <div class="login-card">
+    <div class="login-badge">LOGIN</div>
+    <h2 class="login-title">콘텐츠 제작 파이프라인</h2>
+    <p class="login-sub">서버(API) 모드 · 어드민 로그인</p>
+    <div id="loginPwView">
+      <div class="login-field"><label for="loginId">아이디 (이메일)</label><input type="email" id="loginId" autocomplete="username" spellcheck="false" placeholder="admin@example.com"></div>
+      <div class="login-field"><label for="loginPw">비밀번호</label><input type="password" id="loginPw" autocomplete="current-password"></div>
+      <button class="btn primary login-submit" id="loginBtn" type="button">로그인</button>
+    </div>
+    <div id="login2faView" style="display:none;">
+      <div class="login-field"><label for="login2fa">인증번호 <span class="tfa-timer" id="tfaTimer"></span></label><input type="text" id="login2fa" inputmode="numeric" autocomplete="one-time-code" placeholder="인증번호 입력"></div>
+      <button class="btn primary login-submit" id="verify2faBtn" type="button">인증 확인</button>
+      <button class="btn ghost sm" id="resend2faBtn" type="button" style="margin-top:6px;">인증번호 재발송</button>
+    </div>
+    <div class="login-err" id="loginErr" style="display:none;"></div>
+    <p class="login-note">파마브로스 어드민 계정으로 로그인해 주세요.</p>
+  </div>
+</div>
+
 <div class="topbar">
   <div class="topbar-inner">
     <div class="topbar-top">
@@ -380,15 +416,8 @@
       <label class="switch-row"><input type="checkbox" id="advStepsToggle"> 단계별 상세 옵션 표시</label>
 
       <div class="drawer-section" id="serverCfgRow" style="display:none;">
-        <div class="field">
-          <label for="serverUrlInput">서버 URL</label>
-          <input type="text" id="serverUrlInput" spellcheck="false" placeholder="https://xxxx.lambda-url.ap-northeast-2.on.aws">
-        </div>
-        <div class="field" style="margin-top:6px;">
-          <label for="serverTokenInput">인증 토큰 (어드민)</label>
-          <input type="password" id="serverTokenInput" spellcheck="false" placeholder="Bearer 토큰">
-        </div>
-        <div class="hint" style="margin-top:6px;">서버(API) 모드 접속 설정. 텍스트·이미지를 API로 생성하며 <b>영상(릴스)은 로컬 모드</b>에서 제작합니다. 키는 서버(Secrets Manager)에만 있으며 이 화면엔 저장되지 않습니다.</div>
+        <div class="hint">서버(API) 모드 — 파마브로스 어드민 계정으로 로그인되어 있습니다. 텍스트·이미지를 API로 생성하며 <b>영상(릴스)은 로컬 모드</b>에서 제작합니다.</div>
+        <button class="btn ghost sm" id="logoutBtn" type="button" style="margin-top:8px;">로그아웃</button>
       </div>
 
       <div class="drawer-section">
@@ -706,15 +735,13 @@
   }
   function modeQueryOverride(){ try{ var q=new URLSearchParams(location.search).get("mode"); return (q==="local"||q==="server")?q:null; }catch(e){ return null; } }
   function runMode(){ return isLocalHost() ? (modeQueryOverride() || "local") : "server"; }
-  function serverUrl(){ try{ return (localStorage.getItem("cp_server_url")||"").replace(/\/+$/,""); }catch(e){ return ""; } }
-  function serverToken(){ try{ return localStorage.getItem("cp_server_token")||""; }catch(e){ return ""; } }
-  // 백엔드 base: 서버 모드면 Lambda URL, 로컬이면 bridgeBase()(보통 "").
-  function apiBase(){ return runMode()==="server" ? serverUrl() : bridgeBase(); }
-  // 모든 API 호출의 단일 통로. 로컬 모드에선 fetch(bridgePath(path), opts) 와 동일하게 동작.
+  // 백엔드 base: 서버 모드는 same-origin(Cloudflare Pages 가 /api/* → Lambda, /api/auth → 어드민 으로 프록시),
+  //   로컬은 bridgeBase()(보통 ""). 서버 모드 인증 토큰은 '로그인 JWT' 하나로 통일(아래 getJwt).
+  function apiBase(){ return runMode()==="server" ? "" : bridgeBase(); }
   function apiFetch(path, opts){
     opts = opts || {};
     var headers = {}; if(opts.headers){ for(var hk in opts.headers) headers[hk]=opts.headers[hk]; }
-    if(runMode()==="server"){ var tk=serverToken(); if(tk) headers["Authorization"]="Bearer "+tk; }
+    if(runMode()==="server"){ var tk=getJwt(); if(tk) headers["Authorization"]="Bearer "+tk; }
     var o={}; for(var ok in opts) o[ok]=opts[ok]; o.headers=headers;
     return fetch(apiBase()+path, o);
   }
@@ -1812,6 +1839,90 @@
     else { txt.textContent="확인 중…"; if(hs) hs.textContent="연결 확인 중…"; }
     setRunButtonsEnabled(bridgeConnected!==false && !pipelineBusy); updateHeroBtn();
   }
+  /* ====== 서버 모드 인증 — 파마브로스 어드민 로그인 → JWT (nukki-cut 흐름 참조) ====== */
+  var JWT_KEY="cm_admin_jwt", AUTH_API_BASE="/api/auth", TFA_TIMEOUT=240;
+  var tfaAdminId="", tfaAdminIdx=0, tfaTimerId=null;
+  function getJwt(){ try{ return localStorage.getItem(JWT_KEY); }catch(e){ return null; } }
+  function setJwt(t){ try{ localStorage.setItem(JWT_KEY, t); }catch(e){} }
+  function clearJwt(){ try{ localStorage.removeItem(JWT_KEY); }catch(e){} }
+  // 클라이언트는 exp 만 확인(서명 검증은 Lambda 가 jwt-secret 으로). 명백히 만료된 토큰의 헛 왕복 방지.
+  function isJwtExpired(t){
+    if(!t||typeof t!=="string") return true;
+    var p=t.split("."); if(p.length!==3) return true;
+    try{ var pl=JSON.parse(atob(p[1].replace(/-/g,"+").replace(/_/g,"/"))); var now=Math.floor(Date.now()/1000); return typeof pl.exp!=="number"||pl.exp<=now; }catch(e){ return true; }
+  }
+  function loginErr(m){ var e=el("loginErr"); if(!e) return; if(m){ e.textContent=m; e.style.display="block"; } else { e.textContent=""; e.style.display="none"; } }
+  function show2faView(on){ var pw=el("loginPwView"), tf=el("login2faView"); if(pw) pw.style.display=on?"none":""; if(tf) tf.style.display=on?"":"none"; if(!on) stopTfaTimer(); }
+  function showLogin(){ var o=el("loginOverlay"); if(o) o.style.display="flex"; show2faView(false); loginErr(""); var i=el("loginId"); if(i) setTimeout(function(){ try{i.focus();}catch(e){} },50); }
+  function hideLogin(){ var o=el("loginOverlay"); if(o) o.style.display="none"; stopTfaTimer(); }
+  function authFetch(path, body, method){ return fetch(AUTH_API_BASE+path, { method:method||"POST", headers:{"Content-Type":"application/json", Accept:"application/json"}, body:JSON.stringify(body) }); }
+  function pickToken(ld){ return (ld && ld.token && (ld.token.accessToken||ld.token.access_token)) || ""; }
+  function doLogin(){
+    var btn=el("loginBtn"); if(!btn||btn.disabled) return; btn.disabled=true;
+    var adminId=(el("loginId").value||"").trim(), password=el("loginPw").value||"";
+    if(!adminId||!password){ loginErr("아이디와 비밀번호를 입력하세요."); btn.disabled=false; return; }
+    loginErr("");
+    authFetch("/api/admin/v2/authentications/login", { adminId:adminId, password:password })
+      .then(function(res){ return res.json().catch(function(){return{};}).then(function(data){ return {res:res, data:data}; }); })
+      .then(function(r){
+        if(!r.res.ok){ loginErr((r.data&&(r.data.message||r.data.title))||"로그인 실패"); return; }
+        var ld=(r.data&&r.data.data)||r.data||{};
+        if(ld.is2FaAuth){ tfaAdminId=ld.adminId||adminId; tfaAdminIdx=ld.adminIdx||0; send2fa(); return; }
+        var token=pickToken(ld);
+        if(!token){ loginErr("응답에서 토큰을 찾지 못했습니다."); return; }
+        onLoginSuccess(token);
+      })
+      .catch(function(e){ loginErr("연결 실패: "+(e&&e.message||e)); })
+      .then(function(){ btn.disabled=false; });
+  }
+  function send2fa(){
+    authFetch("/api/admin/v2/authentications/2fa/send", { adminId:tfaAdminId, adminIdx:tfaAdminIdx })
+      .then(function(res){ if(!res.ok) return res.json().catch(function(){return{};}).then(function(e){ throw new Error(e.message||"2FA 인증번호 발송 실패"); }); show2faView(true); var i=el("login2fa"); if(i){ i.value=""; try{i.focus();}catch(e){} } startTfaTimer(); })
+      .catch(function(e){ loginErr((e&&e.message)||"2FA 발송 실패"); });
+  }
+  function doVerify2fa(){
+    var btn=el("verify2faBtn"); if(!btn||btn.disabled) return; btn.disabled=true;
+    var code=(el("login2fa").value||"").trim();
+    if(!code){ loginErr("인증번호를 입력하세요."); btn.disabled=false; return; }
+    loginErr("");
+    authFetch("/api/admin/v2/authentications/2fa/verify", { adminId:tfaAdminId, adminIdx:tfaAdminIdx, authCode:code }, "PUT")
+      .then(function(res){ return res.json().catch(function(){return{};}).then(function(data){ return {res:res, data:data}; }); })
+      .then(function(r){
+        if(!r.res.ok){ loginErr((r.data&&r.data.message)||"인증번호가 올바르지 않습니다."); return; }
+        stopTfaTimer();
+        var ld=(r.data&&r.data.data)||r.data||{}; var token=pickToken(ld);
+        if(!token){ loginErr("토큰을 찾지 못했습니다."); return; }
+        onLoginSuccess(token);
+      })
+      .catch(function(e){ loginErr("인증 실패: "+(e&&e.message||e)); })
+      .then(function(){ btn.disabled=false; });
+  }
+  function startTfaTimer(){
+    stopTfaTimer(); var remaining=TFA_TIMEOUT, t=el("tfaTimer"); if(t) t.classList.remove("expired");
+    function tick(){ if(!t) return; var m=Math.floor(remaining/60), s=remaining%60; t.textContent=("0"+m).slice(-2)+":"+("0"+s).slice(-2); if(remaining<=0){ stopTfaTimer(); t.classList.add("expired"); return; } remaining--; }
+    tick(); tfaTimerId=setInterval(tick,1000);
+  }
+  function stopTfaTimer(){ if(tfaTimerId){ clearInterval(tfaTimerId); tfaTimerId=null; } }
+  function onLoginSuccess(token){ setJwt(token); hideLogin(); checkBridge(); }
+  function doLogout(){ clearJwt(); if(runMode()==="server") showLogin(); }
+  // 서버 모드 + JWT 없음/만료 → 로그인 표시(false). 로컬 모드는 로그인 없음(true).
+  function ensureAuth(){
+    if(runMode()!=="server"){ hideLogin(); return true; }
+    var t=getJwt();
+    if(t && !isJwtExpired(t)){ hideLogin(); return true; }
+    if(t) clearJwt();
+    showLogin();
+    return false;
+  }
+  function wireLogin(){
+    var b1=el("loginBtn"); if(b1) b1.addEventListener("click", doLogin);
+    var b2=el("verify2faBtn"); if(b2) b2.addEventListener("click", doVerify2fa);
+    var b3=el("resend2faBtn"); if(b3) b3.addEventListener("click", function(){ loginErr(""); send2fa(); });
+    var pw=el("loginPw"); if(pw) pw.addEventListener("keydown", function(e){ if(e.key==="Enter") doLogin(); });
+    var c=el("login2fa"); if(c) c.addEventListener("keydown", function(e){ if(e.key==="Enter") doVerify2fa(); });
+    var lo=el("logoutBtn"); if(lo) lo.addEventListener("click", doLogout);
+  }
+
   // 서버(API) 모드: /health(capabilities)+/models 로 활성 provider 만 모아 PROVIDERS 를 재구성.
   function buildServerProviders(health, models){
     var provs={}, caps=(health&&health.capabilities)||{}, act=(health&&health.providers)||{}, mlist=(models&&models.providers)||{};
@@ -2117,12 +2228,7 @@
   }
   function initMode(){ applyMode(currentMode()); }
   // 실행 방식(로컬/서버) UI 초기값 반영 — PROVIDERS 교체는 checkBridge 가 수행.
-  function initRunModeUI(){
-    if(el("runModeSel")) el("runModeSel").value=runModePref();
-    if(el("serverUrlInput")) el("serverUrlInput").value=serverUrl();
-    if(el("serverTokenInput")) el("serverTokenInput").value=serverToken();
-    updateRunModeUI(runMode());
-  }
+  function initRunModeUI(){ updateRunModeUI(runMode()); }
   function setMode(m){ applyMode(m); renderSteps(); }
 
   /* ====== 고급 설정 드로어 ====== */
@@ -2176,8 +2282,6 @@
     el("refAddBtn").addEventListener("click", addRefSite);
     el("refFetchBtn").addEventListener("click", fetchFromWeb);
     el("g_refSite").addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); addRefSite(); } });   // Enter = 목록에 추가(검색 아님)
-    el("serverUrlInput").addEventListener("input", function(){ try{ localStorage.setItem("cp_server_url", el("serverUrlInput").value.trim()); }catch(e){} });
-    el("serverTokenInput").addEventListener("input", function(){ try{ localStorage.setItem("cp_server_token", el("serverTokenInput").value); }catch(e){} });
     el("connPill").addEventListener("click", checkBridge);
     el("connPill").addEventListener("keydown", function(e){ if(e.key==="Enter"||e.key===" "||e.key==="Spacebar"){ e.preventDefault(); checkBridge(); } });   // span[role=button] 은 Enter/Space 클릭을 자동 합성하지 않음
     el("llmInfo").addEventListener("click", openDrawer);
@@ -2208,7 +2312,8 @@
   }
 
   /* ====== init ====== */
-  initTheme(); initMode(); loadFetchedModels(); load(); initRunState(); bindSettingsToUI(); wireSettings(); initRunModeUI(); renderSteps(); refreshConn(); checkBridge();
+  initTheme(); initMode(); loadFetchedModels(); load(); initRunState(); bindSettingsToUI(); wireSettings(); wireLogin(); initRunModeUI(); renderSteps(); refreshConn();
+  if(ensureAuth()) checkBridge();   // 서버 모드 & 미로그인 시 로그인 오버레이 표시 → 성공 시 checkBridge
 })();
 </script>
 </body>

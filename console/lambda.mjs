@@ -13,6 +13,8 @@
 import { createCore } from "./server-core.mjs";
 import { createStorage } from "./storage/index.mjs";
 import { makeApiBackend } from "./backends/api/index.mjs";
+import { loadSecrets } from "./backends/api/secrets.mjs";
+import { verifyJwtHS256, subjectOf } from "./backends/api/jwt.mjs";
 
 const ALLOWED = String(process.env.ALLOWED_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean);
 function originAllowed(origin) {
@@ -31,21 +33,17 @@ function corsHeaders(origin) {
   };
 }
 
-/* 어드민 API 토큰 검증 seam.
- * ⚠ 기존 어드민 API 스펙에 맞게 조정할 부분(현재는 합리적 기본):
- *   - ADMIN_VERIFY_URL 로 Authorization: Bearer <token> 을 보내 200 이면 유효로 본다.
- *   - 응답 JSON 에서 사용자 식별자를 userId/id/sub 중 하나로 추출(작업 per-user prefix 에 사용).
- *   - 헤더/메서드/바디·JWT 자체검증 등 방식이 다르면 이 함수만 교체하면 된다(코어 불변). */
+/* 토큰 검증 — 파마브로스 어드민 API 가 발급한 JWT 를 'prod/store' 시크릿의 jwt-secret 으로 로컬 서명 검증.
+ *   알고리즘은 HS256 으로 고정(토큰 alg 헤더 불신, none/기타 거부). 발급은 우리가 하지 않는다.
+ *   ※ 실제 alg 가 HS256 이 아니면(예: RS256) jwt.mjs 검증기를 그에 맞게 확장해야 한다. */
 async function verifyToken(token) {
   if (!token) return { ok: false };
-  const url = process.env.ADMIN_VERIFY_URL;
-  if (!url) return { ok: false };           // 미설정이면 거부(안전 기본)
-  try {
-    const resp = await fetch(url, { headers: { "Authorization": "Bearer " + token }, signal: AbortSignal.timeout(8000) });
-    if (!resp.ok) return { ok: false };
-    const data = await resp.json().catch(() => ({}));
-    return { ok: true, userId: data.userId || data.id || data.sub || null };
-  } catch (e) { return { ok: false }; }
+  const secrets = await loadSecrets(process.env);
+  const secret = secrets["jwt-secret"] || secrets.JWT_SECRET;
+  if (!secret) return { ok: false };
+  const r = verifyJwtHS256(token, secret);
+  if (!r.ok) return { ok: false };
+  return { ok: true, userId: subjectOf(r.payload) };
 }
 
 // 콜드스타트 1회 조립(컨테이너 재사용 시 캐시) — Secrets/SDK 클라이언트 재활용.
