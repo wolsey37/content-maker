@@ -18,3 +18,7 @@ content-pipeline-*.md
 /output/
 console/output/
 output/
+
+# Node 의존성 / Lambda 빌드 산출물
+node_modules/
+console/lambda.zip
