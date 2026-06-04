@@ -291,6 +291,12 @@
   .job-row .job-sub{ font-size:11.5px; color:var(--muted); margin-top:2px; }
   .job-acts{ display:flex; gap:6px; flex:0 0 auto; }
   .job-date{ padding:6px 8px; border:1px solid var(--line); border-radius:7px; background:var(--input-bg); color:var(--ink); font-size:12px; }
+  /* 작업 라이브러리(jobsPanel)는 사이드 드로어가 아니라 '전체화면 페이지' — 로그인 후 진입 화면 */
+  #jobsPanel{ width:100%; max-width:none; border-left:none; }
+  #jobsPanel .drawer-head, #jobsPanel .drawer-body{ max-width:1000px; margin-left:auto; margin-right:auto; width:100%; box-sizing:border-box; }
+  #jobsPanel #jobsList{ display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:10px; }
+  #jobsPanel #jobsList .job-row{ flex-direction:column; align-items:stretch; gap:10px; }
+  #jobsPanel #jobsList .job-acts{ justify-content:flex-end; }
   /* ===== 서버 모드 로그인 오버레이 ===== */
   .login-overlay{ position:fixed; inset:0; z-index:200; background:var(--bg); display:flex; align-items:center; justify-content:center; padding:20px; }
   .login-card{ width:100%; max-width:360px; background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:28px 24px; box-shadow:0 10px 40px rgba(0,0,0,.18); }
@@ -345,6 +351,7 @@
       <button class="btn primary" id="runAll" type="button">▶ 만들기</button>
       <button class="btn ghost sm adv-only" id="toggleAll" type="button">모두 펼치기</button>
       <button class="btn ghost sm" id="jobsBtn" type="button" title="저장된 작업 목록">📁 작업</button>
+      <button class="btn ghost sm" id="logoutTopBtn" type="button" title="로그아웃" style="display:none;">로그아웃</button>
       <button class="btn ghost sm" id="modeToggle" type="button" title="설정 열기">설정 ⚙</button>
       <button class="btn ghost icon-btn" id="themeToggle" type="button" title="다크/라이트 모드 전환" aria-label="테마 전환">🌙</button>
     </div>
@@ -1943,7 +1950,7 @@
     // 계정 설정·템플릿 조용히 적용(있으면). 작업을 열면 그 job state 가 우선한다.
     apiFetch("/meta?_="+Date.now(),{ cache:"no-store" }).then(function(r){ return r.json(); }).then(function(d){ if(d&&d.ok&&d.meta) applyAccountMeta(d.meta); }).catch(function(){});
   }
-  function doLogout(){ clearJwt(); if(runMode()==="server") showLogin(); }
+  function doLogout(){ clearJwt(); jobsPanelClose(); closeDrawer(); if(runMode()==="server") showLogin(); }
   // 서버 모드 + JWT 없음/만료 → 로그인 표시(false). 로컬 모드는 로그인 없음(true).
   function ensureAuth(){
     if(runMode()!=="server"){ hideLogin(); return true; }
@@ -1960,6 +1967,7 @@
     var pw=el("loginPw"); if(pw) pw.addEventListener("keydown", function(e){ if(e.key==="Enter") doLogin(); });
     var c=el("login2fa"); if(c) c.addEventListener("keydown", function(e){ if(e.key==="Enter") doVerify2fa(); });
     var lo=el("logoutBtn"); if(lo) lo.addEventListener("click", doLogout);
+    var lt=el("logoutTopBtn"); if(lt) lt.addEventListener("click", doLogout);
     var ms=el("metaSaveBtn"); if(ms) ms.addEventListener("click", saveAccountMeta);
     var ml=el("metaLoadBtn"); if(ml) ml.addEventListener("click", loadAccountMeta);
   }
@@ -1995,6 +2003,7 @@
   function updateRunModeUI(eff){
     eff=eff||runMode();
     var row=el("serverCfgRow"); if(row) row.style.display=(eff==="server")?"":"none";
+    var lo=el("logoutTopBtn"); if(lo) lo.style.display=(eff==="server")?"":"none";   // 헤더 로그아웃은 서버 모드만
     var bt=el("modeBadgeText"); if(bt) bt.textContent=(eff==="server")?"☁️ 서버 모드":"💻 로컬 모드";
     var badge=el("modeBadge"); if(badge) badge.title=(eff==="server"?"서버(API) 모드":"로컬(CLI) 모드")+" — 접속 도메인으로 자동 결정"+(isLocalHost()?" · 로컬에선 ?mode=server / ?mode=local 로 전환":"");
   }

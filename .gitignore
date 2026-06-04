@@ -24,3 +24,4 @@ node_modules/
 console/lambda.zip
 .aws-sam/
 console/samconfig.toml
+console/dist/
