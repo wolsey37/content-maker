@@ -299,6 +299,9 @@
   body.lib-mode .wrap > *:not(#jobsPanel){ display:none !important; }
   /* 라이브러리(목록) 화면에선 콘솔 실행 컨트롤을 숨긴다 — 만들기는 작업을 열거나 새로 만든 뒤 콘솔에서. */
   body.lib-mode #runAll, body.lib-mode #toggleAll, body.lib-mode #heroStatus{ display:none !important; }
+  /* 라이브러리는 진짜 메인 페이지 — 드로어 잔여(우측 고정·슬라이드) 제거, 콘솔 단계바·닫기(✕) 숨김 */
+  body.lib-mode #rail, body.lib-mode .progress-line, body.lib-mode #jobsClose{ display:none !important; }
+  body.lib-mode #jobsPanel{ position:static !important; left:auto !important; right:auto !important; top:auto !important; transform:none !important; width:100% !important; max-width:none !important; height:auto !important; box-shadow:none !important; }
   #jobsPanel .drawer-head{ border-bottom:1px solid var(--line); }
   #jobsPanel .drawer-head, #jobsPanel .drawer-body{ max-width:1000px; margin-left:auto; margin-right:auto; width:100%; box-sizing:border-box; }
   #jobsPanel #jobsList{ display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:10px; }
@@ -322,13 +325,14 @@
   /* ===== 어드민 레이아웃: 좌측 사이드바 + 전체폭 메인 ===== */
   body{ display:flex; min-height:100vh; }
   .sidebar{ flex:0 0 240px; width:240px; box-sizing:border-box; background:var(--panel); border-right:1px solid var(--line); display:flex; flex-direction:column; gap:6px; padding:16px 12px; position:sticky; top:0; height:100vh; overflow-y:auto; }
-  .app-main{ flex:1 1 auto; min-width:0; display:flex; flex-direction:column; }
-  .wrap{ max-width:none; }
+  .app-main{ flex:1 1 auto; min-width:0; }
+  .wrap{ max-width:none; margin-left:0; margin-right:0; }
   .topbar-inner{ max-width:none; }
   .side-brand{ font-weight:800; font-size:15px; color:var(--ink); padding:4px 8px 10px; }
   .side-sec{ display:flex; flex-direction:column; gap:5px; }
-  .side-foot{ margin-top:auto; padding-top:10px; border-top:1px solid var(--line); display:flex; flex-direction:column; gap:5px; }
   .sidebar .btn, .sidebar .conn-pill{ width:100%; justify-content:flex-start; box-sizing:border-box; text-align:left; }
+  /* 상단 우측 액션(설정·테마·로그아웃) */
+  .top-actions{ display:flex; align-items:center; gap:8px; margin-left:auto; flex:0 0 auto; }
   @media(max-width:760px){ body{ display:block; } .sidebar{ position:static; width:auto; height:auto; flex-direction:row; flex-wrap:wrap; } .side-foot{ margin-top:0; border-top:none; } }
 </style>
 </head>
@@ -359,7 +363,6 @@
 <aside class="sidebar" id="sidebar">
   <div class="side-brand">🎬 콘텐츠 스튜디오</div>
   <div class="side-sec" id="sideNav"></div>
-  <div class="side-foot" id="sideFoot"></div>
 </aside>
 <div class="app-main">
 <div class="topbar">
@@ -378,6 +381,7 @@
       <button class="btn ghost sm" id="logoutTopBtn" type="button" title="로그아웃" style="display:none;">로그아웃</button>
       <button class="btn ghost sm" id="modeToggle" type="button" title="설정 열기">설정 ⚙</button>
       <button class="btn ghost icon-btn" id="themeToggle" type="button" title="다크/라이트 모드 전환" aria-label="테마 전환">🌙</button>
+      <div id="topActions" class="top-actions"></div>
     </div>
     <div class="rail" id="rail"></div>
     <div class="progress-line">
@@ -2423,9 +2427,11 @@
   // 어드민 사이드바로 네비/상태/설정 컨트롤 이동(HTML 위치만 — 이벤트는 el(id) 바인딩이라 유지).
   //   runAll/toggleAll/heroStatus 는 콘솔 워크플로우 컨트롤이라 topbar(메인)에 남긴다.
   function relocateNav(){
-    var nav=el("sideNav"), foot=el("sideFoot");
+    var nav=el("sideNav");
     if(nav) ["modeBadge","connPill","jobsBtn","llmInfo"].forEach(function(id){ var e=el(id); if(e) nav.appendChild(e); });
-    if(foot) ["modeToggle","themeToggle","logoutTopBtn"].forEach(function(id){ var e=el(id); if(e) foot.appendChild(e); });
+    // 설정/테마/로그아웃은 상단(topbar) 우측에 배치
+    var acts=el("topActions");
+    if(acts) ["modeToggle","themeToggle","logoutTopBtn"].forEach(function(id){ var e=el(id); if(e) acts.appendChild(e); });
   }
 
   /* ====== init ====== */
