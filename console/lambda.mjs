@@ -43,7 +43,13 @@ async function verifyToken(token) {
   if (!secret) return { ok: false };
   const r = verifyJwtHS256(token, secret);
   if (!r.ok) return { ok: false };
-  return { ok: true, userId: subjectOf(r.payload) };
+  const p = r.payload || {};
+  // 공유 시크릿(prod/store 등) 방어(선택): JWT_EXPECTED_AUD/ISS 설정 시 다른 서비스용 토큰 거부.
+  // 파마브로스 백엔드(main.py)는 서명+exp 만 검사하므로 기본(env 미설정)은 동일 동작.
+  const expAud = process.env.JWT_EXPECTED_AUD, expIss = process.env.JWT_EXPECTED_ISS;
+  if (expAud) { const a = p.aud; if (!(Array.isArray(a) ? a.includes(expAud) : a === expAud)) return { ok: false }; }
+  if (expIss && p.iss !== expIss) return { ok: false };
+  return { ok: true, userId: subjectOf(p) };
 }
 
 // 콜드스타트 1회 조립(컨테이너 재사용 시 캐시) — Secrets/SDK 클라이언트 재활용.

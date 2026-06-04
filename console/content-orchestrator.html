@@ -743,7 +743,11 @@
     var headers = {}; if(opts.headers){ for(var hk in opts.headers) headers[hk]=opts.headers[hk]; }
     if(runMode()==="server"){ var tk=getJwt(); if(tk) headers["Authorization"]="Bearer "+tk; }
     var o={}; for(var ok in opts) o[ok]=opts[ok]; o.headers=headers;
-    return fetch(apiBase()+path, o);
+    return fetch(apiBase()+path, o).then(function(resp){
+      // 서버 모드에서 토큰 만료/무효(401) → 세션 종료하고 로그인 화면으로(중간 만료 dead-end 방지).
+      if(resp && resp.status===401 && runMode()==="server"){ clearJwt(); showLogin(); }
+      return resp;
+    });
   }
   // 미디어 URL: 절대(http/https/data — 서버 S3 등)면 그대로, 상대(/output/.., 로컬)면 base 부착.
   function mediaSrc(u){ if(!u) return u; if(/^(https?:|data:)/i.test(u)) return u; return apiBase()+u; }
@@ -1840,7 +1844,7 @@
     setRunButtonsEnabled(bridgeConnected!==false && !pipelineBusy); updateHeroBtn();
   }
   /* ====== 서버 모드 인증 — 파마브로스 어드민 로그인 → JWT (nukki-cut 흐름 참조) ====== */
-  var JWT_KEY="cm_admin_jwt", AUTH_API_BASE="/api/auth", TFA_TIMEOUT=240;
+  var JWT_KEY="cm_admin_jwt", AUTH_API_BASE="/auth", TFA_TIMEOUT=240;   // /auth/** → 파마브로스 어드민 API (Cloudflare Pages functions/auth 프록시)
   var tfaAdminId="", tfaAdminIdx=0, tfaTimerId=null;
   function getJwt(){ try{ return localStorage.getItem(JWT_KEY); }catch(e){ return null; } }
   function setJwt(t){ try{ localStorage.setItem(JWT_KEY, t); }catch(e){} }
