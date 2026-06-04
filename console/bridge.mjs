@@ -62,6 +62,29 @@ const backend = await makeBackend();
 const storage = await createStorage(process.env);
 const core = createCore({ backend, storage, verifyToken: async () => ({ ok: true, userId: null }), originAllowed, requireAuth: false });
 
+// 로컬 개발 편의: 서버 모드 로그인(/auth/**)을 파마브로스 어드민 API 로 프록시(프로덕션은 Cloudflare functions/auth 담당).
+const PHARMACY_API_BASE = process.env.PHARMACY_API_BASE || "https://api.store.friendly-pharmacist.com";
+async function proxyAuth(req, res, url, body) {
+  const target = PHARMACY_API_BASE + url.pathname.slice("/auth".length) + url.search;
+  const headers = {};
+  for (const k of Object.keys(req.headers)) {
+    const lk = k.toLowerCase();
+    if (lk === "host" || lk === "origin" || lk === "referer" || lk === "content-length" || lk === "connection") continue;
+    headers[k] = req.headers[k];
+  }
+  try {
+    const r = await fetch(target, { method: req.method, headers, body: (req.method === "GET" || req.method === "HEAD") ? undefined : body });
+    const buf = Buffer.from(await r.arrayBuffer());
+    const h = { ...NO_CACHE };
+    const ct = r.headers.get("content-type"); if (ct) h["Content-Type"] = ct;
+    res.writeHead(r.status, h);
+    res.end(buf);
+  } catch (e) {
+    res.writeHead(502, { "Content-Type": "application/json; charset=utf-8", ...NO_CACHE });
+    res.end(JSON.stringify({ ok: false, error: "어드민 API 프록시 실패: " + (e && e.message || e) }));
+  }
+}
+
 const server = http.createServer(async (req, res) => {
   setCors(req, res);
   if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
@@ -87,6 +110,9 @@ const server = http.createServer(async (req, res) => {
     try { body = await readBody(req); }
     catch (e) { res.writeHead(413, { "Content-Type": "application/json; charset=utf-8", ...NO_CACHE }); res.end(JSON.stringify({ ok: false, error: e.message })); return; }
   }
+  // 로컬 개발: 서버 모드 로그인(/auth/**) → 파마브로스 어드민 API 프록시(Cloudflare functions/auth 대체).
+  if (path === "/auth" || path.startsWith("/auth/")) { await proxyAuth(req, res, url, body); return; }
+
   const headers = {}; for (const k of Object.keys(req.headers)) headers[k.toLowerCase()] = req.headers[k];
   const reqN = { method: req.method, path, query: url.searchParams, headers, body, origin: req.headers.origin };
 
