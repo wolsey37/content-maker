@@ -79,13 +79,10 @@ Resources:
               Resource:
                 - !Ref ProviderSecret    # provider 키
                 - !Ref JwtSecretArn      # 기존 prod/connect (jwt-secret)
+      # CORS 는 lambda.mjs(corsHeaders + ALLOWED_ORIGINS origin 검증)가 전담한다.
+      # Function URL 의 Cors 를 켜면 ACAO 헤더가 '중복'되어 브라우저 CORS 가 깨지므로 여기선 설정하지 않는다.
       FunctionUrlConfig:
         AuthType: NONE     # 인증은 앱이 JWT(prod/connect)로 직접 검증.
-        Cors:
-          AllowOrigins: !Split [',', !Ref AllowedOrigins]
-          AllowMethods: [GET, POST, PUT, DELETE]
-          AllowHeaders: [content-type, authorization]
-          MaxAge: 600
 
 Outputs:
   FunctionUrl:
