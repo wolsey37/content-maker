@@ -40,6 +40,9 @@ export function createCore(opts) {
     }
   }
   const metaOf = (j) => ({ id: j.id, title: j.title, platform: j.platform, createdAt: j.createdAt, updatedAt: j.updatedAt });
+  // 서버 모드(인증)에서 모든 S3 객체(미디어·작업)를 로그인 계정별로 격리하는 prefix.
+  // 로컬 모드는 userId 가 없으므로 "" → 기존 경로(회귀 없음).
+  const userPrefix = (auth) => (auth && auth.userId) ? (san(auth.userId) + "/") : "";
 
   async function health() {
     const providers = backend.detectAll ? await backend.detectAll() : {};
@@ -65,7 +68,7 @@ export function createCore(opts) {
     return J(200, result);   // 실패도 200 + {ok:false} (콘솔이 메시지 표시)
   }
 
-  async function image(req) {
+  async function image(req, auth) {
     const p = parseBody(req); if (!p) return J(400, { ok: false, error: "잘못된 요청 본문(JSON 파싱 실패)" });
     const provider = backend.providers[p.provider] || backend.providers.agy || backend.providers.openai;
     if (!provider) return J(400, { ok: false, error: "이미지 provider 를 찾을 수 없습니다." });
@@ -74,15 +77,18 @@ export function createCore(opts) {
     if (!prompt.trim()) return J(400, { ok: false, error: "prompt 가 비어 있습니다." });
     const runId = san(p.runId || "run", 40) || "run";
     const idx = san(p.idx != null ? p.idx : 0, 12) || "0";
+    const kind = san(p.kind || "misc", 24) || "misc";   // 콘텐츠 유형(card/feed/story/reels 등)
+    const jobId = san(p.jobId || "", 60);
+    const base = jobId || ("_unsaved-" + runId);        // 콘텐츠(작업)별 폴더 — 저장 전이면 _unsaved
     const gen = await provider.runImage({ prompt, model: (p.model || "").toString().trim() });
     if (!gen.ok) return J(200, gen);
     try {
-      const saved = await storage.save(`${runId}/${idx}.${gen.ext}`, gen.buf, gen.mime);
+      const saved = await storage.save(`${userPrefix(auth)}content/${base}/${kind}/${runId}/${idx}.${gen.ext}`, gen.buf, gen.mime);
       return J(200, { ok: true, url: saved.url, key: saved.key, path: saved.key, mime: gen.mime, bytes: gen.buf.length });
     } catch (e) { return J(200, { ok: false, error: "이미지 저장 실패: " + (e && e.message || e) }); }
   }
 
-  async function video(req) {
+  async function video(req, auth) {
     const p = parseBody(req); if (!p) return J(400, { ok: false, error: "잘못된 요청 본문(JSON 파싱 실패)" });
     const provider = backend.providers[p.provider];
     if (!provider) return J(400, { ok: false, error: "알 수 없는 provider: " + p.provider });
@@ -91,6 +97,9 @@ export function createCore(opts) {
     if (!imagePrompt.trim() && !motionPrompt.trim()) return J(400, { ok: false, error: "이미지 프롬프트와 모션 프롬프트가 모두 비어 있습니다." });
     const runId = san(p.runId || "run", 40) || "run";
     const idx = san(p.idx != null ? p.idx : 0, 12) || "0";
+    const kind = san(p.kind || "reels", 24) || "reels";
+    const jobId = san(p.jobId || "", 60);
+    const base = jobId || ("_unsaved-" + runId);
     const r = await provider.runVideo({
       engine: p.engine, imagePrompt, motionPrompt,
       videoModel: p.videoModel, imageModel: p.imageModel, aspect: p.aspect, duration: p.duration, model: p.model,
@@ -98,7 +107,7 @@ export function createCore(opts) {
     if (!r.ok) return J(200, r);
     let url = null, key = null, bytes = null, saveError = r.saveError || null;
     if (r.buf) {
-      try { const s = await storage.save(`${runId}/${idx}${r.ext || ".mp4"}`, r.buf, r.mime); url = s.url; key = s.key; bytes = r.buf.length; }
+      try { const s = await storage.save(`${userPrefix(auth)}content/${base}/${kind}/${runId}/${idx}${r.ext || ".mp4"}`, r.buf, r.mime); url = s.url; key = s.key; bytes = r.buf.length; }
       catch (e) { saveError = e && e.message || String(e); }
     }
     return J(200, {
@@ -109,7 +118,7 @@ export function createCore(opts) {
 
   /* ---- 작업(Job) 영속화: GET 목록 · GET 상세 · PUT/POST 저장 · DELETE ---- */
   async function jobs(req, auth) {
-    const prefix = (requireAuth && auth && auth.userId) ? `jobs/${san(auth.userId)}/` : "jobs/";
+    const prefix = userPrefix(auth) + "jobs/";
     const m = /^\/jobs\/(.+)$/.exec(req.path);
     const id = m ? san(m[1]) : null;
 
@@ -146,7 +155,16 @@ export function createCore(opts) {
       await storage.putJson(prefix + jid + ".json", job);
       return J(200, { ok: true, id: jid, createdAt: job.createdAt, updatedAt: now });
     }
-    if (req.method === "DELETE" && id) { await storage.del(prefix + id + ".json"); return J(200, { ok: true }); }
+    if (req.method === "DELETE" && id) {
+      await storage.del(prefix + id + ".json");
+      // 콘텐츠 미디어 cascade 삭제(content/<jobId>/ 하위) — 안 하면 S3 에 고아 미디어가 남는다.
+      try {
+        const mediaPrefix = userPrefix(auth) + "content/" + id + "/";
+        const objs = await storage.list(mediaPrefix);
+        for (const o of objs) { try { await storage.del(o.key); } catch (_) {} }
+      } catch (_) {}
+      return J(200, { ok: true });
+    }
     return J(405, { ok: false, error: "허용되지 않은 메서드" });
   }
 
@@ -177,8 +195,8 @@ export function createCore(opts) {
     if (req.method === "GET" && req.path === "/health") return health();
     if (req.method === "GET" && req.path === "/models") return models();
     if (req.method === "POST" && req.path === "/run") return run(req);
-    if (req.method === "POST" && req.path === "/image") return image(req);
-    if (req.method === "POST" && req.path === "/video") return video(req);
+    if (req.method === "POST" && req.path === "/image") return image(req, auth);
+    if (req.method === "POST" && req.path === "/video") return video(req, auth);
     if (req.path === "/jobs" || req.path.startsWith("/jobs/")) return jobs(req, auth);
 
     return J(404, { ok: false, error: "Not found" });

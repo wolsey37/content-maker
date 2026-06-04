@@ -290,6 +290,7 @@
   .job-row .job-title{ font-weight:600; font-size:13.5px; color:var(--ink); word-break:break-word; }
   .job-row .job-sub{ font-size:11.5px; color:var(--muted); margin-top:2px; }
   .job-acts{ display:flex; gap:6px; flex:0 0 auto; }
+  .job-date{ padding:6px 8px; border:1px solid var(--line); border-radius:7px; background:var(--input-bg); color:var(--ink); font-size:12px; }
   /* ===== 서버 모드 로그인 오버레이 ===== */
   .login-overlay{ position:fixed; inset:0; z-index:200; background:var(--bg); display:flex; align-items:center; justify-content:center; padding:20px; }
   .login-card{ width:100%; max-width:360px; background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:28px 24px; box-shadow:0 10px 40px rgba(0,0,0,.18); }
@@ -486,6 +487,12 @@
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
         <button class="btn" id="jobSaveBtn" type="button">💾 현재 작업 저장</button>
         <button class="btn ghost" id="jobNewBtn" type="button">+ 새 작업</button>
+      </div>
+      <div style="display:flex; gap:6px; align-items:center; margin-top:8px; flex-wrap:wrap;">
+        <input type="date" id="jobFrom" class="job-date" aria-label="시작일">
+        <span style="color:var(--muted);">~</span>
+        <input type="date" id="jobTo" class="job-date" aria-label="종료일">
+        <button class="btn ghost sm" id="jobFilterClear" type="button">전체</button>
       </div>
       <div class="hint" id="jobStatus" style="margin-top:6px;"></div>
       <div class="hint" style="margin-top:4px;">저장된 작업은 서버(S3) 또는 로컬(output/jobs)에 보관되며, 다른 기기/세션에서도 열 수 있습니다.</div>
@@ -710,9 +717,19 @@
   }
   var saveTimer=null, jobSyncTimer=null;
   function save(){ if(saveTimer) clearTimeout(saveTimer); saveTimer=setTimeout(function(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){} }, 120); syncJob(); }
-  // 라이브러리에 저장된 작업(jobId 보유)만 백엔드로 디바운스 동기화(localStorage 는 항상 working-draft 캐시).
+  function genJobId(){ return "job-"+timestamp().replace(/[^0-9]/g,"")+"-"+Math.random().toString(36).slice(2,7); }
+  function ensureJobId(){ if(!state.jobId){ state.jobId=genJobId(); } return state.jobId; }   // 콘텐츠(작업) 폴더 식별자 — 미디어 생성 시점에 확정
+  // 빈(내용 없는) 작업은 동기화하지 않는다(라이브러리에 빈 draft 쌓임 방지).
+  function jobHasContent(){
+    if((state.topic||"").trim()) return true;
+    if(STEPS.some(function(s){ return (((state.steps[s.id]||{}).output)||"").trim(); })) return true;
+    if(((state.imageGen||{}).items||[]).some(Boolean)) return true;
+    if(((state.videoGen||{}).items||[]).some(Boolean)) return true;
+    return false;
+  }
+  // jobId 보유 + 내용 있는 작업만 백엔드로 디바운스 동기화(localStorage 는 항상 working-draft 캐시).
   function syncJob(){
-    if(!state.jobId || bridgeConnected===false) return;
+    if(!state.jobId || bridgeConnected===false || !jobHasContent()) return;
     if(jobSyncTimer) clearTimeout(jobSyncTimer);
     jobSyncTimer=setTimeout(function(){
       apiFetch("/jobs/"+encodeURIComponent(state.jobId), { method:"PUT", headers:{"Content-Type":"application/json"},
@@ -1122,7 +1139,7 @@
     pipelineBusy=true; setRunButtonsEnabled(false); if(igEls.genBtn) igEls.genBtn.disabled=true;
     setStat("loading","#"+(i+1)+" 이미지 다시 생성 중… ("+prov+" · 수십 초)", true);
     apiFetch("/image", { method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ provider:prov, prompt:it.prompt, runId:runId, idx:(i+1)+"-r"+Math.random().toString(36).slice(2,5) }) })
+        body:JSON.stringify({ provider:prov, kind:typeKey(state.platform), jobId:ensureJobId(), prompt:it.prompt, runId:runId, idx:(i+1)+"-r"+Math.random().toString(36).slice(2,5) }) })
       .then(function(r){ return r.json(); })
       .then(function(d){
         pipelineBusy=false; setRunButtonsEnabled(bridgeConnected!==false); if(igEls.genBtn) igEls.genBtn.disabled=false;
@@ -1152,7 +1169,7 @@
       var idx=cursor++;
       tick();
       apiFetch("/image", { method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({ provider:prov, prompt:list[idx], runId:runId, idx:String(idx+1) }) })
+          body:JSON.stringify({ provider:prov, kind:typeKey(state.platform), jobId:ensureJobId(), prompt:list[idx], runId:runId, idx:String(idx+1) }) })
         .then(function(r){ return r.json(); })
         .then(function(d){
           if(d && d.ok){ state.imageGen.items[idx]={ url:d.url, key:d.key, path:d.path, mime:d.mime, prompt:list[idx] }; okCount++; }
@@ -1363,7 +1380,7 @@
     pipelineBusy=true; setRunButtonsEnabled(false); if(vgEls.genBtn) vgEls.genBtn.disabled=true;
     setStat("loading","#"+(i+1)+" 영상 다시 제작 중… ("+prov+" → "+engine+" · 수 분)", true);
     apiFetch("/video", { method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ provider:prov, engine:engine, videoModel:vModel, aspect:"9:16", imagePrompt:c.image, motionPrompt:c.motion, runId:runId, idx:(i+1)+"-r"+Math.random().toString(36).slice(2,5) }) })
+        body:JSON.stringify({ provider:prov, kind:typeKey(state.platform), jobId:ensureJobId(), engine:engine, videoModel:vModel, aspect:"9:16", imagePrompt:c.image, motionPrompt:c.motion, runId:runId, idx:(i+1)+"-r"+Math.random().toString(36).slice(2,5) }) })
       .then(function(r){ return r.json(); })
       .then(function(d){
         pipelineBusy=false; setRunButtonsEnabled(bridgeConnected!==false); if(vgEls.genBtn) vgEls.genBtn.disabled=false;
@@ -1397,7 +1414,7 @@
       var c=parseCut(list[idx]);
       tick();
       apiFetch("/video", { method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({ provider:prov, engine:engine, videoModel:vModel, aspect:"9:16",
+          body:JSON.stringify({ provider:prov, kind:typeKey(state.platform), jobId:ensureJobId(), engine:engine, videoModel:vModel, aspect:"9:16",
             imagePrompt:c.image, motionPrompt:c.motion, runId:runId, idx:String(idx+1) }) })
         .then(function(r){ return r.json(); })
         .then(function(d){
@@ -1917,7 +1934,7 @@
     tick(); tfaTimerId=setInterval(tick,1000);
   }
   function stopTfaTimer(){ if(tfaTimerId){ clearInterval(tfaTimerId); tfaTimerId=null; } }
-  function onLoginSuccess(token){ setJwt(token); hideLogin(); checkBridge(); }
+  function onLoginSuccess(token){ setJwt(token); hideLogin(); checkBridge(); jobsPanelOpen(); }   // 로그인 직후 콘텐츠(작업) 목록 표시
   function doLogout(){ clearJwt(); if(runMode()==="server") showLogin(); }
   // 서버 모드 + JWT 없음/만료 → 로그인 표시(false). 로컬 모드는 로그인 없음(true).
   function ensureAuth(){
@@ -2054,9 +2071,13 @@
     box.innerHTML='<div class="hint">불러오는 중…</div>';
     apiFetch("/jobs?_="+Date.now(), { cache:"no-store" }).then(function(r){ return r.json(); }).then(function(d){
       if(!d || !d.ok){ box.innerHTML='<div class="warnbox">목록을 불러오지 못했습니다'+((d&&d.error)?(': '+esc(d.error)):'')+'</div>'; return; }
-      if(!d.jobs || !d.jobs.length){ box.innerHTML='<div class="hint">저장된 작업이 없습니다. <b>현재 작업 저장</b>으로 추가하세요.</div>'; return; }
+      var jobs=(d.jobs||[]).slice();
+      var from=el("jobFrom")&&el("jobFrom").value, to=el("jobTo")&&el("jobTo").value;   // 날짜(createdAt) 검색 — key-prefix 아닌 메타 필터(local/s3 동일 동작)
+      if(from) jobs=jobs.filter(function(j){ return (j.createdAt||"").slice(0,10)>=from; });
+      if(to) jobs=jobs.filter(function(j){ return (j.createdAt||"").slice(0,10)<=to; });
+      if(!jobs.length){ box.innerHTML='<div class="hint">'+((from||to)?"해당 기간에 작업이 없습니다.":"저장된 작업이 없습니다. <b>현재 작업 저장</b>으로 추가하세요.")+'</div>'; return; }
       box.innerHTML="";
-      d.jobs.forEach(function(j){
+      jobs.forEach(function(j){
         var row=document.createElement("div"); row.className="job-row"+(j.id===state.jobId?" current":"");
         var meta=document.createElement("div"); meta.className="job-meta";
         meta.innerHTML='<div class="job-title">'+esc(j.title||"제목 없음")+'</div><div class="job-sub">'+esc(j.platform||"미지정")+' · '+esc(fmtTime(j.updatedAt))+'</div>';
@@ -2077,9 +2098,9 @@
   function saveCurrentJob(){
     if(bridgeConnected===false){ setJobStatus("연결이 필요합니다(상태 배지 확인)."); return; }
     setJobStatus("저장 중…");
-    var isNew=!state.jobId, path=isNew?"/jobs":("/jobs/"+encodeURIComponent(state.jobId));
-    apiFetch(path, { method:(isNew?"POST":"PUT"), headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({ id:state.jobId||undefined, title:jobTitle(), platform:state.platform||"", state:state }) })
+    ensureJobId();   // 미디어와 동일한 콘텐츠 jobId 로 저장(클라이언트 발급)
+    apiFetch("/jobs/"+encodeURIComponent(state.jobId), { method:"PUT", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ id:state.jobId, title:jobTitle(), platform:state.platform||"", state:state }) })
       .then(function(r){ return r.json(); }).then(function(d){
         if(d && d.ok){ state.jobId=d.id; try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){} setJobStatus("✓ 저장됨 ("+fmtTime(d.updatedAt)+")"); loadJobsList(); }
         else setJobStatus("저장 실패: "+((d&&d.error)||"")); }).catch(function(){ setJobStatus("저장 오류(연결 확인)"); });
@@ -2320,6 +2341,9 @@
     el("jobsBackdrop").addEventListener("click", jobsPanelClose);
     el("jobSaveBtn").addEventListener("click", saveCurrentJob);
     el("jobNewBtn").addEventListener("click", newJob);
+    el("jobFrom").addEventListener("change", loadJobsList);
+    el("jobTo").addEventListener("change", loadJobsList);
+    el("jobFilterClear").addEventListener("click", function(){ el("jobFrom").value=""; el("jobTo").value=""; loadJobsList(); });
     document.addEventListener("keydown", function(e){ if(e.key==="Escape"){ closeDrawer(); jobsPanelClose(); } });
     el("advStepsToggle").addEventListener("change", function(){ setMode(el("advStepsToggle").checked?"advanced":"simple"); });
     el("heroRun").addEventListener("click", runNext);
@@ -2331,7 +2355,7 @@
 
   /* ====== init ====== */
   initTheme(); initMode(); loadFetchedModels(); load(); initRunState(); bindSettingsToUI(); wireSettings(); wireLogin(); initRunModeUI(); renderSteps(); refreshConn();
-  if(ensureAuth()) checkBridge();   // 서버 모드 & 미로그인 시 로그인 오버레이 표시 → 성공 시 checkBridge
+  if(ensureAuth()){ checkBridge(); if(runMode()==="server") jobsPanelOpen(); }   // 서버 모드 & 미로그인 시 로그인 오버레이 → 성공 시 checkBridge. 인증됨이면 콘텐츠 목록 표시
 })();
 </script>
 </body>
