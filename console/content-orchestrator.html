@@ -416,8 +416,13 @@
       <label class="switch-row"><input type="checkbox" id="advStepsToggle"> 단계별 상세 옵션 표시</label>
 
       <div class="drawer-section" id="serverCfgRow" style="display:none;">
-        <div class="hint">서버(API) 모드 — 파마브로스 어드민 계정으로 로그인되어 있습니다. 텍스트·이미지를 API로 생성하며 <b>영상(릴스)은 로컬 모드</b>에서 제작합니다.</div>
-        <button class="btn ghost sm" id="logoutBtn" type="button" style="margin-top:8px;">로그아웃</button>
+        <div class="field">
+          <label for="apiBaseInput">백엔드 URL (Lambda Function URL)</label>
+          <input type="text" id="apiBaseInput" spellcheck="false" placeholder="https://xxxx.lambda-url.ap-northeast-2.on.aws">
+          <div class="hint" style="margin-top:4px;">콘텐츠 API를 직접 호출(Cloudflare 프록시 우회 → 긴 이미지 생성도 안전). 비우면 빌드 주입값 사용. 로그인은 same-origin <code>/auth</code>.</div>
+        </div>
+        <div class="hint" style="margin-top:8px;">파마브로스 어드민 계정으로 로그인되어 있습니다. <b>영상(릴스)은 로컬 모드</b>에서 제작합니다.</div>
+        <button class="btn ghost sm" id="logoutBtn" type="button" style="margin-top:6px;">로그아웃</button>
       </div>
 
       <div class="drawer-section">
@@ -735,9 +740,14 @@
   }
   function modeQueryOverride(){ try{ var q=new URLSearchParams(location.search).get("mode"); return (q==="local"||q==="server")?q:null; }catch(e){ return null; } }
   function runMode(){ return isLocalHost() ? (modeQueryOverride() || "local") : "server"; }
-  // 백엔드 base: 서버 모드는 same-origin(Cloudflare Pages 가 /api/* → Lambda, /api/auth → 어드민 으로 프록시),
-  //   로컬은 bridgeBase()(보통 ""). 서버 모드 인증 토큰은 '로그인 JWT' 하나로 통일(아래 getJwt).
-  function apiBase(){ return runMode()==="server" ? "" : bridgeBase(); }
+  // 백엔드 base(콘텐츠 API: /run·/image·/jobs 등):
+  //   - 서버 모드: Lambda Function URL 을 '직접' 호출(Cloudflare 프록시의 100초 524 제한 회피, Lambda 는 최대 15분).
+  //     배포 시 SERVER_API_BASE 에 Function URL 을 주입하거나, 설정의 백엔드 URL(cm_api_base)을 입력.
+  //   - 로컬 모드: bridgeBase()(보통 "").
+  //   ※ 로그인(/auth)은 same-origin Cloudflare 프록시로 별도 처리(AUTH_API_BASE). 서버 토큰은 로그인 JWT 단일 소스(getJwt).
+  var SERVER_API_BASE = "";   // 배포 주입 예: https://xxxx.lambda-url.ap-northeast-2.on.aws
+  function serverApiBase(){ try{ return (localStorage.getItem("cm_api_base")||"").replace(/\/+$/,"") || SERVER_API_BASE; }catch(e){ return SERVER_API_BASE; } }
+  function apiBase(){ return runMode()==="server" ? serverApiBase() : bridgeBase(); }
   function apiFetch(path, opts){
     opts = opts || {};
     var headers = {}; if(opts.headers){ for(var hk in opts.headers) headers[hk]=opts.headers[hk]; }
@@ -2232,7 +2242,10 @@
   }
   function initMode(){ applyMode(currentMode()); }
   // 실행 방식(로컬/서버) UI 초기값 반영 — PROVIDERS 교체는 checkBridge 가 수행.
-  function initRunModeUI(){ updateRunModeUI(runMode()); }
+  function initRunModeUI(){
+    var ab=el("apiBaseInput"); if(ab){ try{ ab.value=localStorage.getItem("cm_api_base")||""; }catch(e){} }
+    updateRunModeUI(runMode());
+  }
   function setMode(m){ applyMode(m); renderSteps(); }
 
   /* ====== 고급 설정 드로어 ====== */
@@ -2286,6 +2299,7 @@
     el("refAddBtn").addEventListener("click", addRefSite);
     el("refFetchBtn").addEventListener("click", fetchFromWeb);
     el("g_refSite").addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); addRefSite(); } });   // Enter = 목록에 추가(검색 아님)
+    var abIn=el("apiBaseInput"); if(abIn) abIn.addEventListener("input", function(){ try{ localStorage.setItem("cm_api_base", abIn.value.trim()); }catch(e){} });
     el("connPill").addEventListener("click", checkBridge);
     el("connPill").addEventListener("keydown", function(e){ if(e.key==="Enter"||e.key===" "||e.key==="Spacebar"){ e.preventDefault(); checkBridge(); } });   // span[role=button] 은 Enter/Space 클릭을 자동 합성하지 않음
     el("llmInfo").addEventListener("click", openDrawer);

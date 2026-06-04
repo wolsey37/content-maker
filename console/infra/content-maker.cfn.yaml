@@ -1,0 +1,153 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  content-maker 서버(API) 모드 인프라 — Lambda(Function URL) + S3(미디어/작업) + provider 키 시크릿 + IAM.
+  JWT 검증용 jwt-secret 은 기존 시크릿(prod/connect)을 '참조'만 한다(이 스택은 생성하지 않음).
+  리전: ap-northeast-2. 콘텐츠 API 는 Cloudflare 프록시를 거치지 않고 Function URL 을 직접 호출한다(100초 524 회피).
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: content-maker
+    Description: 리소스 이름 prefix.
+  MediaBucketName:
+    Type: String
+    Default: content-maker-media
+    Description: 생성 이미지 + 작업(JSON) 저장 S3 버킷 이름(전역 유일해야 함).
+  ProviderSecretName:
+    Type: String
+    Default: prod/content-maker
+    Description: provider API 키(OPENAI_API_KEY 등) 시크릿 이름. 값은 스택 생성 후 콘솔/CLI 로 채운다.
+  JwtSecretArn:
+    Type: String
+    Description: 기존 JWT 시크릿(prod/connect)의 전체 ARN. Lambda 에 읽기 권한만 부여(생성하지 않음).
+  AllowedOrigins:
+    Type: String
+    Description: 콘솔(Cloudflare Pages) origin. 콤마 구분. 예) https://content-maker.pages.dev
+  OpenAiTextModel:
+    Type: String
+    Default: gpt-5.5
+    Description: OpenAI 텍스트 모델 id(실제 API 모델로 조정).
+  CodeS3Bucket:
+    Type: String
+    Description: Lambda 배포 zip 이 올라간 S3 버킷(미리 업로드).
+  CodeS3Key:
+    Type: String
+    Default: content-maker/lambda.zip
+    Description: Lambda 배포 zip 키.
+  LambdaTimeout:
+    Type: Number
+    Default: 300
+    Description: Lambda 타임아웃(초). 이미지 생성 여유(최대 900).
+
+Resources:
+  # ── S3: 미디어(이미지) + 작업 JSON. 비공개(presigned 로만 읽기). ──
+  MediaBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref MediaBucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedMethods: [GET]
+            AllowedOrigins: ['*']     # presigned GET(<img> 로드)용. 서명이 권한이므로 origin 은 넓게 둠.
+            AllowedHeaders: ['*']
+            MaxAge: 3000
+
+  # ── provider 키 시크릿(빈 값으로 생성 → 콘솔/CLI 로 OPENAI_API_KEY 채움) ──
+  ProviderSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Ref ProviderSecretName
+      Description: content-maker provider API 키 (OPENAI_API_KEY 등). 생성 후 값 입력.
+      SecretString: '{"OPENAI_API_KEY":""}'
+
+  # ── Lambda 실행 역할 ──
+  ApiRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-api-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: content-maker-api-access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: S3Media
+                Effect: Allow
+                Action: [s3:PutObject, s3:GetObject, s3:DeleteObject]
+                Resource: !Sub 'arn:aws:s3:::${MediaBucketName}/*'
+              - Sid: S3List
+                Effect: Allow
+                Action: [s3:ListBucket]
+                Resource: !Sub 'arn:aws:s3:::${MediaBucketName}'
+              - Sid: Secrets
+                Effect: Allow
+                Action: [secretsmanager:GetSecretValue]
+                Resource:
+                  - !Ref ProviderSecret      # provider 키 시크릿
+                  - !Ref JwtSecretArn        # 기존 prod/connect (jwt-secret)
+
+  # ── Lambda 함수 ──
+  ApiFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-api'
+      Runtime: nodejs20.x
+      Handler: lambda.handler
+      Role: !GetAtt ApiRole.Arn
+      Timeout: !Ref LambdaTimeout
+      MemorySize: 512
+      Code:
+        S3Bucket: !Ref CodeS3Bucket
+        S3Key: !Ref CodeS3Key
+      Environment:
+        Variables:
+          STORAGE: s3
+          S3_BUCKET: !Ref MediaBucketName
+          S3_REGION: !Ref AWS::Region
+          SECRETS_ID: !Ref ProviderSecretName
+          JWT_SECRET_ID: prod/connect
+          ALLOWED_ORIGINS: !Ref AllowedOrigins
+          OPENAI_TEXT_MODEL: !Ref OpenAiTextModel
+
+  # ── Function URL (콘텐츠 API 직접 호출, 최대 15분) ──
+  ApiFunctionUrl:
+    Type: AWS::Lambda::Url
+    Properties:
+      TargetFunctionArn: !GetAtt ApiFunction.Arn
+      AuthType: NONE     # 인증은 앱이 JWT(prod/connect)로 직접 검증한다.
+      Cors:
+        AllowOrigins: !Split [',', !Ref AllowedOrigins]
+        AllowMethods: [GET, POST, PUT, DELETE]
+        AllowHeaders: [content-type, authorization]
+        MaxAge: 600
+
+  ApiFunctionUrlPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ApiFunction
+      Action: lambda:InvokeFunctionUrl
+      Principal: '*'
+      FunctionUrlAuthType: NONE
+
+Outputs:
+  FunctionUrl:
+    Description: 콘솔 설정의 '백엔드 URL'(Lambda Function URL).
+    Value: !GetAtt ApiFunctionUrl.FunctionUrl
+  MediaBucket:
+    Value: !Ref MediaBucket
+  ProviderSecretArn:
+    Value: !Ref ProviderSecret
+  ApiRoleArn:
+    Value: !GetAtt ApiRole.Arn
