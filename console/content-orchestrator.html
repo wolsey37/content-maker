@@ -284,6 +284,12 @@
   body.mode-simple .deliverable .deliv-badge{ display:inline-block; }
   /* 간단 모드에서 카드 결과 영역을 더 키움 */
   body.mode-simple .result-ta{ min-height:170px; }
+  /* ===== 작업 라이브러리 패널 행 ===== */
+  .job-row{ display:flex; justify-content:space-between; align-items:center; gap:10px; padding:9px 11px; border:1px solid var(--line); border-radius:9px; margin-bottom:7px; }
+  .job-row.current{ border-color:var(--brand); background:var(--brand-soft); }
+  .job-row .job-title{ font-weight:600; font-size:13.5px; color:var(--ink); word-break:break-word; }
+  .job-row .job-sub{ font-size:11.5px; color:var(--muted); margin-top:2px; }
+  .job-acts{ display:flex; gap:6px; flex:0 0 auto; }
 </style>
 </head>
 <body>
@@ -300,6 +306,7 @@
       <span class="conn-pill checking" id="connPill" role="button" tabindex="0" title="브리지 연결 상태 — 클릭하면 다시 확인"><span class="dot"></span><span id="connText">연결 확인 중…</span></span>
       <button class="btn primary" id="runAll" type="button">▶ 만들기</button>
       <button class="btn ghost sm adv-only" id="toggleAll" type="button">모두 펼치기</button>
+      <button class="btn ghost sm" id="jobsBtn" type="button" title="저장된 작업 목록">📁 작업</button>
       <button class="btn ghost sm" id="modeToggle" type="button" title="설정 열기">설정 ⚙</button>
       <button class="btn ghost icon-btn" id="themeToggle" type="button" title="다크/라이트 모드 전환" aria-label="테마 전환">🌙</button>
     </div>
@@ -372,9 +379,30 @@
       <label class="switch-row"><input type="checkbox" id="advStepsToggle"> 단계별 상세 옵션 표시</label>
 
       <div class="drawer-section">
+        <div class="field">
+          <label for="runModeSel">실행 방식</label>
+          <select id="runModeSel">
+            <option value="local">로컬 — 설치된 CLI(claude/codex/agy)</option>
+            <option value="server">서버 — API(OpenAI 등)</option>
+          </select>
+        </div>
+        <div id="serverCfgRow" style="display:none; margin-top:8px;">
+          <div class="field">
+            <label for="serverUrlInput">서버 URL</label>
+            <input type="text" id="serverUrlInput" spellcheck="false" placeholder="https://xxxx.lambda-url.ap-northeast-2.on.aws">
+          </div>
+          <div class="field" style="margin-top:6px;">
+            <label for="serverTokenInput">인증 토큰 (어드민)</label>
+            <input type="password" id="serverTokenInput" spellcheck="false" placeholder="Bearer 토큰">
+          </div>
+          <div class="hint" style="margin-top:6px;">서버 모드는 텍스트·이미지를 API로 생성합니다. <b>영상(릴스)은 로컬 모드</b>에서 제작하세요. 키는 서버(Secrets Manager)에만 있으며 이 화면엔 저장되지 않습니다.</div>
+        </div>
+      </div>
+
+      <div class="drawer-section">
         <div class="row">
           <div class="field">
-            <label for="provider">LLM (로컬 CLI)</label>
+            <label for="provider" id="providerLabel">LLM (로컬 CLI)</label>
             <select id="provider">
               <option value="claude">Claude CLI (claude -p)</option>
               <option value="codex">Codex CLI (codex exec)</option>
@@ -421,6 +449,24 @@
     </div>
   </aside>
 
+  <!-- ===== 작업 라이브러리 패널 (오른쪽 슬라이드) ===== -->
+  <div class="drawer-backdrop" id="jobsBackdrop"></div>
+  <aside class="drawer" id="jobsPanel">
+    <div class="drawer-head">
+      <span class="dt">📁 작업</span>
+      <button class="btn ghost icon-btn" id="jobsClose" type="button" title="닫기" aria-label="닫기">✕</button>
+    </div>
+    <div class="drawer-body">
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn" id="jobSaveBtn" type="button">💾 현재 작업 저장</button>
+        <button class="btn ghost" id="jobNewBtn" type="button">+ 새 작업</button>
+      </div>
+      <div class="hint" id="jobStatus" style="margin-top:6px;"></div>
+      <div class="hint" style="margin-top:4px;">저장된 작업은 서버(S3) 또는 로컬(output/jobs)에 보관되며, 다른 기기/세션에서도 열 수 있습니다.</div>
+      <div id="jobsList" style="margin-top:10px;"></div>
+    </div>
+  </aside>
+
   <!-- ===== 단계 카드들 (JS가 채움) ===== -->
   <div id="steps"></div>
 
@@ -445,6 +491,7 @@
       cmd: function(m){ return m ? ('echo "<프롬프트>" | agy -p --model=' + m) : 'agy -p "<프롬프트>"'; },
       note: '로컬 <code>agy -p</code> (Google Antigravity 에이전트 · Gemini 모델) print 모드. 기본은 <code>Gemini 3.5 Flash</code>(가성비)이며 <code>flash</code>·<code>pro</code>·<code>flash_lite</code> 중 선택 가능(브리지가 <code>--model</code> 지정 시 프롬프트를 stdin 으로 전달).' }
   };
+  var LOCAL_PROVIDERS = PROVIDERS;   // 로컬 원본 보존 — 서버 모드에서 PROVIDERS 를 API provider 로 교체했다가 복원
 
   // 모델 ID → 소유 provider (다른 provider 모델이 섞여 잘못된 CLI로 호출되는 것 방지)
   var MODEL_OWNER = {};
@@ -537,7 +584,7 @@
   var LS_KEY = "content_pipeline_console_v3";
   // 프롬프트 템플릿 내용이 바뀌면 +1 → load 시 저장된 옛 템플릿을 최신 기본값으로 갱신(결과·입력은 보존).
   var TEMPLATE_VERSION = 5;
-  var state = { provider:"agy", defaultModel:PROVIDERS.agy.defaultModel,
+  var state = { provider:"agy", defaultModel:PROVIDERS.agy.defaultModel, jobId:"",
     topic:"", rulepack:"", platform:"", refData:"", steps:{}, collapsed:{}, refSites:[], tplVersion:TEMPLATE_VERSION,
     imageGen:{ prompts:"", runId:"", items:[], provider:"codex", concurrency:1 },   // 이미지 생성 기본 LLM: codex(한국어 프롬프트 네이티브 생성 안정적) · concurrency: 동시 생성 장수(1=순차)
     videoGen:{ cuts:"", runId:"", items:[], provider:"claude", engine:"higgsfield", videoModel:"seedance_1_5", concurrency:1 } };   // 영상 제작 단계(릴스): 컷 프롬프트·생성 결과·LLM(claude 기본 — codex MCP 클라이언트는 긴 생성 호출을 취소함)·MCP 영상 엔진·엔진 모델   // refData: 참조 자료 / collapsed: 카드 접힘 / refSites: 웹 조사 사이트 / imageGen: 이미지 생성 단계
@@ -560,7 +607,7 @@
     try{
       var raw = localStorage.getItem(LS_KEY); if(!raw) return;
       var saved = JSON.parse(raw);
-      ["provider","defaultModel","topic","rulepack","platform","refData"].forEach(function(k){ if(typeof saved[k]==="string") state[k]=saved[k]; });
+      ["provider","defaultModel","jobId","topic","rulepack","platform","refData"].forEach(function(k){ if(typeof saved[k]==="string") state[k]=saved[k]; });
       if(saved.collapsed && typeof saved.collapsed==="object") state.collapsed=saved.collapsed;   // 카드 접힘 상태 복원
       if(Array.isArray(saved.refSites)) state.refSites=saved.refSites.filter(function(x){ return typeof x==="string" && x.trim(); });   // 웹 조사 대상 사이트 복원
       if(saved.imageGen && typeof saved.imageGen==="object"){   // 이미지 생성 단계 상태 복원
@@ -635,13 +682,50 @@
       state.tplVersion = TEMPLATE_VERSION;
     }catch(e){}
   }
-  var saveTimer=null;
-  function save(){ if(saveTimer) clearTimeout(saveTimer); saveTimer=setTimeout(function(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){} }, 120); }
+  var saveTimer=null, jobSyncTimer=null;
+  function save(){ if(saveTimer) clearTimeout(saveTimer); saveTimer=setTimeout(function(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){} }, 120); syncJob(); }
+  // 라이브러리에 저장된 작업(jobId 보유)만 백엔드로 디바운스 동기화(localStorage 는 항상 working-draft 캐시).
+  function syncJob(){
+    if(!state.jobId || bridgeConnected===false) return;
+    if(jobSyncTimer) clearTimeout(jobSyncTimer);
+    jobSyncTimer=setTimeout(function(){
+      apiFetch("/jobs/"+encodeURIComponent(state.jobId), { method:"PUT", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ id:state.jobId, title:jobTitle(), platform:state.platform||"", state:state }) })
+        .then(function(r){ return r.json(); }).then(function(){}).catch(function(){});
+    }, 1500);
+  }
+  function jobTitle(){ return ((state.topic||"").trim().slice(0,80)) || "제목 없음"; }
 
   // 콘솔은 브리지가 서빙하므로 기본은 same-origin(상대 경로). 드물게 다른 origin에서 열 때만
   // URL 쿼리(?bridge=http://host:port)로 가리킬 수 있다(UI 없음).
   function bridgeBase(){ try{ var q=new URLSearchParams(location.search).get("bridge"); if(q) return q.replace(/\/+$/,""); }catch(e){} return ""; }
   function bridgePath(p){ return bridgeBase()+p; }
+
+  // ====== 실행 모드 (로컬 CLI 브리지 / 서버 API) ======
+  // 로컬: 기존 그대로(보통 same-origin). 서버: 설정한 Lambda URL + 어드민 토큰(Authorization).
+  function runMode(){ try{ return localStorage.getItem("cp_runmode")==="server" ? "server" : "local"; }catch(e){ return "local"; } }
+  function serverUrl(){ try{ return (localStorage.getItem("cp_server_url")||"").replace(/\/+$/,""); }catch(e){ return ""; } }
+  function serverToken(){ try{ return localStorage.getItem("cp_server_token")||""; }catch(e){ return ""; } }
+  // 백엔드 base: 서버 모드면 Lambda URL, 로컬이면 bridgeBase()(보통 "").
+  function apiBase(){ return runMode()==="server" ? serverUrl() : bridgeBase(); }
+  // 모든 API 호출의 단일 통로. 로컬 모드에선 fetch(bridgePath(path), opts) 와 동일하게 동작.
+  function apiFetch(path, opts){
+    opts = opts || {};
+    var headers = {}; if(opts.headers){ for(var hk in opts.headers) headers[hk]=opts.headers[hk]; }
+    if(runMode()==="server"){ var tk=serverToken(); if(tk) headers["Authorization"]="Bearer "+tk; }
+    var o={}; for(var ok in opts) o[ok]=opts[ok]; o.headers=headers;
+    return fetch(apiBase()+path, o);
+  }
+  // 미디어 URL: 절대(http/https/data — 서버 S3 등)면 그대로, 상대(/output/.., 로컬)면 base 부착.
+  function mediaSrc(u){ if(!u) return u; if(/^(https?:|data:)/i.test(u)) return u; return apiBase()+u; }
+  // 이미지 생성 provider: 서버 모드면 image capability 있는 활성 provider, 로컬이면 기존 codex/agy 선택.
+  function imageProvider(){
+    if(runMode()==="server"){
+      for(var id in PROVIDERS){ if(PROVIDERS[id].capabilities && PROVIDERS[id].capabilities.image) return id; }
+      return Object.keys(PROVIDERS)[0]||"openai";
+    }
+    return (state.imageGen.provider==="codex")?"codex":"agy";
+  }
 
   function expandTemplate(tpl, id){
     var map={ "{{topic}}":state.topic||"", "{{rulepack}}":state.rulepack||"", "{{platform}}":state.platform||"" };
@@ -970,8 +1054,8 @@
     (state.imageGen.items||[]).forEach(function(it,i){
       if(!it) return;   // 병렬 생성 중 아직 안 끝난 슬롯(빈/ null) 건너뜀
       var fig=document.createElement("div"); fig.style.cssText="border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--head-bg);";
-      var a=document.createElement("a"); a.href=bridgePath(it.url); a.target="_blank"; a.rel="noopener"; a.title="원본 보기";
-      var img=document.createElement("img"); img.src=bridgePath(it.url); img.loading="lazy"; img.alt=it.prompt?it.prompt.slice(0,60):("이미지 "+(i+1));
+      var a=document.createElement("a"); a.href=mediaSrc(it.url); a.target="_blank"; a.rel="noopener"; a.title="원본 보기";
+      var img=document.createElement("img"); img.src=mediaSrc(it.url); img.loading="lazy"; img.alt=it.prompt?it.prompt.slice(0,60):("이미지 "+(i+1));
       img.style.cssText="width:100%; display:block; aspect-ratio:1/1; object-fit:cover; background:var(--code-bg);";
       a.appendChild(img); fig.appendChild(a);
       var cap=document.createElement("div"); cap.style.cssText="padding:6px 8px; display:flex; gap:6px; align-items:center; justify-content:space-between;";
@@ -979,7 +1063,7 @@
       var links=document.createElement("span"); links.style.cssText="display:flex; gap:5px; flex:0 0 auto;";
       var re=document.createElement("button"); re.className="btn ghost sm"; re.type="button"; re.textContent="🔄"; re.title="이 이미지만 다시 생성(주제와 안 맞거나 그리드로 나왔을 때)";
       re.addEventListener("click", function(){ regenerateImage(i); });
-      var dl=document.createElement("a"); dl.className="btn ghost sm"; dl.textContent="📥"; dl.href=bridgePath(it.url); dl.download="image-"+(i+1)+"."+String(it.url).split(".").pop(); dl.title="다운로드";
+      var dl=document.createElement("a"); dl.className="btn ghost sm"; dl.textContent="📥"; dl.href=mediaSrc(it.url); dl.download="image-"+(i+1)+"."+String(it.url).split(".").pop(); dl.title="다운로드";
       links.appendChild(re); links.appendChild(dl);
       cap.appendChild(nm); cap.appendChild(links); fig.appendChild(cap); gal.appendChild(fig);
     });
@@ -990,16 +1074,16 @@
     var it=(state.imageGen.items||[])[i]; if(!it||!it.prompt){ return; }
     var setStat=function(kind,txt,spin){ if(!igEls.status) return; igEls.status.className="status "+kind; if(spin){ igEls.status.innerHTML='<span class="spinner"></span>'+esc(txt); } else igEls.status.textContent=txt; };
     if(bridgeConnected===false){ setStat("error","브리지가 연결되지 않았습니다."); return; }
-    var prov=(state.imageGen.provider==="codex")?"codex":"agy";
+    var prov=imageProvider();
     var runId=state.imageGen.runId||("r"+timestamp().replace(/[^0-9]/g,""));
     pipelineBusy=true; setRunButtonsEnabled(false); if(igEls.genBtn) igEls.genBtn.disabled=true;
     setStat("loading","#"+(i+1)+" 이미지 다시 생성 중… ("+prov+" · 수십 초)", true);
-    fetch(bridgePath("/image"), { method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
+    apiFetch("/image", { method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
         body:JSON.stringify({ provider:prov, prompt:it.prompt, runId:runId, idx:(i+1)+"-r"+Math.random().toString(36).slice(2,5) }) })
       .then(function(r){ return r.json(); })
       .then(function(d){
         pipelineBusy=false; setRunButtonsEnabled(bridgeConnected!==false); if(igEls.genBtn) igEls.genBtn.disabled=false;
-        if(d && d.ok){ state.imageGen.items[i]={ url:d.url, path:d.path, mime:d.mime, prompt:it.prompt }; save(); renderGallery(); applyImageGenState(); setStat("done","✓ #"+(i+1)+" 다시 생성 완료"); }
+        if(d && d.ok){ state.imageGen.items[i]={ url:d.url, key:d.key, path:d.path, mime:d.mime, prompt:it.prompt }; save(); renderGallery(); applyImageGenState(); setStat("done","✓ #"+(i+1)+" 다시 생성 완료"); }
         else { setStat("error","#"+(i+1)+" 재생성 실패: "+((d&&d.error)||"실패")); }
       })
       .catch(function(err){ pipelineBusy=false; setRunButtonsEnabled(bridgeConnected!==false); if(igEls.genBtn) igEls.genBtn.disabled=false;
@@ -1013,7 +1097,7 @@
     if(bridgeConnected===false){ setStat("error","브리지가 연결되지 않았습니다. 위 안내대로 연결 프로그램을 켜주세요."); return; }
     var cap=Math.max(1, Math.min(IMAGE_MAX, parseInt(igEls.count.value,10)||3));
     var list=prompts.slice(0, cap);
-    var prov=(state.imageGen.provider==="codex")?"codex":"agy";
+    var prov=imageProvider();
     var conc=Math.max(1, Math.min(IMAGE_CONC_MAX, list.length, parseInt(state.imageGen.concurrency,10)||1));   // 동시 처리 개수(1=순차)
     var runId="r"+timestamp().replace(/[^0-9]/g,"")+"-"+Math.random().toString(36).slice(2,6);
     state.imageGen.runId=runId; state.imageGen.items=new Array(list.length); save(); renderGallery(); applyImageGenState();   // 인덱스 보존(병렬 완료 순서 무관)
@@ -1024,11 +1108,11 @@
       if(cursor>=list.length) return;   // 더 가져올 작업 없음 → 이 워커 종료
       var idx=cursor++;
       tick();
-      fetch(bridgePath("/image"), { method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
+      apiFetch("/image", { method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
           body:JSON.stringify({ provider:prov, prompt:list[idx], runId:runId, idx:String(idx+1) }) })
         .then(function(r){ return r.json(); })
         .then(function(d){
-          if(d && d.ok){ state.imageGen.items[idx]={ url:d.url, path:d.path, mime:d.mime, prompt:list[idx] }; okCount++; }
+          if(d && d.ok){ state.imageGen.items[idx]={ url:d.url, key:d.key, path:d.path, mime:d.mime, prompt:list[idx] }; okCount++; }
           else { lastErr=(d&&d.error)||"실패"; }
         })
         .catch(function(err){ lastErr=(err&&err.message)?err.message:String(err); if(/Failed to fetch|NetworkError|Load failed/i.test(lastErr)){ bridgeConnected=false; refreshConn(); } })
@@ -1156,7 +1240,7 @@
     if(img){ for(var i=0;i<STEPS.length;i++){ if(STEPS[i].id===img.id+1) return STEPS[i]; } }
     return STEPS.length?STEPS[STEPS.length-1]:null;
   }
-  function videoStepEnabled(){ return typeNeedsVideoGen() && !!findImageSourceStep(); }   // 릴스 + 이미지 프롬프트 단계 존재 시 표시
+  function videoStepEnabled(){ return typeNeedsVideoGen() && !!findImageSourceStep() && runMode()!=="server"; }   // 릴스 + 이미지 프롬프트 단계 / 서버(API) 모드는 영상 미지원 → 로컬에서 제작
   function videoGenDone(){ return (state.videoGen.items||[]).filter(Boolean).length>0; }   // 사전할당 배열의 빈 슬롯 제외
   function videoCutList(){ return (state.videoGen.cuts||"").split(/\n-{3,}\n/).map(function(s){return s.trim();}).filter(Boolean); }
   function parseCut(block){
@@ -1208,7 +1292,7 @@
     (state.videoGen.items||[]).forEach(function(it,i){
       if(!it) return;   // 병렬 제작 중 아직 안 끝난 슬롯 건너뜀
       var fig=document.createElement("div"); fig.style.cssText="border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--head-bg);";
-      var src=it.url?bridgePath(it.url):(it.videoUrl||"");   // 로컬 사본 우선, 없으면 엔진 원격 URL
+      var src=it.url?mediaSrc(it.url):(it.videoUrl||"");   // 로컬 사본 우선, 없으면 엔진 원격 URL
       var vid=document.createElement("video"); vid.src=src; vid.controls=true; vid.playsInline=true; vid.preload="metadata";
       vid.style.cssText="width:100%; display:block; aspect-ratio:9/16; object-fit:cover; background:#000;";
       if(it.imageUrl) vid.poster=it.imageUrl;
@@ -1218,7 +1302,7 @@
       var links=document.createElement("span"); links.style.cssText="display:flex; gap:5px; flex:0 0 auto;";
       var re=document.createElement("button"); re.className="btn ghost sm"; re.type="button"; re.textContent="🔄"; re.title="이 컷만 다시 제작(크레딧 재소모)";
       re.addEventListener("click", function(){ regenerateVideo(i); }); links.appendChild(re);
-      if(it.url){ var dl=document.createElement("a"); dl.className="btn ghost sm"; dl.textContent="📥"; dl.href=bridgePath(it.url); dl.download="reels-"+(i+1)+"."+String(it.url).split(".").pop(); dl.title="영상 다운로드"; links.appendChild(dl); }
+      if(it.url){ var dl=document.createElement("a"); dl.className="btn ghost sm"; dl.textContent="📥"; dl.href=mediaSrc(it.url); dl.download="reels-"+(i+1)+"."+String(it.url).split(".").pop(); dl.title="영상 다운로드"; links.appendChild(dl); }
       if(it.videoUrl){ var op=document.createElement("a"); op.className="btn ghost sm"; op.textContent="↗"; op.href=it.videoUrl; op.target="_blank"; op.rel="noopener"; op.title="엔진 원본 열기"; links.appendChild(op); }
       cap.appendChild(nm); cap.appendChild(links); fig.appendChild(cap); gal.appendChild(fig);
     });
@@ -1235,12 +1319,12 @@
     var c=parseCut(it.prompt);
     pipelineBusy=true; setRunButtonsEnabled(false); if(vgEls.genBtn) vgEls.genBtn.disabled=true;
     setStat("loading","#"+(i+1)+" 영상 다시 제작 중… ("+prov+" → "+engine+" · 수 분)", true);
-    fetch(bridgePath("/video"), { method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
+    apiFetch("/video", { method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
         body:JSON.stringify({ provider:prov, engine:engine, videoModel:vModel, aspect:"9:16", imagePrompt:c.image, motionPrompt:c.motion, runId:runId, idx:(i+1)+"-r"+Math.random().toString(36).slice(2,5) }) })
       .then(function(r){ return r.json(); })
       .then(function(d){
         pipelineBusy=false; setRunButtonsEnabled(bridgeConnected!==false); if(vgEls.genBtn) vgEls.genBtn.disabled=false;
-        if(d && d.ok){ state.videoGen.items[i]={ url:d.url, path:d.path, videoUrl:d.videoUrl, imageUrl:d.imageUrl, imageJobId:d.imageJobId, videoJobId:d.videoJobId, saveError:d.saveError||null, prompt:it.prompt }; save(); renderVideoGallery(); applyVideoGenState(); setStat("done","✓ #"+(i+1)+" 다시 제작 완료"+(d.saveError?" (로컬 저장 실패 · ↗ 원본)":"")); }
+        if(d && d.ok){ state.videoGen.items[i]={ url:d.url, key:d.key, path:d.path, videoUrl:d.videoUrl, imageUrl:d.imageUrl, imageJobId:d.imageJobId, videoJobId:d.videoJobId, saveError:d.saveError||null, prompt:it.prompt }; save(); renderVideoGallery(); applyVideoGenState(); setStat("done","✓ #"+(i+1)+" 다시 제작 완료"+(d.saveError?" (로컬 저장 실패 · ↗ 원본)":"")); }
         else { setStat("error","#"+(i+1)+" 재제작 실패: "+((d&&d.error)||"실패")); }
       })
       .catch(function(err){ pipelineBusy=false; setRunButtonsEnabled(bridgeConnected!==false); if(vgEls.genBtn) vgEls.genBtn.disabled=false;
@@ -1269,12 +1353,12 @@
       var idx=cursor++;
       var c=parseCut(list[idx]);
       tick();
-      fetch(bridgePath("/video"), { method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
+      apiFetch("/video", { method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
           body:JSON.stringify({ provider:prov, engine:engine, videoModel:vModel, aspect:"9:16",
             imagePrompt:c.image, motionPrompt:c.motion, runId:runId, idx:String(idx+1) }) })
         .then(function(r){ return r.json(); })
         .then(function(d){
-          if(d && d.ok){ if(d.saveError) saveFails++; state.videoGen.items[idx]={ url:d.url, path:d.path, videoUrl:d.videoUrl, imageUrl:d.imageUrl, imageJobId:d.imageJobId, videoJobId:d.videoJobId, saveError:d.saveError||null, prompt:list[idx] }; okCount++; }
+          if(d && d.ok){ if(d.saveError) saveFails++; state.videoGen.items[idx]={ url:d.url, key:d.key, path:d.path, videoUrl:d.videoUrl, imageUrl:d.imageUrl, imageJobId:d.imageJobId, videoJobId:d.videoJobId, saveError:d.saveError||null, prompt:list[idx] }; okCount++; }
           else { lastErr=(d&&d.error)||"실패"; }
         })
         .catch(function(err){ lastErr=(err&&err.message)?err.message:String(err); if(/Failed to fetch|NetworkError|Load failed/i.test(lastErr)){ bridgeConnected=false; refreshConn(); } })
@@ -1478,7 +1562,7 @@
     var timer=setInterval(function(){ setStatus(id,"loading","로컬 "+p.cli+" CLI 실행 중… ("+Math.round((Date.now()-t0)/1000)+"s)"); }, 1000);
     setStatus(id,"loading","로컬 "+p.cli+" CLI 실행 중… (0s)");
 
-    return fetch(bridgePath("/run"), { method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
+    return apiFetch("/run", { method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
         body:JSON.stringify({ provider:prov, model:resolveModelId(prov, model), prompt:prompt }) })
       .then(function(resp){ return resp.text().then(function(text){ var j=null; try{j=JSON.parse(text);}catch(e){} return {status:resp.status,json:j,text:text}; }); })
       .then(function(r){
@@ -1685,7 +1769,7 @@
       "- 웹 접근이 전혀 불가능하면 다른 말 없이 정확히 NO_WEB_ACCESS 라고만 답하세요.";
     pipelineBusy=true; setRunButtonsEnabled(false); if(btn) btn.disabled=true;
     st.style.color="var(--muted)"; st.innerHTML='<span class="spinner"></span>'+esc(p.cli)+' CLI 로 '+(sites.length?(sites.length+'개 사이트'):'웹')+' 깊이 조사 중… (자료를 충분히 모으느라 최대 1~2분 걸릴 수 있어요)';
-    fetch(bridgePath("/run"), { method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
+    apiFetch("/run", { method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
         body:JSON.stringify({ provider:prov, model:resolveModelId(prov, model), prompt:prompt }) })
       .then(function(r){ return r.text().then(function(t){ var j=null; try{j=JSON.parse(t);}catch(e){} return {json:j,text:t,status:r.status}; }); })
       .then(function(r){
@@ -1726,19 +1810,72 @@
     else { txt.textContent="확인 중…"; if(hs) hs.textContent="연결 확인 중…"; }
     setRunButtonsEnabled(bridgeConnected!==false && !pipelineBusy); updateHeroBtn();
   }
+  // 서버(API) 모드: /health(capabilities)+/models 로 활성 provider 만 모아 PROVIDERS 를 재구성.
+  function buildServerProviders(health, models){
+    var provs={}, caps=(health&&health.capabilities)||{}, act=(health&&health.providers)||{}, mlist=(models&&models.providers)||{};
+    Object.keys(caps).forEach(function(id){
+      if(act[id]===false) return;   // 키 보유(활성) provider 만 노출
+      var ms=(mlist[id]&&mlist[id].models)||[];
+      provs[id]={
+        label: id.charAt(0).toUpperCase()+id.slice(1)+" API", cli:id, capabilities:caps[id]||{},
+        defaultModel:(ms[0]&&(ms[0].name||ms[0].id))||"",
+        models: ms.map(function(m){ var o={ id:String(m.id), tag:String(m.tag||"") }; if(m.name) o.name=String(m.name); return o; }),
+        note: '서버(API) 모드 · <code>'+id+'</code> — 텍스트'+((caps[id]&&caps[id].image)?'·이미지':'')+' 생성'
+      };
+    });
+    return provs;
+  }
+  function fixProviderSelection(){
+    var ids=Object.keys(PROVIDERS);
+    if(ids.indexOf(state.provider)<0){ state.provider=ids[0]||""; var p=PROVIDERS[state.provider]; state.defaultModel=p?p.defaultModel:""; save(); }
+  }
+  function rebuildProviderSelect(){
+    var sel=el("provider"); if(!sel) return;
+    var cur=state.provider; sel.innerHTML="";
+    Object.keys(PROVIDERS).forEach(function(id){ var o=document.createElement("option"); o.value=id; o.textContent=PROVIDERS[id].label; sel.appendChild(o); });
+    if(PROVIDERS[cur]) sel.value=cur;
+    var lbl=el("providerLabel"); if(lbl) lbl.textContent=(runMode()==="server")?"provider (서버 API)":"LLM (로컬 CLI)";
+    if(el("defaultModel")) el("defaultModel").value=(state.defaultModel||"");
+  }
+  function setRunMode(m){
+    m=(m==="server")?"server":"local";
+    try{ localStorage.setItem("cp_runmode", m); }catch(e){}
+    var row=el("serverCfgRow"); if(row) row.style.display=(m==="server")?"":"none";
+    if(m==="local"){ PROVIDERS=LOCAL_PROVIDERS; rebuildModelOwner(); fixProviderSelection(); rebuildProviderSelect(); updateLlmInfo(); }
+    renderSteps();   // 영상 등 capability 게이팅 반영
+    checkBridge();   // 새 base 로 연결 확인(서버면 provider/모델 로드)
+  }
+
   function checkBridge(){
     bridgeConnected=null; refreshConn();
-    fetch(bridgePath("/health")+"?_="+Date.now(), { cache:"no-store" })
+    var server=(runMode()==="server");
+    apiFetch("/health?_="+Date.now(), { cache:"no-store" })
       .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
       .then(function(d){
-        if(!d || d.ok!==true) throw new Error("브리지 응답 형식 오류");   // 엉뚱한 대상이 200/JSON 을 줘도 '준비됨' 오탐 방지
+        if(!d || d.ok!==true) throw new Error("응답 형식 오류");   // 엉뚱한 대상이 200/JSON 을 줘도 '준비됨' 오탐 방지
+        if(server){
+          // 서버 모드: 활성 provider/capability/모델로 PROVIDERS 재구성
+          return apiFetch("/models?_="+Date.now(), { cache:"no-store" })
+            .then(function(r){ return r.ok?r.json():{}; })
+            .then(function(md){
+              PROVIDERS=buildServerProviders(d, md); rebuildModelOwner(); fixProviderSelection(); rebuildProviderSelect(); updateLlmInfo();
+              bridgeConnected=true; refreshConn();
+              var ids=Object.keys(PROVIDERS);
+              el("connPill").title="서버 provider: "+(ids.join(", ")||"(활성 없음)");
+              if(!ids.length){ el("providerNote").innerHTML='<div class="warnbox">서버에 활성화된 API provider 가 없습니다(서버 키 설정을 확인하세요).</div>'; }
+              else updateProviderNote();
+              renderSteps();
+            });
+        }
+        // 로컬 모드: 기존 동작
+        if(PROVIDERS!==LOCAL_PROVIDERS){ PROVIDERS=LOCAL_PROVIDERS; rebuildModelOwner(); rebuildProviderSelect(); updateLlmInfo(); renderSteps(); }
         bridgeConnected=true;
         var ps=(d&&d.providers)||{};
         var parts=Object.keys(PROVIDERS).map(function(k){ return PROVIDERS[k].cli+(ps[k]?" ✓":" ✗"); });
         refreshConn();
         el("connPill").title="감지된 도구: "+parts.join(" · ");
         // 현재 선택 도구 미설치 경고(고급)
-        if(ps[state.provider]===false){ el("providerNote").innerHTML='<div class="warnbox">선택한 도구 <code>'+PROVIDERS[state.provider].cli+'</code> 가 감지되지 않았습니다. 설치/로그인 후 다시 확인하거나 고급 설정에서 다른 도구를 선택하세요.</div>'; }
+        if(ps[state.provider]===false){ el("providerNote").innerHTML='<div class="warnbox">선택한 도구 <code>'+(PROVIDERS[state.provider]?PROVIDERS[state.provider].cli:state.provider)+'</code> 가 감지되지 않았습니다. 설치/로그인 후 다시 확인하거나 고급 설정에서 다른 도구를 선택하세요.</div>'; }
         else updateProviderNote();
       })
       .catch(function(){ bridgeConnected=false; refreshConn(); });
@@ -1763,13 +1900,70 @@
   function resetAll(){
     if(!window.confirm("지금까지의 입력과 결과를 모두 지우고 새로 시작할까요?")) return;
     try{ localStorage.removeItem(LS_KEY); }catch(e){}
-    state.provider="claude"; state.defaultModel=PROVIDERS.claude.defaultModel;
+    state.jobId="";
+    state.provider=(PROVIDERS.claude?"claude":(Object.keys(PROVIDERS)[0]||"claude")); state.defaultModel=(PROVIDERS[state.provider]||{}).defaultModel||"";
     state.topic=""; state.rulepack=""; state.platform=""; state.refData="";
     state.steps={}; state.collapsed={}; state.refSites=[]; state.imageGen={ prompts:"", runId:"", items:[], provider:"codex", concurrency:1 };
     state.videoGen={ cuts:"", runId:"", items:[], provider:"claude", engine:"higgsfield", videoModel:"seedance_1_5", concurrency:1 };   // 출력·접힘·웹조사·이미지·영상 생성까지 초기화
     setSteps("");
     initRunState(); bindSettingsToUI(); renderSteps(); updateHeroBtn(); save();
   }
+
+  /* ====== 작업 라이브러리 (S3/로컬 storage 의 /jobs 연동) ====== */
+  function jobsPanelOpen(){ el("jobsPanel").classList.add("open"); el("jobsBackdrop").classList.add("open"); loadJobsList(); }
+  function jobsPanelClose(){ el("jobsPanel").classList.remove("open"); el("jobsBackdrop").classList.remove("open"); }
+  function setJobStatus(t){ var s=el("jobStatus"); if(s) s.textContent=t||""; }
+  function fmtTime(iso){ if(!iso) return ""; try{ return new Date(iso).toLocaleString("ko-KR"); }catch(e){ return String(iso); } }
+
+  // 저장된 작업 상태(state 스냅샷)를 콘솔에 주입 — load() 의 LS_KEY 적용·마이그레이션 로직을 재사용.
+  function applyJobState(s, id){
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(s||{})); }catch(e){}
+    load();
+    state.jobId = id || "";
+    initRunState(); bindSettingsToUI(); initRunModeUI(); renderPlatformGroups(); renderSteps(); updateHeroBtn(); refreshConn(); save();
+  }
+
+  function loadJobsList(){
+    var box=el("jobsList"); if(!box) return;
+    box.innerHTML='<div class="hint">불러오는 중…</div>';
+    apiFetch("/jobs?_="+Date.now(), { cache:"no-store" }).then(function(r){ return r.json(); }).then(function(d){
+      if(!d || !d.ok){ box.innerHTML='<div class="warnbox">목록을 불러오지 못했습니다'+((d&&d.error)?(': '+esc(d.error)):'')+'</div>'; return; }
+      if(!d.jobs || !d.jobs.length){ box.innerHTML='<div class="hint">저장된 작업이 없습니다. <b>현재 작업 저장</b>으로 추가하세요.</div>'; return; }
+      box.innerHTML="";
+      d.jobs.forEach(function(j){
+        var row=document.createElement("div"); row.className="job-row"+(j.id===state.jobId?" current":"");
+        var meta=document.createElement("div"); meta.className="job-meta";
+        meta.innerHTML='<div class="job-title">'+esc(j.title||"제목 없음")+'</div><div class="job-sub">'+esc(j.platform||"미지정")+' · '+esc(fmtTime(j.updatedAt))+'</div>';
+        var acts=document.createElement("div"); acts.className="job-acts";
+        var open=document.createElement("button"); open.className="btn ghost sm"; open.type="button"; open.textContent="열기"; open.addEventListener("click", function(){ openJob(j.id); });
+        var del=document.createElement("button"); del.className="btn ghost sm"; del.type="button"; del.textContent="🗑"; del.title="삭제"; del.addEventListener("click", function(){ if(window.confirm("이 작업을 삭제할까요?")) deleteJob(j.id); });
+        acts.appendChild(open); acts.appendChild(del);
+        row.appendChild(meta); row.appendChild(acts); box.appendChild(row);
+      });
+    }).catch(function(){ box.innerHTML='<div class="warnbox">목록 오류 — 연결/인증을 확인하세요.</div>'; });
+  }
+  function openJob(id){
+    setJobStatus("여는 중…");
+    apiFetch("/jobs/"+encodeURIComponent(id)+"?_="+Date.now(), { cache:"no-store" }).then(function(r){ return r.json(); }).then(function(d){
+      if(d && d.ok && d.job){ applyJobState(d.job.state||{}, id); jobsPanelClose(); }
+      else setJobStatus("열기 실패: "+((d&&d.error)||"")); }).catch(function(){ setJobStatus("열기 오류(연결 확인)"); });
+  }
+  function saveCurrentJob(){
+    if(bridgeConnected===false){ setJobStatus("연결이 필요합니다(상태 배지 확인)."); return; }
+    setJobStatus("저장 중…");
+    var isNew=!state.jobId, path=isNew?"/jobs":("/jobs/"+encodeURIComponent(state.jobId));
+    apiFetch(path, { method:(isNew?"POST":"PUT"), headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ id:state.jobId||undefined, title:jobTitle(), platform:state.platform||"", state:state }) })
+      .then(function(r){ return r.json(); }).then(function(d){
+        if(d && d.ok){ state.jobId=d.id; try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){} setJobStatus("✓ 저장됨 ("+fmtTime(d.updatedAt)+")"); loadJobsList(); }
+        else setJobStatus("저장 실패: "+((d&&d.error)||"")); }).catch(function(){ setJobStatus("저장 오류(연결 확인)"); });
+  }
+  function deleteJob(id){
+    apiFetch("/jobs/"+encodeURIComponent(id), { method:"DELETE" }).then(function(r){ return r.json(); }).then(function(d){
+      if(d && d.ok){ if(state.jobId===id){ state.jobId=""; save(); } setJobStatus("삭제됨"); loadJobsList(); }
+      else setJobStatus("삭제 실패"); }).catch(function(){ setJobStatus("삭제 오류"); });
+  }
+  function newJob(){ jobsPanelClose(); resetAll(); }
 
   /* ====== 설정 바인딩 ====== */
   function updateProviderNote(){ el("providerNote").innerHTML='<div class="scope-note">'+PROVIDERS[state.provider].note+'</div>'; }
@@ -1819,7 +2013,7 @@
     var btn=el("refreshModelsBtn"), st=el("refreshModelsStatus");
     if(st){ st.style.color="var(--muted)"; st.textContent="조회 중…"; }
     if(btn) btn.disabled=true;
-    fetch(bridgePath("/models")+"?_="+Date.now(), { cache:"no-store" }).then(function(r){ return r.json(); }).then(function(d){
+    apiFetch("/models?_="+Date.now(), { cache:"no-store" }).then(function(r){ return r.json(); }).then(function(d){
       if(!d||!d.ok){ throw new Error((d&&d.error)||"응답 오류"); }
       applyFetchedModels(d.providers); saveFetchedModels(d.providers);
       var parts=[]; Object.keys(d.providers).forEach(function(pk){
@@ -1921,6 +2115,14 @@
     try{ localStorage.setItem("cp_mode", simple?"simple":"advanced"); }catch(e){}
   }
   function initMode(){ applyMode(currentMode()); }
+  // 실행 방식(로컬/서버) UI 초기값 반영 — PROVIDERS 교체는 checkBridge 가 수행.
+  function initRunModeUI(){
+    var m=runMode();
+    if(el("runModeSel")) el("runModeSel").value=m;
+    if(el("serverUrlInput")) el("serverUrlInput").value=serverUrl();
+    if(el("serverTokenInput")) el("serverTokenInput").value=serverToken();
+    if(el("serverCfgRow")) el("serverCfgRow").style.display=(m==="server")?"":"none";
+  }
   function setMode(m){ applyMode(m); renderSteps(); }
 
   /* ====== 고급 설정 드로어 ====== */
@@ -1974,6 +2176,9 @@
     el("refAddBtn").addEventListener("click", addRefSite);
     el("refFetchBtn").addEventListener("click", fetchFromWeb);
     el("g_refSite").addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); addRefSite(); } });   // Enter = 목록에 추가(검색 아님)
+    el("runModeSel").addEventListener("change", function(){ setRunMode(el("runModeSel").value); });
+    el("serverUrlInput").addEventListener("input", function(){ try{ localStorage.setItem("cp_server_url", el("serverUrlInput").value.trim()); }catch(e){} });
+    el("serverTokenInput").addEventListener("input", function(){ try{ localStorage.setItem("cp_server_token", el("serverTokenInput").value); }catch(e){} });
     el("connPill").addEventListener("click", checkBridge);
     el("connPill").addEventListener("keydown", function(e){ if(e.key==="Enter"||e.key===" "||e.key==="Spacebar"){ e.preventDefault(); checkBridge(); } });   // span[role=button] 은 Enter/Space 클릭을 자동 합성하지 않음
     el("llmInfo").addEventListener("click", openDrawer);
@@ -1989,7 +2194,12 @@
     el("modeToggle").addEventListener("click", openDrawer);
     el("drawerClose").addEventListener("click", closeDrawer);
     el("drawerBackdrop").addEventListener("click", closeDrawer);
-    document.addEventListener("keydown", function(e){ if(e.key==="Escape") closeDrawer(); });
+    el("jobsBtn").addEventListener("click", jobsPanelOpen);
+    el("jobsClose").addEventListener("click", jobsPanelClose);
+    el("jobsBackdrop").addEventListener("click", jobsPanelClose);
+    el("jobSaveBtn").addEventListener("click", saveCurrentJob);
+    el("jobNewBtn").addEventListener("click", newJob);
+    document.addEventListener("keydown", function(e){ if(e.key==="Escape"){ closeDrawer(); jobsPanelClose(); } });
     el("advStepsToggle").addEventListener("change", function(){ setMode(el("advStepsToggle").checked?"advanced":"simple"); });
     el("heroRun").addEventListener("click", runNext);
     el("heroAuto").addEventListener("click", runAll);
@@ -1999,7 +2209,7 @@
   }
 
   /* ====== init ====== */
-  initTheme(); initMode(); loadFetchedModels(); load(); initRunState(); bindSettingsToUI(); wireSettings(); renderSteps(); refreshConn(); checkBridge();
+  initTheme(); initMode(); loadFetchedModels(); load(); initRunState(); bindSettingsToUI(); wireSettings(); initRunModeUI(); renderSteps(); refreshConn(); checkBridge();
 })();
 </script>
 </body>

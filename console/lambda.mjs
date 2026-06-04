@@ -1,0 +1,91 @@
+/* ============================================================================
+ * lambda.mjs — AWS Lambda Function URL 진입점 (서버/API 모드)
+ *
+ *   Cloudflare Pages 정적 HTML → (fetch + Bearer 토큰) → 이 Lambda → server-core → api 백엔드.
+ *   저장소는 S3(무상태), 키는 Secrets Manager, 인증은 기존 어드민 API.
+ *
+ *   Function URL(payload v2.0) 권장 — API Gateway 29초 제한 없이 이미지 생성(수십 초)을 동기 처리.
+ *
+ * 필수 env: SECRETS_ID, S3_BUCKET, ADMIN_VERIFY_URL, ALLOWED_ORIGINS
+ *           STORAGE 는 미설정 시 s3 로 강제(무상태).
+ * ========================================================================== */
+
+import { createCore } from "./server-core.mjs";
+import { createStorage } from "./storage/index.mjs";
+import { makeApiBackend } from "./backends/api/index.mjs";
+
+const ALLOWED = String(process.env.ALLOWED_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean);
+function originAllowed(origin) {
+  if (!origin) return true;                 // 동일 origin/서버 간/도구(브라우저 아님)
+  if (ALLOWED.includes("*")) return true;
+  return ALLOWED.includes(origin);
+}
+function corsHeaders(origin) {
+  if (!originAllowed(origin)) return {};
+  return {
+    "Access-Control-Allow-Origin": origin || "*",
+    "Vary": "Origin",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Max-Age": "600",
+  };
+}
+
+/* 어드민 API 토큰 검증 seam.
+ * ⚠ 기존 어드민 API 스펙에 맞게 조정할 부분(현재는 합리적 기본):
+ *   - ADMIN_VERIFY_URL 로 Authorization: Bearer <token> 을 보내 200 이면 유효로 본다.
+ *   - 응답 JSON 에서 사용자 식별자를 userId/id/sub 중 하나로 추출(작업 per-user prefix 에 사용).
+ *   - 헤더/메서드/바디·JWT 자체검증 등 방식이 다르면 이 함수만 교체하면 된다(코어 불변). */
+async function verifyToken(token) {
+  if (!token) return { ok: false };
+  const url = process.env.ADMIN_VERIFY_URL;
+  if (!url) return { ok: false };           // 미설정이면 거부(안전 기본)
+  try {
+    const resp = await fetch(url, { headers: { "Authorization": "Bearer " + token }, signal: AbortSignal.timeout(8000) });
+    if (!resp.ok) return { ok: false };
+    const data = await resp.json().catch(() => ({}));
+    return { ok: true, userId: data.userId || data.id || data.sub || null };
+  } catch (e) { return { ok: false }; }
+}
+
+// 콜드스타트 1회 조립(컨테이너 재사용 시 캐시) — Secrets/SDK 클라이언트 재활용.
+let coreP = null;
+function getCore() {
+  if (coreP) return coreP;
+  coreP = (async () => {
+    const backend = await makeApiBackend(process.env);
+    const storage = await createStorage({ ...process.env, STORAGE: process.env.STORAGE || "s3" });
+    return createCore({ backend, storage, verifyToken, originAllowed, requireAuth: true });
+  })();
+  return coreP;
+}
+
+export const handler = async (event) => {
+  const core = await getCore();
+  const httpCtx = (event.requestContext && event.requestContext.http) || {};
+  const method = httpCtx.method || event.httpMethod || "GET";
+  const path = event.rawPath || event.path || "/";
+  const headers = {};
+  for (const k of Object.keys(event.headers || {})) headers[k.toLowerCase()] = event.headers[k];
+  const origin = headers["origin"];
+  const query = new URLSearchParams(event.rawQueryString || "");
+  let body = event.body || "";
+  if (event.isBase64Encoded && body) body = Buffer.from(body, "base64").toString("utf8");
+
+  const cors = corsHeaders(origin);
+  if (method === "OPTIONS") return { statusCode: 204, headers: cors, body: "" };
+
+  let resp;
+  try { resp = await core.handle({ method, path, query, headers, body, origin }); }
+  catch (e) { resp = { status: 500, json: { ok: false, error: "서버 오류: " + (e && e.message || e) } }; }
+
+  const noCache = { "Cache-Control": "no-store" };
+  if (resp.json !== undefined) {
+    return { statusCode: resp.status, headers: { "Content-Type": "application/json; charset=utf-8", ...noCache, ...cors }, body: JSON.stringify(resp.json) };
+  }
+  if (resp.body !== undefined) {
+    const isBuf = Buffer.isBuffer(resp.body);
+    return { statusCode: resp.status, headers: { "Content-Type": resp.contentType || "application/octet-stream", ...noCache, ...cors }, body: isBuf ? resp.body.toString("base64") : resp.body, isBase64Encoded: isBuf };
+  }
+  return { statusCode: resp.status || 204, headers: cors, body: "" };
+};
