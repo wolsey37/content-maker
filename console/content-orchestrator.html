@@ -297,6 +297,8 @@
   #jobsPanel{ position:static; transform:none; transition:none; width:auto; max-width:none; height:auto; border-left:none; box-shadow:none; background:transparent; display:none; }
   body.lib-mode #jobsPanel{ display:block; }
   body.lib-mode .wrap > *:not(#jobsPanel){ display:none !important; }
+  /* 라이브러리(목록) 화면에선 콘솔 실행 컨트롤을 숨긴다 — 만들기는 작업을 열거나 새로 만든 뒤 콘솔에서. */
+  body.lib-mode #runAll, body.lib-mode #toggleAll, body.lib-mode #heroStatus{ display:none !important; }
   #jobsPanel .drawer-head{ border-bottom:1px solid var(--line); }
   #jobsPanel .drawer-head, #jobsPanel .drawer-body{ max-width:1000px; margin-left:auto; margin-right:auto; width:100%; box-sizing:border-box; }
   #jobsPanel #jobsList{ display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:10px; }
