@@ -319,6 +319,17 @@
   .tfa-timer.expired{ color:var(--err); }
   .login-err{ margin-top:12px; padding:9px 11px; border-radius:8px; background:rgba(220,60,60,.12); color:var(--err); font-size:12.5px; }
   .login-note{ margin-top:16px; font-size:12px; color:var(--muted); text-align:center; }
+  /* ===== 어드민 레이아웃: 좌측 사이드바 + 전체폭 메인 ===== */
+  body{ display:flex; min-height:100vh; }
+  .sidebar{ flex:0 0 240px; width:240px; box-sizing:border-box; background:var(--panel); border-right:1px solid var(--line); display:flex; flex-direction:column; gap:6px; padding:16px 12px; position:sticky; top:0; height:100vh; overflow-y:auto; }
+  .app-main{ flex:1 1 auto; min-width:0; display:flex; flex-direction:column; }
+  .wrap{ max-width:none; }
+  .topbar-inner{ max-width:none; }
+  .side-brand{ font-weight:800; font-size:15px; color:var(--ink); padding:4px 8px 10px; }
+  .side-sec{ display:flex; flex-direction:column; gap:5px; }
+  .side-foot{ margin-top:auto; padding-top:10px; border-top:1px solid var(--line); display:flex; flex-direction:column; gap:5px; }
+  .sidebar .btn, .sidebar .conn-pill{ width:100%; justify-content:flex-start; box-sizing:border-box; text-align:left; }
+  @media(max-width:760px){ body{ display:block; } .sidebar{ position:static; width:auto; height:auto; flex-direction:row; flex-wrap:wrap; } .side-foot{ margin-top:0; border-top:none; } }
 </style>
 </head>
 <body>
@@ -345,6 +356,12 @@
   </div>
 </div>
 
+<aside class="sidebar" id="sidebar">
+  <div class="side-brand">🎬 콘텐츠 스튜디오</div>
+  <div class="side-sec" id="sideNav"></div>
+  <div class="side-foot" id="sideFoot"></div>
+</aside>
+<div class="app-main">
 <div class="topbar">
   <div class="topbar-inner">
     <div class="topbar-top">
@@ -523,6 +540,7 @@
 
   <p class="footer-note">단일 HTML + 로컬 브리지(Node, 의존성 0) · LLM은 로컬 CLI 실행 · 릴스는 영상 엔진(Higgsfield)을 CLI→MCP 로 호출해 실제 영상까지 생성합니다.</p>
 </div>
+</div><!-- /app-main -->
 
 <script>
 "use strict";
@@ -2402,8 +2420,16 @@
     el("copyCmd").addEventListener("click", function(){ copyText(el("bridgeCmd").textContent, el("copyCmd")); });
   }
 
+  // 어드민 사이드바로 네비/상태/설정 컨트롤 이동(HTML 위치만 — 이벤트는 el(id) 바인딩이라 유지).
+  //   runAll/toggleAll/heroStatus 는 콘솔 워크플로우 컨트롤이라 topbar(메인)에 남긴다.
+  function relocateNav(){
+    var nav=el("sideNav"), foot=el("sideFoot");
+    if(nav) ["modeBadge","connPill","jobsBtn","llmInfo"].forEach(function(id){ var e=el(id); if(e) nav.appendChild(e); });
+    if(foot) ["modeToggle","themeToggle","logoutTopBtn"].forEach(function(id){ var e=el(id); if(e) foot.appendChild(e); });
+  }
+
   /* ====== init ====== */
-  initTheme(); initMode(); loadFetchedModels(); load(); initRunState(); bindSettingsToUI(); wireSettings(); wireLogin(); initRunModeUI(); renderSteps(); refreshConn();
+  initTheme(); initMode(); loadFetchedModels(); load(); initRunState(); bindSettingsToUI(); wireSettings(); wireLogin(); relocateNav(); initRunModeUI(); renderSteps(); refreshConn();
   if(ensureAuth()){ checkBridge(); if(runMode()==="server") jobsPanelOpen(); }   // 서버 모드 & 미로그인 시 로그인 오버레이 → 성공 시 checkBridge. 인증됨이면 콘텐츠 목록 표시
 })();
 </script>
