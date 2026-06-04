@@ -382,9 +382,11 @@
         <div class="field">
           <label for="runModeSel">실행 방식</label>
           <select id="runModeSel">
+            <option value="auto">자동 (도메인으로 판단)</option>
             <option value="local">로컬 — 설치된 CLI(claude/codex/agy)</option>
             <option value="server">서버 — API(OpenAI 등)</option>
           </select>
+          <div class="hint" id="runModeHint" style="margin-top:4px;"></div>
         </div>
         <div id="serverCfgRow" style="display:none; margin-top:8px;">
           <div class="field">
@@ -703,7 +705,14 @@
 
   // ====== 실행 모드 (로컬 CLI 브리지 / 서버 API) ======
   // 로컬: 기존 그대로(보통 same-origin). 서버: 설정한 Lambda URL + 어드민 토큰(Authorization).
-  function runMode(){ try{ return localStorage.getItem("cp_runmode")==="server" ? "server" : "local"; }catch(e){ return "local"; } }
+  // 기본은 '자동' — 접속 도메인으로 판단(루프백/로컬이면 local, 그 외 공개 도메인이면 server).
+  //   localStorage 에 'local'/'server' 가 명시돼 있으면 그 값으로 오버라이드.
+  function isLocalHost(){
+    var h=(location.hostname||"").toLowerCase();
+    return h===""||h==="127.0.0.1"||h==="localhost"||h==="::1"||h==="[::1]"||h==="0.0.0.0"||/\.local$/.test(h)||/^192\.168\./.test(h)||/^10\./.test(h);
+  }
+  function runModePref(){ try{ var m=localStorage.getItem("cp_runmode"); return (m==="local"||m==="server")?m:"auto"; }catch(e){ return "auto"; } }
+  function runMode(){ var p=runModePref(); return (p==="auto") ? (isLocalHost()?"local":"server") : p; }
   function serverUrl(){ try{ return (localStorage.getItem("cp_server_url")||"").replace(/\/+$/,""); }catch(e){ return ""; } }
   function serverToken(){ try{ return localStorage.getItem("cp_server_token")||""; }catch(e){ return ""; } }
   // 백엔드 base: 서버 모드면 Lambda URL, 로컬이면 bridgeBase()(보통 "").
@@ -1838,12 +1847,23 @@
     if(el("defaultModel")) el("defaultModel").value=(state.defaultModel||"");
   }
   function setRunMode(m){
-    m=(m==="server")?"server":"local";
-    try{ localStorage.setItem("cp_runmode", m); }catch(e){}
-    var row=el("serverCfgRow"); if(row) row.style.display=(m==="server")?"":"none";
-    if(m==="local"){ PROVIDERS=LOCAL_PROVIDERS; rebuildModelOwner(); fixProviderSelection(); rebuildProviderSelect(); updateLlmInfo(); }
+    var pref=(m==="local"||m==="server")?m:"auto";
+    try{ localStorage.setItem("cp_runmode", pref); }catch(e){}
+    var eff=runMode();
+    updateRunModeUI(eff);
+    if(eff==="local"){ PROVIDERS=LOCAL_PROVIDERS; rebuildModelOwner(); fixProviderSelection(); rebuildProviderSelect(); updateLlmInfo(); }
     renderSteps();   // 영상 등 capability 게이팅 반영
     checkBridge();   // 새 base 로 연결 확인(서버면 provider/모델 로드)
+  }
+  // 실효 모드(eff)에 따라 서버 설정칸 표시 + 안내 문구 갱신.
+  function updateRunModeUI(eff){
+    eff=eff||runMode();
+    var row=el("serverCfgRow"); if(row) row.style.display=(eff==="server")?"":"none";
+    var hint=el("runModeHint");
+    if(hint){
+      var auto=(runModePref()==="auto");
+      hint.textContent=(auto?("도메인 '"+(location.hostname||"file")+"' → "):"")+(eff==="server"?"서버(API) 모드":"로컬(CLI) 모드")+(auto?" 자동 적용":" (수동 고정)");
+    }
   }
 
   function checkBridge(){
@@ -2117,11 +2137,10 @@
   function initMode(){ applyMode(currentMode()); }
   // 실행 방식(로컬/서버) UI 초기값 반영 — PROVIDERS 교체는 checkBridge 가 수행.
   function initRunModeUI(){
-    var m=runMode();
-    if(el("runModeSel")) el("runModeSel").value=m;
+    if(el("runModeSel")) el("runModeSel").value=runModePref();
     if(el("serverUrlInput")) el("serverUrlInput").value=serverUrl();
     if(el("serverTokenInput")) el("serverTokenInput").value=serverToken();
-    if(el("serverCfgRow")) el("serverCfgRow").style.display=(m==="server")?"":"none";
+    updateRunModeUI(runMode());
   }
   function setMode(m){ applyMode(m); renderSteps(); }
 
