@@ -1,0 +1,12 @@
+# Lambda 패키지에서 제외(서버 런타임에 불필요) — 콘솔 HTML·로컬 브리지·Cloudflare functions·infra·산출물.
+content-orchestrator.html
+bridge.mjs
+functions/
+infra/
+output/
+.playwright-mcp/
+lambda.zip
+template.yaml
+samconfig.toml
+*.md
+README.md

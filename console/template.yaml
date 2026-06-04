@@ -1,0 +1,97 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  content-maker 서버(API) 모드 — Lambda(Function URL) + S3(미디어/작업) + provider 키 시크릿.
+  SAM 으로 코드 패키징·배포(`sam deploy --resolve-s3`). JWT 검증용 jwt-secret 은 기존 prod/connect 참조만.
+  콘텐츠 API 는 Cloudflare 프록시 없이 Function URL 직접 호출(100초 524 회피, 타임아웃 300s).
+
+Parameters:
+  MediaBucketName:
+    Type: String
+    Default: prod-content-maker-data
+    Description: 생성 이미지 + 작업(JSON) 저장 S3 버킷(전역 유일).
+  ProviderSecretName:
+    Type: String
+    Default: prod/openai
+    Description: provider API 키(OPENAI_API_KEY) 시크릿. 스택 생성 후 값 입력.
+  JwtSecretArn:
+    Type: String
+    Description: 기존 JWT 시크릿(prod/connect) 전체 ARN. 읽기 권한만 부여(생성 X).
+  AllowedOrigins:
+    Type: String
+    Description: 콘솔(Cloudflare Pages) origin. 콤마 구분. 예) https://content-maker.pages.dev
+  OpenAiTextModel:
+    Type: String
+    Default: gpt-5.5
+    Description: OpenAI 텍스트 모델 id(실제 API 모델로 조정).
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 300
+    MemorySize: 512
+
+Resources:
+  MediaBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref MediaBucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedMethods: [GET]
+            AllowedOrigins: ['*']     # presigned GET(<img> 로드)용 — 서명이 권한이라 origin 넓게.
+            AllowedHeaders: ['*']
+            MaxAge: 3000
+
+  ProviderSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Ref ProviderSecretName
+      Description: content-maker provider API 키 (OPENAI_API_KEY 등). 생성 후 값 입력.
+      SecretString: '{"OPENAI_API_KEY":""}'
+
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: content-maker-api
+      CodeUri: .
+      Handler: lambda.handler
+      Environment:
+        Variables:
+          STORAGE: s3
+          S3_BUCKET: !Ref MediaBucketName
+          S3_REGION: !Ref AWS::Region
+          SECRETS_ID: !Ref ProviderSecretName
+          JWT_SECRET_ID: prod/connect
+          ALLOWED_ORIGINS: !Ref AllowedOrigins
+          OPENAI_TEXT_MODEL: !Ref OpenAiTextModel
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref MediaBucketName
+        - Statement:
+            - Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource:
+                - !Ref ProviderSecret    # provider 키
+                - !Ref JwtSecretArn      # 기존 prod/connect (jwt-secret)
+      FunctionUrlConfig:
+        AuthType: NONE     # 인증은 앱이 JWT(prod/connect)로 직접 검증.
+        Cors:
+          AllowOrigins: !Split [',', !Ref AllowedOrigins]
+          AllowMethods: [GET, POST, PUT, DELETE]
+          AllowHeaders: [content-type, authorization]
+          MaxAge: 600
+
+Outputs:
+  FunctionUrl:
+    Description: 콘솔 SERVER_API_BASE / 설정 '백엔드 URL' 에 입력.
+    Value: !GetAtt ApiFunctionUrl.FunctionUrl
+  MediaBucket:
+    Value: !Ref MediaBucket
+  ProviderSecretArn:
+    Value: !Ref ProviderSecret
