@@ -168,6 +168,25 @@ export function createCore(opts) {
     return J(405, { ok: false, error: "허용되지 않은 메서드" });
   }
 
+  // 전역 프롬프트 템플릿(루트 meta/ 폴더, 읽기 전용 — 콘솔에서 쓰기 불가, seed 는 out-of-band).
+  async function templates() {
+    const t = await storage.getJson("meta/prompt-templates.json");
+    return J(200, { ok: true, templates: t || null });
+  }
+  // 계정별 설정/템플릿(<userId>/meta.json). GET 로드 / PUT 저장. 계정 격리(userPrefix).
+  async function accountMeta(req, auth) {
+    const key = userPrefix(auth) + "meta.json";
+    if (req.method === "GET") { const m = await storage.getJson(key); return J(200, { ok: true, meta: m || null }); }
+    if (req.method === "PUT" || req.method === "POST") {
+      const body = parseBody(req); if (!body) return J(400, { ok: false, error: "잘못된 요청 본문(JSON 파싱 실패)" });
+      const payload = (body.meta && typeof body.meta === "object") ? body.meta : body;
+      const now = nowIso();
+      await storage.putJson(key, { ...payload, updatedAt: now });
+      return J(200, { ok: true, updatedAt: now });
+    }
+    return J(405, { ok: false, error: "허용되지 않은 메서드" });
+  }
+
   // 로컬 미디어 정적 서빙(<img>/<video> src). s3 백엔드는 readMedia 없음 → 404(미디어는 presigned 직접).
   async function serveOutput(req) {
     if (typeof storage.readMedia !== "function") return { status: 404, body: "not found", contentType: "text/plain; charset=utf-8" };
@@ -198,6 +217,8 @@ export function createCore(opts) {
     if (req.method === "POST" && req.path === "/image") return image(req, auth);
     if (req.method === "POST" && req.path === "/video") return video(req, auth);
     if (req.path === "/jobs" || req.path.startsWith("/jobs/")) return jobs(req, auth);
+    if (req.method === "GET" && req.path === "/templates") return templates();
+    if (req.path === "/meta") return accountMeta(req, auth);
 
     return J(404, { ok: false, error: "Not found" });
   }

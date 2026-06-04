@@ -423,7 +423,11 @@
           <div class="hint" style="margin-top:4px;">콘텐츠 API를 직접 호출(Cloudflare 프록시 우회 → 긴 이미지 생성도 안전). 비우면 빌드 주입값 사용. 로그인은 same-origin <code>/auth</code>.</div>
         </div>
         <div class="hint" style="margin-top:8px;">파마브로스 어드민 계정으로 로그인되어 있습니다. <b>영상(릴스)은 로컬 모드</b>에서 제작합니다.</div>
-        <button class="btn ghost sm" id="logoutBtn" type="button" style="margin-top:6px;">로그아웃</button>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;">
+          <button class="btn ghost sm" id="metaSaveBtn" type="button" title="현재 provider·모델·프롬프트 템플릿을 계정에 저장">💾 내 설정·템플릿 저장</button>
+          <button class="btn ghost sm" id="metaLoadBtn" type="button" title="계정에 저장한 설정·템플릿 불러오기">↺ 불러오기</button>
+          <button class="btn ghost sm" id="logoutBtn" type="button">로그아웃</button>
+        </div>
       </div>
 
       <div class="drawer-section">
@@ -1934,7 +1938,11 @@
     tick(); tfaTimerId=setInterval(tick,1000);
   }
   function stopTfaTimer(){ if(tfaTimerId){ clearInterval(tfaTimerId); tfaTimerId=null; } }
-  function onLoginSuccess(token){ setJwt(token); hideLogin(); checkBridge(); jobsPanelOpen(); }   // 로그인 직후 콘텐츠(작업) 목록 표시
+  function onLoginSuccess(token){
+    setJwt(token); hideLogin(); checkBridge(); jobsPanelOpen();   // 콘텐츠(작업) 목록 표시
+    // 계정 설정·템플릿 조용히 적용(있으면). 작업을 열면 그 job state 가 우선한다.
+    apiFetch("/meta?_="+Date.now(),{ cache:"no-store" }).then(function(r){ return r.json(); }).then(function(d){ if(d&&d.ok&&d.meta) applyAccountMeta(d.meta); }).catch(function(){});
+  }
   function doLogout(){ clearJwt(); if(runMode()==="server") showLogin(); }
   // 서버 모드 + JWT 없음/만료 → 로그인 표시(false). 로컬 모드는 로그인 없음(true).
   function ensureAuth(){
@@ -1952,6 +1960,8 @@
     var pw=el("loginPw"); if(pw) pw.addEventListener("keydown", function(e){ if(e.key==="Enter") doLogin(); });
     var c=el("login2fa"); if(c) c.addEventListener("keydown", function(e){ if(e.key==="Enter") doVerify2fa(); });
     var lo=el("logoutBtn"); if(lo) lo.addEventListener("click", doLogout);
+    var ms=el("metaSaveBtn"); if(ms) ms.addEventListener("click", saveAccountMeta);
+    var ml=el("metaLoadBtn"); if(ml) ml.addEventListener("click", loadAccountMeta);
   }
 
   // 서버(API) 모드: /health(capabilities)+/models 로 활성 provider 만 모아 PROVIDERS 를 재구성.
@@ -2111,6 +2121,29 @@
       else setJobStatus("삭제 실패"); }).catch(function(){ setJobStatus("삭제 오류"); });
   }
   function newJob(){ jobsPanelClose(); resetAll(); }
+
+  /* ====== 계정별 설정·템플릿 (S3 <userId>/meta.json) ====== */
+  function collectAccountMeta(){
+    var tpl={}; Object.keys(state.steps||{}).forEach(function(id){ var s=state.steps[id]; if(s&&s.template) tpl[id]=s.template; });
+    return { provider:state.provider, defaultModel:state.defaultModel, platform:state.platform, mode:currentMode(), stepTemplates:tpl };
+  }
+  // 우선순위: 작업 열기(job state) > 계정 meta > 전역 templates > 코드 기본. (여기선 계정 meta 를 현재 상태에 적용)
+  function applyAccountMeta(m){
+    if(!m) return;
+    if(m.provider && PROVIDERS[m.provider]) state.provider=m.provider;
+    if(m.defaultModel) state.defaultModel=m.defaultModel;
+    if(m.stepTemplates && m.platform===state.platform){ Object.keys(m.stepTemplates).forEach(function(id){ if(state.steps[id]) state.steps[id].template=m.stepTemplates[id]; }); }
+    save(); bindSettingsToUI(); renderSteps();
+  }
+  function saveAccountMeta(){
+    setJobStatus("계정 설정 저장 중…");
+    apiFetch("/meta",{ method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ meta:collectAccountMeta() }) })
+      .then(function(r){ return r.json(); }).then(function(d){ setJobStatus(d&&d.ok?"✓ 내 설정·템플릿 저장됨":"저장 실패: "+((d&&d.error)||"")); }).catch(function(){ setJobStatus("저장 오류(연결 확인)"); });
+  }
+  function loadAccountMeta(){
+    apiFetch("/meta?_="+Date.now(),{ cache:"no-store" }).then(function(r){ return r.json(); })
+      .then(function(d){ if(d&&d.ok&&d.meta){ applyAccountMeta(d.meta); setJobStatus("✓ 내 설정·템플릿 불러옴"); } else setJobStatus("저장된 계정 설정이 없습니다."); }).catch(function(){ setJobStatus("불러오기 오류"); });
+  }
 
   /* ====== 설정 바인딩 ====== */
   function updateProviderNote(){ el("providerNote").innerHTML='<div class="scope-note">'+PROVIDERS[state.provider].note+'</div>'; }

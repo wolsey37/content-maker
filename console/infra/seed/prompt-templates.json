@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "description": "전역 기본 프롬프트 템플릿. S3 의 meta/prompt-templates.json 으로 업로드한다(루트 meta/ 폴더). 콘솔에서는 읽기 전용(GET /templates) — 모든 계정 공유 기본값이라 콘솔에서 쓰기를 막는다(any 로그인 어드민이 전체 계정을 바꾸지 못하게). 계정별 커스터마이즈는 <userId>/meta.json (콘솔의 '내 설정·템플릿 저장').",
+  "stepTemplates": {
+    "_note": "유형(card/feed/story/reels)·단계ID 별 기본 프롬프트 템플릿을 여기에 채운다. 비어 있으면 콘솔의 코드 기본 템플릿이 그대로 쓰인다(fallback).",
+    "card": {},
+    "feed": {},
+    "story": {},
+    "reels": {}
+  }
+}
