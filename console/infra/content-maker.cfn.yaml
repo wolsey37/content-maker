@@ -11,11 +11,11 @@ Parameters:
     Description: 리소스 이름 prefix.
   MediaBucketName:
     Type: String
-    Default: content-maker-media
+    Default: prod-content-maker-data
     Description: 생성 이미지 + 작업(JSON) 저장 S3 버킷 이름(전역 유일해야 함).
   ProviderSecretName:
     Type: String
-    Default: prod/content-maker
+    Default: prod/openai
     Description: provider API 키(OPENAI_API_KEY 등) 시크릿 이름. 값은 스택 생성 후 콘솔/CLI 로 채운다.
   JwtSecretArn:
     Type: String
