@@ -13,7 +13,7 @@
 import { createCore } from "./server-core.mjs";
 import { createStorage } from "./storage/index.mjs";
 import { makeApiBackend } from "./backends/api/index.mjs";
-import { loadSecrets } from "./backends/api/secrets.mjs";
+import { loadSecrets, loadJwtSecret } from "./backends/api/secrets.mjs";
 import { verifyJwtHS256, subjectOf } from "./backends/api/jwt.mjs";
 
 const ALLOWED = String(process.env.ALLOWED_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean);
@@ -33,18 +33,17 @@ function corsHeaders(origin) {
   };
 }
 
-/* 토큰 검증 — 파마브로스 어드민 API 가 발급한 JWT 를 'prod/store' 시크릿의 jwt-secret 으로 로컬 서명 검증.
- *   알고리즘은 HS256 으로 고정(토큰 alg 헤더 불신, none/기타 거부). 발급은 우리가 하지 않는다.
- *   ※ 실제 alg 가 HS256 이 아니면(예: RS256) jwt.mjs 검증기를 그에 맞게 확장해야 한다. */
+/* 토큰 검증 — 파마브로스 어드민 API 가 발급한 JWT 를 JWT_SECRET_ID(기본 'prod/connect') 시크릿의
+ *   jwt-secret 으로 HS256 로컬 서명 검증(토큰 alg 헤더 불신, none/기타 거부). 발급은 우리가 하지 않는다.
+ *   ※ pharmabros lambda/backend/main.py 와 동일 시크릿/규약. */
 async function verifyToken(token) {
   if (!token) return { ok: false };
-  const secrets = await loadSecrets(process.env);
-  const secret = secrets["jwt-secret"] || secrets.JWT_SECRET;
+  const secret = await loadJwtSecret(process.env);
   if (!secret) return { ok: false };
   const r = verifyJwtHS256(token, secret);
   if (!r.ok) return { ok: false };
   const p = r.payload || {};
-  // 공유 시크릿(prod/store 등) 방어(선택): JWT_EXPECTED_AUD/ISS 설정 시 다른 서비스용 토큰 거부.
+  // 공유 시크릿(prod/connect) 방어(선택): JWT_EXPECTED_AUD/ISS 설정 시 다른 서비스용 토큰 거부.
   // 파마브로스 백엔드(main.py)는 서명+exp 만 검사하므로 기본(env 미설정)은 동일 동작.
   const expAud = process.env.JWT_EXPECTED_AUD, expIss = process.env.JWT_EXPECTED_ISS;
   if (expAud) { const a = p.aud; if (!(Array.isArray(a) ? a.includes(expAud) : a === expAud)) return { ok: false }; }
