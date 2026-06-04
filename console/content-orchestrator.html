@@ -302,6 +302,7 @@
         <h1>콘텐츠 제작 파이프라인 콘솔</h1>
         <p class="sub">로컬 LLM CLI 실행 · 제작 스크립트 + <b>릴스는 영상 엔진(Higgsfield)으로 실제 영상까지</b></p>
       </div>
+      <span class="conn-pill" id="modeBadge" title="실행 방식 — 접속 도메인으로 자동 결정"><span id="modeBadgeText">…</span></span>
       <button class="conn-pill llm-pill" id="llmInfo" type="button" title="전역 LLM 모델 (클릭하면 고급 설정)"><span>🤖</span><span id="llmInfoText">…</span></button>
       <span class="conn-pill checking" id="connPill" role="button" tabindex="0" title="브리지 연결 상태 — 클릭하면 다시 확인"><span class="dot"></span><span id="connText">연결 확인 중…</span></span>
       <button class="btn primary" id="runAll" type="button">▶ 만들기</button>
@@ -378,27 +379,16 @@
     <div class="drawer-body">
       <label class="switch-row"><input type="checkbox" id="advStepsToggle"> 단계별 상세 옵션 표시</label>
 
-      <div class="drawer-section">
+      <div class="drawer-section" id="serverCfgRow" style="display:none;">
         <div class="field">
-          <label for="runModeSel">실행 방식</label>
-          <select id="runModeSel">
-            <option value="auto">자동 (도메인으로 판단)</option>
-            <option value="local">로컬 — 설치된 CLI(claude/codex/agy)</option>
-            <option value="server">서버 — API(OpenAI 등)</option>
-          </select>
-          <div class="hint" id="runModeHint" style="margin-top:4px;"></div>
+          <label for="serverUrlInput">서버 URL</label>
+          <input type="text" id="serverUrlInput" spellcheck="false" placeholder="https://xxxx.lambda-url.ap-northeast-2.on.aws">
         </div>
-        <div id="serverCfgRow" style="display:none; margin-top:8px;">
-          <div class="field">
-            <label for="serverUrlInput">서버 URL</label>
-            <input type="text" id="serverUrlInput" spellcheck="false" placeholder="https://xxxx.lambda-url.ap-northeast-2.on.aws">
-          </div>
-          <div class="field" style="margin-top:6px;">
-            <label for="serverTokenInput">인증 토큰 (어드민)</label>
-            <input type="password" id="serverTokenInput" spellcheck="false" placeholder="Bearer 토큰">
-          </div>
-          <div class="hint" style="margin-top:6px;">서버 모드는 텍스트·이미지를 API로 생성합니다. <b>영상(릴스)은 로컬 모드</b>에서 제작하세요. 키는 서버(Secrets Manager)에만 있으며 이 화면엔 저장되지 않습니다.</div>
+        <div class="field" style="margin-top:6px;">
+          <label for="serverTokenInput">인증 토큰 (어드민)</label>
+          <input type="password" id="serverTokenInput" spellcheck="false" placeholder="Bearer 토큰">
         </div>
+        <div class="hint" style="margin-top:6px;">서버(API) 모드 접속 설정. 텍스트·이미지를 API로 생성하며 <b>영상(릴스)은 로컬 모드</b>에서 제작합니다. 키는 서버(Secrets Manager)에만 있으며 이 화면엔 저장되지 않습니다.</div>
       </div>
 
       <div class="drawer-section">
@@ -707,12 +697,15 @@
   // 로컬: 기존 그대로(보통 same-origin). 서버: 설정한 Lambda URL + 어드민 토큰(Authorization).
   // 기본은 '자동' — 접속 도메인으로 판단(루프백/로컬이면 local, 그 외 공개 도메인이면 server).
   //   localStorage 에 'local'/'server' 가 명시돼 있으면 그 값으로 오버라이드.
+  // 모드는 접속 도메인으로 '자동' 결정하며 UI 에서 바꿀 수 없다.
+  //   - localhost / 127.0.0.1(루프백): 기본 local. 단 이때만 ?mode=local|server 쿼리로 강제 가능(개발/테스트).
+  //   - 그 외 공개 도메인: 항상 server (오버라이드 불가).
   function isLocalHost(){
     var h=(location.hostname||"").toLowerCase();
-    return h===""||h==="127.0.0.1"||h==="localhost"||h==="::1"||h==="[::1]"||h==="0.0.0.0"||/\.local$/.test(h)||/^192\.168\./.test(h)||/^10\./.test(h);
+    return h===""||h==="127.0.0.1"||h==="localhost"||h==="::1"||h==="[::1]";
   }
-  function runModePref(){ try{ var m=localStorage.getItem("cp_runmode"); return (m==="local"||m==="server")?m:"auto"; }catch(e){ return "auto"; } }
-  function runMode(){ var p=runModePref(); return (p==="auto") ? (isLocalHost()?"local":"server") : p; }
+  function modeQueryOverride(){ try{ var q=new URLSearchParams(location.search).get("mode"); return (q==="local"||q==="server")?q:null; }catch(e){ return null; } }
+  function runMode(){ return isLocalHost() ? (modeQueryOverride() || "local") : "server"; }
   function serverUrl(){ try{ return (localStorage.getItem("cp_server_url")||"").replace(/\/+$/,""); }catch(e){ return ""; } }
   function serverToken(){ try{ return localStorage.getItem("cp_server_token")||""; }catch(e){ return ""; } }
   // 백엔드 base: 서버 모드면 Lambda URL, 로컬이면 bridgeBase()(보통 "").
@@ -1846,24 +1839,12 @@
     var lbl=el("providerLabel"); if(lbl) lbl.textContent=(runMode()==="server")?"provider (서버 API)":"LLM (로컬 CLI)";
     if(el("defaultModel")) el("defaultModel").value=(state.defaultModel||"");
   }
-  function setRunMode(m){
-    var pref=(m==="local"||m==="server")?m:"auto";
-    try{ localStorage.setItem("cp_runmode", pref); }catch(e){}
-    var eff=runMode();
-    updateRunModeUI(eff);
-    if(eff==="local"){ PROVIDERS=LOCAL_PROVIDERS; rebuildModelOwner(); fixProviderSelection(); rebuildProviderSelect(); updateLlmInfo(); }
-    renderSteps();   // 영상 등 capability 게이팅 반영
-    checkBridge();   // 새 base 로 연결 확인(서버면 provider/모델 로드)
-  }
-  // 실효 모드(eff)에 따라 서버 설정칸 표시 + 안내 문구 갱신.
+  // 실효 모드에 따라 메인 헤더의 모드 배지 + (설정의) 서버 접속칸 표시 갱신. 모드는 도메인 자동이라 런타임 전환 없음.
   function updateRunModeUI(eff){
     eff=eff||runMode();
     var row=el("serverCfgRow"); if(row) row.style.display=(eff==="server")?"":"none";
-    var hint=el("runModeHint");
-    if(hint){
-      var auto=(runModePref()==="auto");
-      hint.textContent=(auto?("도메인 '"+(location.hostname||"file")+"' → "):"")+(eff==="server"?"서버(API) 모드":"로컬(CLI) 모드")+(auto?" 자동 적용":" (수동 고정)");
-    }
+    var bt=el("modeBadgeText"); if(bt) bt.textContent=(eff==="server")?"☁️ 서버 모드":"💻 로컬 모드";
+    var badge=el("modeBadge"); if(badge) badge.title=(eff==="server"?"서버(API) 모드":"로컬(CLI) 모드")+" — 접속 도메인으로 자동 결정"+(isLocalHost()?" · 로컬에선 ?mode=server / ?mode=local 로 전환":"");
   }
 
   function checkBridge(){
@@ -2195,7 +2176,6 @@
     el("refAddBtn").addEventListener("click", addRefSite);
     el("refFetchBtn").addEventListener("click", fetchFromWeb);
     el("g_refSite").addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); addRefSite(); } });   // Enter = 목록에 추가(검색 아님)
-    el("runModeSel").addEventListener("change", function(){ setRunMode(el("runModeSel").value); });
     el("serverUrlInput").addEventListener("input", function(){ try{ localStorage.setItem("cp_server_url", el("serverUrlInput").value.trim()); }catch(e){} });
     el("serverTokenInput").addEventListener("input", function(){ try{ localStorage.setItem("cp_server_token", el("serverTokenInput").value); }catch(e){} });
     el("connPill").addEventListener("click", checkBridge);
