@@ -291,8 +291,13 @@
   .job-row .job-sub{ font-size:11.5px; color:var(--muted); margin-top:2px; }
   .job-acts{ display:flex; gap:6px; flex:0 0 auto; }
   .job-date{ padding:6px 8px; border:1px solid var(--line); border-radius:7px; background:var(--input-bg); color:var(--ink); font-size:12px; }
-  /* 작업 라이브러리(jobsPanel)는 사이드 드로어가 아니라 '전체화면 페이지' — 로그인 후 진입 화면 */
-  #jobsPanel{ width:100%; max-width:none; border-left:none; }
+  /* 작업 라이브러리(jobsPanel)는 슬라이드 드로어가 아니라 '본문 메인 화면' — 로그인 후 진입 화면.
+     body.lib-mode 일 때 콘솔 본문을 숨기고 라이브러리를 본문에 표시(슬라이드 애니메이션 없음). */
+  #jobsBackdrop{ display:none !important; }
+  #jobsPanel{ position:static; transform:none; transition:none; width:auto; max-width:none; height:auto; border-left:none; box-shadow:none; background:transparent; display:none; }
+  body.lib-mode #jobsPanel{ display:block; }
+  body.lib-mode .wrap > *:not(#jobsPanel){ display:none !important; }
+  #jobsPanel .drawer-head{ border-bottom:1px solid var(--line); }
   #jobsPanel .drawer-head, #jobsPanel .drawer-body{ max-width:1000px; margin-left:auto; margin-right:auto; width:100%; box-sizing:border-box; }
   #jobsPanel #jobsList{ display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:10px; }
   #jobsPanel #jobsList .job-row{ flex-direction:column; align-items:stretch; gap:10px; }
@@ -773,7 +778,7 @@
   //     배포 시 SERVER_API_BASE 에 Function URL 을 주입하거나, 설정의 백엔드 URL(cm_api_base)을 입력.
   //   - 로컬 모드: bridgeBase()(보통 "").
   //   ※ 로그인(/auth)은 same-origin Cloudflare 프록시로 별도 처리(AUTH_API_BASE). 서버 토큰은 로그인 JWT 단일 소스(getJwt).
-  var SERVER_API_BASE = "";   // 배포 주입 예: https://xxxx.lambda-url.ap-northeast-2.on.aws
+  var SERVER_API_BASE = "https://g4dwkhm7ue7x26ivz4bqgy7biy0kwhxh.lambda-url.ap-northeast-2.on.aws";   // 서버 모드 콘텐츠 API = 배포된 Lambda Function URL 직접 호출(설정의 백엔드 URL 로 덮어쓰기 가능)
   function serverApiBase(){ try{ return (localStorage.getItem("cm_api_base")||"").replace(/\/+$/,"") || SERVER_API_BASE; }catch(e){ return SERVER_API_BASE; } }
   function apiBase(){ return runMode()==="server" ? serverApiBase() : bridgeBase(); }
   function apiFetch(path, opts){
@@ -2072,8 +2077,8 @@
   }
 
   /* ====== 작업 라이브러리 (S3/로컬 storage 의 /jobs 연동) ====== */
-  function jobsPanelOpen(){ el("jobsPanel").classList.add("open"); el("jobsBackdrop").classList.add("open"); loadJobsList(); }
-  function jobsPanelClose(){ el("jobsPanel").classList.remove("open"); el("jobsBackdrop").classList.remove("open"); }
+  function jobsPanelOpen(){ document.body.classList.add("lib-mode"); loadJobsList(); try{ window.scrollTo(0,0); }catch(e){} }   // 콘솔 본문 숨기고 라이브러리를 메인 화면으로
+  function jobsPanelClose(){ document.body.classList.remove("lib-mode"); }
   function setJobStatus(t){ var s=el("jobStatus"); if(s) s.textContent=t||""; }
   function fmtTime(iso){ if(!iso) return ""; try{ return new Date(iso).toLocaleString("ko-KR"); }catch(e){ return String(iso); } }
 
