@@ -17,8 +17,18 @@ import { loadSecrets, loadJwtSecret } from "./backends/api/secrets.mjs";
 import { verifyJwtHS256, subjectOf } from "./backends/api/jwt.mjs";
 
 const ALLOWED = String(process.env.ALLOWED_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean);
+function isLoopbackOrigin(origin) {
+  try {
+    const u = new URL(origin);
+    return (u.protocol === "http:" || u.protocol === "https:") &&
+      (u.hostname === "127.0.0.1" || u.hostname === "localhost" || u.hostname === "::1" || u.hostname === "[::1]");
+  } catch (_) {
+    return false;
+  }
+}
 function originAllowed(origin) {
   if (!origin) return true;                 // 동일 origin/서버 간/도구(브라우저 아님)
+  if (isLoopbackOrigin(origin)) return true; // 로컬에서 ?mode=server 로 Lambda 직접 테스트
   if (ALLOWED.includes("*")) return true;
   return ALLOWED.includes(origin);
 }
@@ -48,7 +58,10 @@ async function verifyToken(token) {
   const expAud = process.env.JWT_EXPECTED_AUD, expIss = process.env.JWT_EXPECTED_ISS;
   if (expAud) { const a = p.aud; if (!(Array.isArray(a) ? a.includes(expAud) : a === expAud)) return { ok: false }; }
   if (expIss && p.iss !== expIss) return { ok: false };
-  return { ok: true, userId: subjectOf(p) };
+  if (p.admin_role_cd !== "master") return { ok: false };
+  const userId = subjectOf(p);
+  if (!userId) return { ok: false };
+  return { ok: true, userId };
 }
 
 // 콜드스타트 1회 조립(컨테이너 재사용 시 캐시) — Secrets/SDK 클라이언트 재활용.

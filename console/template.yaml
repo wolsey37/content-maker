@@ -27,7 +27,7 @@ Parameters:
 
 Globals:
   Function:
-    Runtime: nodejs20.x
+    Runtime: nodejs22.x
     Timeout: 300
     MemorySize: 512
 
@@ -41,6 +41,30 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
+      # 실수 삭제/덮어쓰기 복구용 버저닝(작업 JSON 은 PUT 마다 덮어쓰고 DELETE 는 cascade 영구삭제) — NoncurrentVersionExpiration 로 비용 통제.
+      VersioningConfiguration:
+        Status: Enabled
+      # 암호화를 IaC 로 못박아 drift 제거(현재 라이브는 SSE-S3/AES256).
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: true
+      # 라이프사이클: 멀티파트 잔여물 정리 + 비현행 버전 만료 + 배포 아티팩트 단기 만료.
+      # 미디어 본문(content/<jobId>/)은 보존정책 미확정이라 자동 만료하지 않는다(데이터 손실 방지) — 고아 정리는 별도 reconcile 로.
+      LifecycleConfiguration:
+        Rules:
+          - Id: abort-incomplete-multipart
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+          - Id: expire-noncurrent-versions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+          - Id: expire-sam-artifacts
+            Status: Enabled
+            Prefix: prod/sam-artifacts/
+            ExpirationInDays: 14
       CorsConfiguration:
         CorsRules:
           - AllowedMethods: [GET]
@@ -66,6 +90,7 @@ Resources:
           STORAGE: s3
           S3_BUCKET: !Ref MediaBucketName
           S3_REGION: !Ref AWS::Region
+          S3_URL_TTL: '21600'        # presigned GET 만료(초) — 6h. 탭을 오래 열어둬도 <img>/<video> 가 덜 깨지도록(기본 3600 에서 상향).
           SECRETS_ID: !Ref ProviderSecretName
           JWT_SECRET_ID: prod/connect
           ALLOWED_ORIGINS: !Ref AllowedOrigins

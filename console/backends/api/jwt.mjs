@@ -46,8 +46,19 @@ export function verifyJwtHS256(token, secret) {
   return { ok: true, payload };
 }
 
-// 페이로드에서 사용자 식별자 추출(작업 per-user prefix 용). 우선순위: adminId > sub > adminIdx > id.
+// 페이로드에서 사용자 식별자 추출(작업 per-user prefix 용).
+// 파마브로스/일반 JWT 필드명이 환경마다 다를 수 있어 흔한 계정 필드를 넓게 수용한다.
 export function subjectOf(payload) {
   if (!payload || typeof payload !== "object") return null;
-  return payload.adminId || payload.sub || (payload.adminIdx != null ? String(payload.adminIdx) : null) || payload.id || null;
+  const keys = [
+    "admin_idx", "adminIdx",
+    "adminId", "admin_id", "adminEmail", "email",
+    "userId", "user_id", "accountId", "account_id",
+    "sub", "id", "idx",
+  ];
+  for (const k of keys) {
+    const v = payload[k];
+    if (v != null && String(v).trim()) return String(v).trim();
+  }
+  return null;
 }

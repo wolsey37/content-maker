@@ -25,7 +25,7 @@ export async function makeApiBackend(env) {
   for (const p of all) if (p.enabled(secrets)) providers[p.id] = p;
 
   const detectAll = async () => { const o = {}; for (const p of all) o[p.id] = !!p.enabled(secrets); return o; };
-  const listModels = async () => { const o = {}; for (const id of Object.keys(providers)) o[id] = { models: providers[id].models(), source: providers[id].label }; return o; };
+  const listModels = async () => { const o = {}; for (const id of Object.keys(providers)) o[id] = { models: providers[id].models(), imageModels: providers[id].imageModels ? providers[id].imageModels() : [], source: providers[id].label }; return o; };
 
   return { kind: "api", providers, detectAll, listModels };
 }

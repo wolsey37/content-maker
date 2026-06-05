@@ -30,7 +30,12 @@ export function makeS3Storage(env) {
     return getSignedUrl(client, new GetObjectCommand({ Bucket, Key: full(key) }), { expiresIn: TTL });
   }
   async function save(key, buf, mime) {
-    await client.send(new PutObjectCommand({ Bucket, Key: full(key), Body: buf, ContentType: mime }));
+    // 미디어 key 는 runId 로 사실상 불변 → 장기 캐시. inline 으로 브라우저 표시(다운로드 강제 안 함).
+    await client.send(new PutObjectCommand({
+      Bucket, Key: full(key), Body: buf, ContentType: mime,
+      CacheControl: "public, max-age=31536000, immutable",
+      ContentDisposition: "inline",
+    }));
     return { key: clean(key), url: await urlFor(key) };
   }
   async function putJson(key, obj) {

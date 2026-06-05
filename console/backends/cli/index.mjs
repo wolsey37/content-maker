@@ -115,8 +115,8 @@ async function listModelsAll() {
 /* ---- 이미지 생성 (agy / codex) — 저장 없이 {buf,ext,mime} 반환 ------------- */
 const CODEX_IMG_DIR = join(process.env.CODEX_HOME || join(os.homedir(), ".codex"), "generated_images");
 const IMAGE_PROVIDERS = {
-  agy:   { args: (instr) => ["-p", instr] },
-  codex: { args: (instr) => ["exec", "--skip-git-repo-check", instr], extraDir: CODEX_IMG_DIR },
+  agy:   { args: (instr, model) => ["-p", ...(model ? ["--model=" + model] : []), instr] },
+  codex: { args: (instr, model) => ["exec", "--skip-git-repo-check", ...(model ? ["--model", model] : []), instr], extraDir: CODEX_IMG_DIR },
 };
 async function collectImages(dir, sinceMs, recursive) {
   let names;
@@ -135,9 +135,10 @@ async function collectImages(dir, sinceMs, recursive) {
   }
   return out;
 }
-async function generateImage(provider, prompt) {
+async function generateImage(provider, prompt, model) {
   const def = IMAGE_PROVIDERS[provider] || IMAGE_PROVIDERS.agy;
   const cmd = provider === "codex" ? "codex" : "agy";
+  const m = String(model || "").trim();
   const scratch = await mkdtemp(join(os.tmpdir(), "cm-img-"));
   const startedAt = Date.now() - 3000;
   let runHome = null, runEnv = process.env, extraDir = def.extraDir;
@@ -159,7 +160,7 @@ async function generateImage(provider, prompt) {
       "Do not ask any questions. After saving, print only the saved file path. If you truly cannot generate an image, print exactly NO_IMAGE_GEN.\n\nThe image prompt is written in Korean:\n" + prompt;
     const result = await new Promise((res) => {
       let out = "", err = "", done = false, child;
-      try { child = spawn(cmd, def.args(instruction), { cwd: scratch, stdio: ["ignore", "pipe", "pipe"], env: runEnv }); }
+      try { child = spawn(cmd, def.args(instruction, m), { cwd: scratch, stdio: ["ignore", "pipe", "pipe"], env: runEnv }); }
       catch (e) { res({ ok: false, error: cmd + " 실행 시작 실패: " + e.message }); return; }
       const fin = (o) => { if (done) return; done = true; clearTimeout(t); res(o); };
       const t = setTimeout(() => { try { child.kill("SIGKILL"); } catch (_) {} fin({ ok: false, error: `이미지 생성 시간 초과(${Math.round(IMAGE_TIMEOUT_MS / 1000)}s)` }); }, IMAGE_TIMEOUT_MS);
@@ -346,7 +347,7 @@ export async function makeCliBackend(_env) {
     id, label: CLI_DEFS[id].label, capabilities: caps,
     enabled: () => detect(CLI_DEFS[id].cmd),
     runText: (a) => runCli(CLI_DEFS[id], (a.model || "").trim(), a.prompt, a.timeoutMs, a.extraArgs),
-    runImage: caps.image ? (a) => generateImage(id, a.prompt) : null,
+    runImage: caps.image ? (a) => generateImage(id, a.prompt, a.model) : null,
     runVideo: caps.video ? (a) => runVideoCli(id, a) : null,
   });
   const providers = {

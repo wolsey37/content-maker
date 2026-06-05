@@ -39,10 +39,40 @@ export function createCore(opts) {
       for (const it of items) { if (it && it.key) { try { it.url = await storage.urlFor(it.key); } catch (_) {} } }
     }
   }
-  const metaOf = (j) => ({ id: j.id, title: j.title, platform: j.platform, createdAt: j.createdAt, updatedAt: j.updatedAt });
-  // 서버 모드(인증)에서 모든 S3 객체(미디어·작업)를 로그인 계정별로 격리하는 prefix.
-  // 로컬 모드는 userId 가 없으므로 "" → 기존 경로(회귀 없음).
-  const userPrefix = (auth) => (auth && auth.userId) ? (san(auth.userId) + "/") : "";
+  // 작업의 '목록용 경량 메타'(presign 없이) — 인덱스 저장·목록 표시에 공용. 전체 state 를 안 담아 작고 빠르다.
+  function metaOfRaw(j) {
+    const meta = { id: j.id, title: j.title, platform: j.platform, createdAt: j.createdAt, updatedAt: j.updatedAt };
+    const imgItems = j.state && j.state.imageGen && Array.isArray(j.state.imageGen.items) ? j.state.imageGen.items : [];
+    const vidItems = j.state && j.state.videoGen && Array.isArray(j.state.videoGen.items) ? j.state.videoGen.items : [];
+    const firstImg = imgItems.find(Boolean);
+    const firstVid = vidItems.find((it) => it && (it.imageUrl || it.url || it.key));
+    const thumb = firstImg || firstVid || null;
+    if (thumb) {
+      meta.thumbnailKey = thumb.key || null;
+      meta.thumbnailUrl = thumb.key ? null : (thumb.imageUrl || thumb.url || null);   // key 있으면 읽을 때 presign, 없으면(로컬) 안정 URL 그대로
+    }
+    return meta;
+  }
+  // 표시 직전 thumbnailKey 를 fresh presigned URL 로 채운다(presign 만료 방지).
+  async function withThumbUrl(meta) {
+    if (meta && meta.thumbnailKey) { try { meta.thumbnailUrl = await storage.urlFor(meta.thumbnailKey); } catch (_) {} }
+    return meta;
+  }
+  // 서버 모드(인증)에서 모든 S3 객체(미디어·작업)를 prod/<계정>/ 아래로 격리한다.
+  // 로컬 모드는 userId 가 없으므로 "" → 기존 output/ 경로(회귀 없음).
+  const userPrefix = (auth) => (auth && auth.userId) ? ("prod/" + (san(auth.userId) || "unknown") + "/") : "";
+
+  // 작업 state 에 의미 있는 내용(주제·단계 출력·생성 미디어)이 있는지 — 빈 작업 저장 거부용(클라이언트 jobHasContent 와 동일 기준).
+  function stateHasContent(state) {
+    if (!state || typeof state !== "object") return false;
+    if (String(state.topic || "").trim()) return true;
+    const steps = state.steps && typeof state.steps === "object" ? state.steps : {};
+    for (const k of Object.keys(steps)) { if (steps[k] && String(steps[k].output || "").trim()) return true; }
+    const ig = state.imageGen && Array.isArray(state.imageGen.items) ? state.imageGen.items : [];
+    const vg = state.videoGen && Array.isArray(state.videoGen.items) ? state.videoGen.items : [];
+    if (ig.some(Boolean) || vg.some(Boolean)) return true;
+    return false;
+  }
 
   async function health() {
     const providers = backend.detectAll ? await backend.detectAll() : {};
@@ -80,10 +110,13 @@ export function createCore(opts) {
     const kind = san(p.kind || "misc", 24) || "misc";   // 콘텐츠 유형(card/feed/story/reels 등)
     const jobId = san(p.jobId || "", 60);
     const base = jobId || ("_unsaved-" + runId);        // 콘텐츠(작업)별 폴더 — 저장 전이면 _unsaved
-    const gen = await provider.runImage({ prompt, model: (p.model || "").toString().trim() });
+    const gen = await provider.runImage({ prompt, model: (p.model || "").toString().trim(), kind });   // kind → 콘텐츠 종류별 size(비율) 강제
     if (!gen.ok) return J(200, gen);
     try {
       const saved = await storage.save(`${userPrefix(auth)}content/${base}/${kind}/${runId}/${idx}.${gen.ext}`, gen.buf, gen.mime);
+      // 재생성 교체: 이전 객체를 삭제해 고아 누적 방지(같은 계정·같은 작업 폴더 내, 새 키와 다를 때만 — 경로 주입 방어).
+      const rk = String(p.replaceKey || "").replace(/^\/+|\/+$/g, "");
+      if (rk && rk !== saved.key && rk.startsWith(`${userPrefix(auth)}content/${base}/`)) { try { await storage.del(rk); } catch (_) {} }
       return J(200, { ok: true, url: saved.url, key: saved.key, path: saved.key, mime: gen.mime, bytes: gen.buf.length });
     } catch (e) { return J(200, { ok: false, error: "이미지 저장 실패: " + (e && e.message || e) }); }
   }
@@ -119,19 +152,30 @@ export function createCore(opts) {
   /* ---- 작업(Job) 영속화: GET 목록 · GET 상세 · PUT/POST 저장 · DELETE ---- */
   async function jobs(req, auth) {
     const prefix = userPrefix(auth) + "jobs/";
+    const idxPrefix = userPrefix(auth) + "index/";   // 목록용 경량 메타(전체 state 와 분리) — N+1 의 read 크기를 줄인다
     const m = /^\/jobs\/(.+)$/.exec(req.path);
     const id = m ? san(m[1]) : null;
 
     if (req.method === "GET" && !id) {
-      const entries = await storage.list(prefix);
+      const entries = await storage.list(prefix);   // jobs/ 가 권위 있는 작업 집합(인덱스는 보조 캐시)
       const metas = [];
       for (const e of entries) {
         if (!e.key.endsWith(".json")) continue;
-        const j = await storage.getJson(e.key);
-        if (j && j.id) metas.push(metaOf(j));
+        const jid = e.key.slice(prefix.length).replace(/\.json$/, "");
+        let meta = await storage.getJson(idxPrefix + jid + ".json");   // 경량 인덱스 우선(작고 빠름)
+        if (!meta || !meta.id) {                                       // 인덱스 없음(레거시/유실) → 전체를 읽어 계산하고 인덱스 백필(다음부터 빠름)
+          const j = await storage.getJson(e.key);
+          if (!j || !j.id) continue;
+          meta = metaOfRaw(j);
+          try { await storage.putJson(idxPrefix + jid + ".json", meta); } catch (_) {}
+        }
+        metas.push(await withThumbUrl(meta));
       }
-      metas.sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
-      return J(200, { ok: true, jobs: metas });
+      // 제목 검색(?q=) — 인덱스 메타의 title 부분일치(대소문자 무시). 구조 변경 없이 메타만 필터.
+      const q = String((req.query && (req.query.get ? req.query.get("q") : req.query.q)) || "").trim().toLowerCase();
+      const filtered = q ? metas.filter((m) => String(m.title || "").toLowerCase().includes(q)) : metas;
+      filtered.sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));   // 최신순(수정일 내림차순)
+      return J(200, { ok: true, jobs: filtered });
     }
     if (req.method === "GET" && id) {
       const j = await storage.getJson(prefix + id + ".json");
@@ -141,6 +185,10 @@ export function createCore(opts) {
     }
     if (req.method === "PUT" || req.method === "POST") {
       const body = parseBody(req); if (!body) return J(400, { ok: false, error: "잘못된 요청 본문(JSON 파싱 실패)" });
+      // 빈 작업 저장 거부(클라이언트 jobHasContent 가드의 서버측 이중화 — 스크립트/멀티유저로 빈 항목이 목록에 쌓이지 않도록).
+      if (body.state && typeof body.state === "object" && !stateHasContent(body.state) && !String(body.title || "").trim()) {
+        return J(400, { ok: false, error: "저장할 내용이 없는 빈 작업입니다." });
+      }
       const jid = id || san(body.id) || genId();
       const existing = await storage.getJson(prefix + jid + ".json");
       const now = nowIso();
@@ -153,10 +201,12 @@ export function createCore(opts) {
         state: (body.state && typeof body.state === "object") ? body.state : (existing && existing.state) || {},
       };
       await storage.putJson(prefix + jid + ".json", job);
+      try { await storage.putJson(idxPrefix + jid + ".json", metaOfRaw(job)); } catch (_) {}   // 목록용 경량 인덱스 동시 갱신
       return J(200, { ok: true, id: jid, createdAt: job.createdAt, updatedAt: now });
     }
     if (req.method === "DELETE" && id) {
       await storage.del(prefix + id + ".json");
+      try { await storage.del(idxPrefix + id + ".json"); } catch (_) {}   // 경량 인덱스도 제거
       // 콘텐츠 미디어 cascade 삭제(content/<jobId>/ 하위) — 안 하면 S3 에 고아 미디어가 남는다.
       try {
         const mediaPrefix = userPrefix(auth) + "content/" + id + "/";
@@ -168,12 +218,41 @@ export function createCore(opts) {
     return J(405, { ok: false, error: "허용되지 않은 메서드" });
   }
 
-  // 전역 프롬프트 템플릿(루트 meta/ 폴더, 읽기 전용 — 콘솔에서 쓰기 불가, seed 는 out-of-band).
+  function normalizePromptDoc(doc) {
+    const base = (doc && typeof doc === "object" && !Array.isArray(doc)) ? doc : {};
+    const platforms = (base.platforms && typeof base.platforms === "object" && !Array.isArray(base.platforms)) ? base.platforms : {};
+    return { version: Number(base.version || 1), platforms, updatedAt: base.updatedAt || null };
+  }
+
+  // 공통 프롬프트 템플릿(prod/meta) + 계정별 프롬프트 템플릿(prod/{admin_idx}/meta).
+  async function promptTemplates(req, auth) {
+    const commonKey = "prod/meta/prompt-templates.json";
+    const accountKey = userPrefix(auth) + "meta/prompt-templates.json";
+    if (req.method === "GET") {
+      const common = normalizePromptDoc(await storage.getJson(commonKey));
+      const account = normalizePromptDoc(await storage.getJson(accountKey));
+      return J(200, { ok: true, common, account, keys: { common: commonKey, account: accountKey } });
+    }
+    if (req.method === "PUT" || req.method === "POST") {
+      const body = parseBody(req);
+      if (!body) return J(400, { ok: false, error: "잘못된 요청 본문(JSON 파싱 실패)" });
+      const scope = body.scope === "common" ? "common" : "account";
+      const raw = (body.templates && typeof body.templates === "object") ? body.templates : body;
+      const now = nowIso();
+      const doc = normalizePromptDoc({ ...raw, updatedAt: now });
+      const key = scope === "common" ? commonKey : accountKey;
+      await storage.putJson(key, doc);
+      return J(200, { ok: true, scope, key, templates: doc, updatedAt: now });
+    }
+    return J(405, { ok: false, error: "허용되지 않은 메서드" });
+  }
+
+  // 전역 프롬프트 템플릿. 신규 경로(prod/meta)를 우선 사용하고, 기존 루트 meta 는 호환용 fallback.
   async function templates() {
-    const t = await storage.getJson("meta/prompt-templates.json");
+    const t = (await storage.getJson("prod/meta/prompt-templates.json")) || (await storage.getJson("meta/prompt-templates.json"));
     return J(200, { ok: true, templates: t || null });
   }
-  // 계정별 설정/템플릿(<userId>/meta.json). GET 로드 / PUT 저장. 계정 격리(userPrefix).
+  // 계정별 설정(prod/{admin_idx}/meta.json). GET 로드 / PUT 저장. 계정 격리(userPrefix).
   async function accountMeta(req, auth) {
     const key = userPrefix(auth) + "meta.json";
     if (req.method === "GET") { const m = await storage.getJson(key); return J(200, { ok: true, meta: m || null }); }
@@ -205,18 +284,21 @@ export function createCore(opts) {
 
     if (!originAllowed(req.origin)) return J(403, { ok: false, error: "허용되지 않은 출처입니다." });
 
+    // /health 는 인증 게이트 앞에서 응답 — 외부 uptime/LB 헬스체크가 토큰 없이도 200 을 받도록(provider 키 값 등 민감정보는 없음).
+    if (req.method === "GET" && req.path === "/health") return health();
+
     let auth = { ok: true, userId: null };
     if (requireAuth) {
       auth = await verifyToken(bearer(req.headers["authorization"]));
       if (!auth || !auth.ok) return J(401, { ok: false, error: "인증이 필요합니다." });
     }
 
-    if (req.method === "GET" && req.path === "/health") return health();
     if (req.method === "GET" && req.path === "/models") return models();
     if (req.method === "POST" && req.path === "/run") return run(req);
     if (req.method === "POST" && req.path === "/image") return image(req, auth);
     if (req.method === "POST" && req.path === "/video") return video(req, auth);
     if (req.path === "/jobs" || req.path.startsWith("/jobs/")) return jobs(req, auth);
+    if (req.path === "/prompt-templates") return promptTemplates(req, auth);
     if (req.method === "GET" && req.path === "/templates") return templates();
     if (req.path === "/meta") return accountMeta(req, auth);
 

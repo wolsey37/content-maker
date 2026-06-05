@@ -32,9 +32,11 @@ export async function loadSecrets(env) {
       return cached;
     } catch (e) {
       console.error("[secrets] Secrets Manager 로드 실패 — env fallback 으로 진행:", (e && e.message) || e);
+      // 실패는 '확정 캐시'하지 않는다 — 일시적 throttle/네트워크면 다음 호출에서 재시도(빈 키로 컨테이너가 영구 무력화되는 것 방지).
+      return fromEnv;
     }
   }
-  cached = fromEnv;
+  cached = fromEnv;   // SECRETS_ID 가 아예 없으면(로컬/테스트) env 모드로 확정 캐시
   return cached;
 }
 
