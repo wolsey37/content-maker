@@ -24,7 +24,7 @@ import { createStorage } from "./storage/index.mjs";
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.PORT) || 8787;
 const MAX_BODY = 4 * 1024 * 1024;
-const HTML_FILE = "content-orchestrator.html";
+const HTML_FILE = "content-maker.html";
 const __dir = dirname(fileURLToPath(import.meta.url));
 const NO_CACHE = { "Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache", "Expires": "0" };
 

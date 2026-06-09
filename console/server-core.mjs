@@ -73,6 +73,18 @@ export function createCore(opts) {
     if (ig.some(Boolean) || vg.some(Boolean)) return true;
     return false;
   }
+  function mergeMediaPlaceholders(next, prev) {
+    if (!next || !prev || typeof next !== "object" || typeof prev !== "object") return next;
+    for (const g of ["imageGen", "videoGen"]) {
+      const ni = next[g] && Array.isArray(next[g].items) ? next[g].items : null;
+      const pi = prev[g] && Array.isArray(prev[g].items) ? prev[g].items : null;
+      if (!ni || !pi || !pi.some(Boolean)) continue;
+      for (let i = 0; i < ni.length; i++) {
+        if (!ni[i] && pi[i]) ni[i] = pi[i];
+      }
+    }
+    return next;
+  }
 
   async function health() {
     const providers = backend.detectAll ? await backend.detectAll() : {};
@@ -110,7 +122,8 @@ export function createCore(opts) {
     const kind = san(p.kind || "misc", 24) || "misc";   // 콘텐츠 유형(card/feed/story/reels 등)
     const jobId = san(p.jobId || "", 60);
     const base = jobId || ("_unsaved-" + runId);        // 콘텐츠(작업)별 폴더 — 저장 전이면 _unsaved
-    const gen = await provider.runImage({ prompt, model: (p.model || "").toString().trim(), kind });   // kind → 콘텐츠 종류별 size(비율) 강제
+    const imageModel = String(p.imageModel || p.model || "").trim();   // 클라가 선택한 이미지 모델(별도 필드; 구버전 호환으로 model 도 수용)
+    const gen = await provider.runImage({ prompt, model: (p.model || "").toString().trim(), kind, imageModel });   // kind → 콘텐츠 종류별 size(비율) 강제, imageModel → 이미지 모델 선택
     if (!gen.ok) return J(200, gen);
     try {
       const saved = await storage.save(`${userPrefix(auth)}content/${base}/${kind}/${runId}/${idx}.${gen.ext}`, gen.buf, gen.mime);
@@ -192,14 +205,14 @@ export function createCore(opts) {
       const jid = id || san(body.id) || genId();
       const existing = await storage.getJson(prefix + jid + ".json");
       const now = nowIso();
-      const job = {
-        id: jid,
-        title: (String(body.title || "").trim().slice(0, 200)) || (existing && existing.title) || "제목 없음",
-        platform: body.platform || (existing && existing.platform) || "",
-        createdAt: (existing && existing.createdAt) || now,
-        updatedAt: now,
-        state: (body.state && typeof body.state === "object") ? body.state : (existing && existing.state) || {},
-      };
+      const title = (String(body.title || "").trim().slice(0, 200)) || (existing && existing.title) || "제목 없음";
+      const platform = body.platform || (existing && existing.platform) || "";
+      const state = (body.state && typeof body.state === "object") ? mergeMediaPlaceholders(body.state, existing && existing.state) : (existing && existing.state) || {};
+      // 내용 변화 없으면 updatedAt 유지·재저장 생략 — '작업 열어보기'처럼 편집 없는 PUT 으로 updatedAt 이 바뀌어 목록 정렬이 흔들리지 않도록.
+      if (existing && existing.title === title && existing.platform === platform && JSON.stringify(existing.state || {}) === JSON.stringify(state)) {
+        return J(200, { ok: true, id: jid, createdAt: existing.createdAt, updatedAt: existing.updatedAt || now, unchanged: true });
+      }
+      const job = { id: jid, title, platform, createdAt: (existing && existing.createdAt) || now, updatedAt: now, state };
       await storage.putJson(prefix + jid + ".json", job);
       try { await storage.putJson(idxPrefix + jid + ".json", metaOfRaw(job)); } catch (_) {}   // 목록용 경량 인덱스 동시 갱신
       return J(200, { ok: true, id: jid, createdAt: job.createdAt, updatedAt: now });

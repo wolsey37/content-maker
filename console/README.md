@@ -6,7 +6,7 @@
 
 ## 구성
 
-- `content-orchestrator.html` — 6단계 콘솔 UI. 단계별 실행 · 전송 프롬프트 확인 · 요청/결과 확인 · 결과 편집 · 단계 간 carry-forward.
+- `content-maker.html` — 6단계 콘솔 UI. 단계별 실행 · 전송 프롬프트 확인 · 요청/결과 확인 · 결과 편집 · 단계 간 carry-forward.
 - `bridge.mjs` — 로컬 브리지(Node 내장 모듈만, 의존성 0). HTML 서빙 + CLI 실행.
 
 ## 왜 브리지가 필요한가
@@ -14,7 +14,7 @@
 브라우저는 보안 샌드박스 때문에 로컬 프로세스(터미널 CLI)를 직접 실행할 수 없다. 그래서 작은 로컬 브리지가 중계한다:
 
 ```
-브라우저(content-orchestrator.html)
+브라우저(content-maker.html)
    │  POST /run { provider, model, prompt }
    ▼
 bridge.mjs (127.0.0.1)

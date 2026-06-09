@@ -14,7 +14,7 @@
  * ========================================================================== */
 
 import { spawn } from "node:child_process";
-import { readFile, readdir, rm, mkdtemp, stat, symlink } from "node:fs/promises";
+import { readFile, writeFile, readdir, rm, mkdtemp, stat, symlink } from "node:fs/promises";
 import { join, extname } from "node:path";
 import os from "node:os";
 import { detectImage, mimeForExt, VIDEO_EXTS } from "../../util.mjs";
@@ -22,7 +22,7 @@ import { detectImage, mimeForExt, VIDEO_EXTS } from "../../util.mjs";
 const IS_WIN = process.platform === "win32";
 const RUN_CWD = os.tmpdir();                                  // CLI 를 중립 디렉터리에서 실행(저장소 파일 안 읽게)
 const TIMEOUT_MS = Number(process.env.TIMEOUT_MS) || 240000;  // CLI 1회 실행 최대 대기(기본 4분)
-const IMAGE_TIMEOUT_MS = Number(process.env.IMAGE_TIMEOUT_MS) || 180000;
+const IMAGE_TIMEOUT_MS = Number(process.env.IMAGE_TIMEOUT_MS) || 600000;
 const VIDEO_TIMEOUT_MS = Number(process.env.VIDEO_TIMEOUT_MS) || 600000;
 const MEDIA_DL_TIMEOUT_MS = Number(process.env.MEDIA_DL_TIMEOUT_MS) || 120000;
 const MAX_MEDIA_BYTES = Number(process.env.MAX_MEDIA_BYTES) || 256 * 1024 * 1024;
@@ -135,7 +135,87 @@ async function collectImages(dir, sinceMs, recursive) {
   }
   return out;
 }
-async function generateImage(provider, prompt, model) {
+// 콘텐츠 유형 → 목표 종횡비(세로형). 프론트 갤러리 박스(card/feed 4:5, story/reels 9:16) 및 API sizeForKind 와
+// 정책을 맞춰, size 파라미터를 못 받는 codex/agy 내장 모델이 매번 제각각 비율로 내던 것을 프롬프트로 의도한 비율에 수렴시킨다.
+// (CLI 모델은 픽셀 단위 고정이 불가능 → '비율 수렴'이 목표. 자연어 비율 지시는 모델명 힌트와 달리 NO_IMAGE_GEN 회귀와 무관.)
+function aspectForKind(kind) {
+  const k = String(kind || "").toLowerCase();
+  if (k === "story" || k === "reels") return { ratio: "9:16", example: "1080x1920" };
+  if (k === "card" || k === "feed") return { ratio: "4:5", example: "1080x1350" };
+  return null; // misc 등 — 비율 강제 없이 모델 자유(기존 동작 유지)
+}
+
+// 생성된 이미지를 목표 비율·픽셀로 contain-pad 정규화(macOS 내장 sips). codex/agy 내장 모델이 비율 지시를
+// 무시하므로(실측: codex 0.640~0.800, agy 1:1 정사각 — 프롬프트/aspect_ratio 구문/CLI 플래그/대화형 모두 무효) 생성
+// 후처리로 강제 통일한다. crop 은 세로 긴 원본의 상/하단(제목·캡션)을 잘라 폐기하므로 → '축소 + 배경 평균색 pad'
+// 로 잘림 0 보장(여백은 배경색이라 자연스럽게 섞임). sips 는 macOS 내장이라 npm 의존성 0 유지. 비-macOS·실패
+// 시 null → 호출부가 원본 폴백(서버는 API 백엔드라 generateImage 미사용, sizeForKind 로 1024x1536 고정 → 무관).
+function sipsRun(args) {
+  return new Promise((res) => {
+    let child;
+    try { child = spawn("sips", args, { stdio: ["ignore", "ignore", "ignore"] }); }
+    catch (_) { res(false); return; }
+    child.on("error", () => res(false));
+    child.on("close", (code) => res(code === 0));
+  });
+}
+function sipsDims(path) {
+  return new Promise((res) => {
+    let out = "", child;
+    try { child = spawn("sips", ["-g", "pixelWidth", "-g", "pixelHeight", path], { stdio: ["ignore", "pipe", "ignore"] }); }
+    catch (_) { res(null); return; }
+    child.stdout.on("data", (d) => { out += d.toString(); });
+    child.on("error", () => res(null));
+    child.on("close", () => {
+      const w = (out.match(/pixelWidth:\s*(\d+)/) || [])[1];
+      const h = (out.match(/pixelHeight:\s*(\d+)/) || [])[1];
+      res(w && h ? { w: parseInt(w, 10), h: parseInt(h, 10) } : null);
+    });
+  });
+}
+// 이미지 평균색(≈배경색) 추출 — sips 로 1x1 BMP 리샘플 후 픽셀 1개를 읽는다(의존성0). pad 여백을 이 색으로 채워
+// 배경과 자연스럽게 잇는다. 실패 시 null → 호출부는 sips 기본(흰색) 폴백.
+async function avgColorHex(path, scratchDir) {
+  const bmpPath = join(scratchDir, "norm-px.bmp");
+  const ok = await sipsRun(["-s", "format", "bmp", "-z", "1", "1", path, "--out", bmpPath]);
+  if (!ok) return null;
+  let d;
+  try { d = await readFile(bmpPath); } catch (_) { return null; }
+  try {
+    const off = d.readUInt32LE(10);                        // BMP 헤더의 픽셀 데이터 오프셋
+    if (off + 3 > d.length) return null;
+    const b = d[off], g = d[off + 1], r = d[off + 2];      // BMP 픽셀은 BGR 순
+    const hx = (n) => n.toString(16).padStart(2, "0").toUpperCase();
+    return hx(r) + hx(g) + hx(b);
+  } catch (_) { return null; }
+}
+async function normalizeAspect(buf, ar, scratchDir, ext) {
+  if (process.platform !== "darwin") return null;          // sips 는 macOS 전용
+  if (!ar || !ar.example) return null;                     // 비율 미지정(misc) → 정규화 안 함
+  const m = /^(\d+)x(\d+)$/.exec(ar.example);
+  if (!m) return null;
+  const TW = parseInt(m[1], 10), TH = parseInt(m[2], 10);  // 목표 폭·높이
+  const e = ext && ext.startsWith(".") ? ext : ("." + (ext || "png"));
+  const inPath = join(scratchDir, "norm-in" + e);
+  const outPath = join(scratchDir, "norm-out" + e);
+  try { await writeFile(inPath, buf); } catch (_) { return null; }
+  const dim = await sipsDims(inPath);
+  if (!dim) return null;
+  if (dim.w === TW && dim.h === TH) return null;            // 이미 목표 픽셀 → 원본 그대로
+  // contain: 목표 안에 전부 들어가도록 한 변 기준 축소한 뒤, 남는 여백을 '배경 평균색'으로 pad(잘림 0 — 제목·캡션 보존).
+  // 원본이 목표보다 가로로 넓으면 폭 기준 축소(→상하 여백), 세로로 길면 높이 기준 축소(→좌우 여백).
+  const resample = (dim.w / dim.h > TW / TH) ? ["--resampleWidth", String(TW)] : ["--resampleHeight", String(TH)];
+  const pad = await avgColorHex(inPath, scratchDir);
+  const padArgs = pad ? ["--padColor", pad] : [];          // 추출 실패 시 sips 기본(흰색)
+  const ok = await sipsRun([...resample, "--padToHeightWidth", String(TH), String(TW), ...padArgs, inPath, "--out", outPath]);
+  if (!ok) return null;
+  let outBuf;
+  try { outBuf = await readFile(outPath); } catch (_) { return null; }
+  const det = detectImage(outBuf);
+  return det ? { buf: outBuf, ext: det.ext, mime: det.mime } : null;
+}
+
+async function generateImage(provider, prompt, model, imageModel, kind) {
   const def = IMAGE_PROVIDERS[provider] || IMAGE_PROVIDERS.agy;
   const cmd = provider === "codex" ? "codex" : "agy";
   const m = String(model || "").trim();
@@ -150,20 +230,32 @@ async function generateImage(provider, prompt, model) {
     extraDir = join(runHome, "generated_images");
   }
   try {
+    // 모델 힌트는 보내지 않는다: codex/agy 는 자체 내장 이미지 모델만 쓰고 API 모델명(gpt-image-1 등)을 못 고른다.
+    // 힌트를 주면 일부 실행에서 'PREFERRED model 을 못 따른다'며 내장 모델로 폴백하지 않고 NO_IMAGE_GEN 으로
+    // 즉시 포기하는 회귀가 있었다(imageModel 은 서버/API 백엔드에서만 의미 있음).
+    const ar = aspectForKind(kind);
+    const aspectLine = ar
+      ? `Generate the image with aspect_ratio ${ar.ratio} (a vertical portrait, taller than wide), as one full-bleed ${ar.ratio} composition that fills the frame edge to edge with no borders or letterboxing. Compose with balanced spacing so the title and any caption sit comfortably inside the frame, not jammed against the very top or bottom edge. `
+      : "";
     const instruction =
+      aspectLine +
       "Use your built-in native image-generation model to directly generate ONE image from the prompt below, then save it as out.png in the current working directory. " +
       "CRITICAL: do NOT write or run any code or script (no Python, PIL, matplotlib, SVG, HTML, canvas) to draw it — you MUST produce the image with your image-generation model. " +
       "OUTPUT MUST BE ONE single finished, full-bleed composition that fills the entire frame as a real final artwork (one poster/one slide). " +
       "It is NOT a grid, collage, contact sheet, moodboard, storyboard, design-system board, style guide, template gallery, slideshow, mockup, or a set of multiple panels/thumbnails. " +
       "Any colors, hex codes, margins, or 'design system' notes in the prompt are STYLING GUIDANCE for that single artwork — never lay them out as labeled swatches or a board. Render the actual described scene/subject, on-topic, edge to edge. " +
-      "If the prompt asks for on-image text, render that exact Korean text clearly and legibly with correct spelling (no fake or broken letters). " +
+      "If the prompt asks for on-image text, render that exact Korean text clearly and legibly with correct spelling (no fake or broken letters), and keep every line of text comfortably within the frame, not touching the very top or bottom edge. " +
       "Do not ask any questions. After saving, print only the saved file path. If you truly cannot generate an image, print exactly NO_IMAGE_GEN.\n\nThe image prompt is written in Korean:\n" + prompt;
     const result = await new Promise((res) => {
       let out = "", err = "", done = false, child;
       try { child = spawn(cmd, def.args(instruction, m), { cwd: scratch, stdio: ["ignore", "pipe", "pipe"], env: runEnv }); }
       catch (e) { res({ ok: false, error: cmd + " 실행 시작 실패: " + e.message }); return; }
       const fin = (o) => { if (done) return; done = true; clearTimeout(t); res(o); };
-      const t = setTimeout(() => { try { child.kill("SIGKILL"); } catch (_) {} fin({ ok: false, error: `이미지 생성 시간 초과(${Math.round(IMAGE_TIMEOUT_MS / 1000)}s)` }); }, IMAGE_TIMEOUT_MS);
+      const t = setTimeout(() => {
+        try { child.kill("SIGKILL"); } catch (_) {}
+        const tail = [out && ("stdout: " + out.trim().slice(-500)), err && ("stderr: " + err.trim().slice(-500))].filter(Boolean).join(" / ");
+        fin({ ok: false, error: `이미지 생성 시간 초과(${Math.round(IMAGE_TIMEOUT_MS / 1000)}s)` + (tail ? " · " + tail : "") });
+      }, IMAGE_TIMEOUT_MS);
       child.stdout.on("data", (d) => { out += d.toString(); });
       child.stderr.on("data", (d) => { err += d.toString(); });
       child.on("error", (e) => fin({ ok: false, error: e.code === "ENOENT" ? (cmd + " CLI 를 찾을 수 없습니다(설치/PATH 확인).") : (cmd + " 실행 오류: " + e.message) }));
@@ -173,11 +265,23 @@ async function generateImage(provider, prompt, model) {
     let cands = await collectImages(scratch, 0, false);
     if (!cands.length && extraDir) cands = await collectImages(extraDir, startedAt, true);
     if (!cands.length) {
+      const text = (result.out || "") + "\n" + (result.err || "");
       const snip = (result.out || "").trim().slice(0, 200);
-      return { ok: false, error: "이미지 파일을 찾지 못했습니다." + (snip ? " 응답: " + snip : "") };
+      // 출력에 실제 한도 흔적(429·rate limit·quota 등)이 있을 때'만' 레이트리밋으로 표기(원인 단정 금지).
+      if (/\b429\b|rate.?limit|too many requests|quota|insufficient_quota|over_capacity|temporarily unavailable/i.test(text)) {
+        return { ok: false, rateLimited: true, error: "요청 한도(레이트리밋)에 걸렸습니다 — 잠시 후 다시 생성하세요." + (snip ? " 응답: " + snip : "") };
+      }
+      // NO_IMAGE_GEN = codex 가 '생성 불가'로 판단(정책 거부·일시 오류·포기 등). 원인을 단정하지 말고 사실 그대로 + 재시도 안내.
+      const msg = /NO_IMAGE_GEN/.test(result.out || "")
+        ? "codex 가 이 이미지를 생성하지 못했습니다(NO_IMAGE_GEN). 일시적 실패이거나 프롬프트가 정책에 걸렸을 수 있어요 — '다시 생성'으로 재시도하세요."
+        : "이미지 파일을 찾지 못했습니다." + (snip ? " 응답: " + snip : "");
+      return { ok: false, error: msg };
     }
     cands.sort((a, b) => b.buf.length - a.buf.length);
     const best = cands[0];
+    // 목표 비율로 강제 정규화(sips cover-crop). 실패/비-macOS 면 원본 그대로.
+    const norm = await normalizeAspect(best.buf, ar, scratch, "." + best.det.ext);
+    if (norm) return { ok: true, buf: norm.buf, ext: norm.ext, mime: norm.mime };
     return { ok: true, buf: best.buf, ext: best.det.ext, mime: best.det.mime };
   } finally {
     rm(scratch, { recursive: true, force: true }).catch(() => {});
@@ -347,7 +451,7 @@ export async function makeCliBackend(_env) {
     id, label: CLI_DEFS[id].label, capabilities: caps,
     enabled: () => detect(CLI_DEFS[id].cmd),
     runText: (a) => runCli(CLI_DEFS[id], (a.model || "").trim(), a.prompt, a.timeoutMs, a.extraArgs),
-    runImage: caps.image ? (a) => generateImage(id, a.prompt, a.model) : null,
+    runImage: caps.image ? (a) => generateImage(id, a.prompt, a.model, a.imageModel, a.kind) : null,
     runVideo: caps.video ? (a) => runVideoCli(id, a) : null,
   });
   const providers = {

@@ -81,16 +81,16 @@ export function makeOpenAIProvider(secrets, env) {
     capabilities: { text: true, image: true, video: false },
     enabled: (s) => !!((s || secrets) || {}).OPENAI_API_KEY,
     models: () => [
-      { id: "gpt-5.5", tag: "최신·권장" },
+      { id: "gpt-5.5", tag: "최신" },
       { id: "gpt-5.4", tag: "이전 세대" },
       { id: "gpt-5.4-mini", tag: "저렴·빠름" },
     ],
     imageModels: () => IMAGE_MODELS,
     runText: ({ model, prompt }) => callText(secrets.OPENAI_API_KEY, (model || "").trim() || textModel, prompt),
-    runImage: ({ prompt, kind, model }) => {
-      const m = (model || "").toString().trim();
-      const im = IMAGE_MODEL_IDS.includes(m) ? m : imageModel;   // 허용 목록 검증(임의 모델 주입 방지)
-      return callImage(secrets.OPENAI_API_KEY, im, prompt, sizeForKind(kind, im));
+    runImage: (a) => {
+      const sel = (a.imageModel || a.model || "").toString().trim();   // 클라가 고른 이미지 모델(별도 필드; model 은 구버전 호환)
+      const im = IMAGE_MODEL_IDS.includes(sel) ? sel : imageModel;     // 허용 목록 검증(임의 모델 주입 방지) · 아니면 env 기본
+      return callImage(secrets.OPENAI_API_KEY, im, a.prompt, sizeForKind(a.kind, im));
     },
   };
 }
