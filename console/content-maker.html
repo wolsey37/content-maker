@@ -1478,13 +1478,13 @@
   var IMAGE_CONC_DEFAULT = 1;   // 이미지 동시 생성 기본값(로컬 CLI 안정성 우선)
   var IMAGE_CONC_MAX = 10;   // 이미지 동시 생성 상한(codex/agy 로컬 CLI 동시 실행 — 과도하면 CPU·레이트리밋 부담)
   var igEls = {};
-  // 이미지 생성 단계가 필요한 콘텐츠 유형(릴스=영상 중심 → 제외, 카드뉴스·피드·스토리=이미지 결과물 → 포함)
+  // 이미지 생성 단계가 필요한 콘텐츠 유형(카드뉴스=이미지 결과물 → 포함, 릴스=영상 중심 → 제외)
   var TYPE_IMAGEGEN = { reels:false, card:true, feed:true, story:true };
   function typeNeedsImageGen(){ return TYPE_IMAGEGEN[typeKey(state.platform)] !== false; }
   function findImageSourceStep(){ for(var i=0;i<STEPS.length;i++){ if(STEPS[i].imageSource) return STEPS[i]; } return null; }
   function imageStepEnabled(){ return !!findImageSourceStep() && typeNeedsImageGen(); }   // 단계 표시 여부(유형 게이팅)
   // 콘텐츠 유형에 맞는 결과물 명칭(제너릭 '이미지' 대신)
-  var IMAGEGEN_LABEL = { card:"슬라이드 이미지", feed:"피드 이미지", story:"스토리 이미지" };
+  var IMAGEGEN_LABEL = { card:"슬라이드 이미지" };   // UI 유형은 카드뉴스(이미지)·릴스(영상)뿐. 레거시 피드/스토리는 폴백("이미지")
   function imageGenLabel(){ return IMAGEGEN_LABEL[typeKey(state.platform)] || "이미지"; }
   var imageViewerIndex=0;
   function imageViewerItems(){ return (state.imageGen.items||[]).filter(imageItemDone); }   // 완료(url)된 것만 — 진행중/실패/빈 슬롯 제외
@@ -1634,11 +1634,13 @@
     if(card){ var done=imageGenDone(); card.classList.toggle("state-done", done);
       var chip=card.querySelector("[data-chip]"); if(chip){ chip.className="chip"+(done?" done":""); chip.textContent=done?"완료":"대기"; } }
     updateImageGenGates();
-    renderRail(); updateProgress();
+    // 레일 전체 재생성(renderRail) 대신 이미지 세그먼트 class 만 갱신 — 생성 중 매 장 완료마다 호출돼도 깜빡임 없음.
+    var iseg=el("seg-img"); if(iseg) iseg.className="seg "+(imageGenDone()?"done":"idle");
+    updateProgress();
   }
   function renderGallery(){
     var gal=igEls.gallery; if(!gal) return; gal.innerHTML="";
-    // 콘텐츠 유형 비율(카드뉴스·피드 4:5, 스토리·릴스 9:16) — 완료/진행중/실패 슬롯 모두 동일 비율로 표시.
+    // 콘텐츠 유형 비율(카드뉴스 4:5; 릴스 영상은 별도 갤러리) — 완료/진행중/실패 슬롯 모두 동일 비율로 표시.
     var ar=(typeKey(state.platform)==="story"||typeKey(state.platform)==="reels")?"9/16":"4/5";
     var items=(state.imageGen.items||[]);
     var doneList=items.filter(imageItemDone);   // 뷰어 인덱스 매핑용(완료분만)
@@ -1758,10 +1760,10 @@
   }
   function renderImageGenCard(container){
     igEls={};
-    if(!imageStepEnabled()) return;   // 이미지 생성이 필요한 유형(카드뉴스·피드·스토리)에만 표시
+    if(!imageStepEnabled()) return;   // 이미지 생성이 필요한 유형(카드뉴스)에만 표시
     var src=findImageSourceStep();
     var num=STEPS.length+1;
-    var lbl=imageGenLabel();   // 콘텐츠 유형에 맞는 명칭(슬라이드/피드/스토리 이미지)
+    var lbl=imageGenLabel();   // 콘텐츠 유형에 맞는 명칭(카드뉴스 = 슬라이드 이미지)
     var card=document.createElement("div"); card.className="card deliverable"; card.id="card-img";
     if(imageGenDone()) card.classList.add("state-done");
 
@@ -1883,7 +1885,7 @@
   var VIDEO_MAX = 20;   // 영상 생성 컷수 절대 상한(런어웨이 비용 방지용 천장). 기본값은 추출된 컷 개수에 자동 맞춤(비용은 [영상 제작] 옆 예상 크레딧으로 표시).
   var VIDEO_CONC_MAX = 3;   // 영상 동시 제작 상한(MCP 엔진 병렬 한도 고려 — Higgsfield 무료/STARTER 는 동시 영상 1~2개)
   var vgEls = {};
-  // 영상 제작 단계가 필요한 콘텐츠 유형(릴스만 — 카드뉴스·피드·스토리는 이미지 결과물)
+  // 영상 제작 단계가 필요한 콘텐츠 유형(릴스만 — 카드뉴스는 이미지 결과물)
   var TYPE_VIDEOGEN = { reels:true, card:false, feed:false, story:false };
   function typeNeedsVideoGen(){ return TYPE_VIDEOGEN[typeKey(state.platform)] === true; }
   // 영상 제작 엔진(셀렉트박스 — 추후 추가용). 현재 Higgsfield 만 활성, 나머지는 placeholder(disabled).
@@ -1954,7 +1956,9 @@
     var card=el("card-vid");
     if(card){ var done=videoGenDone(); card.classList.toggle("state-done", done);
       var chip=card.querySelector("[data-chip]"); if(chip){ chip.className="chip"+(done?" done":""); chip.textContent=done?"완료":"대기"; } }
-    renderRail(); updateProgress();
+    // 레일 전체 재생성 대신 영상 세그먼트 class 만 갱신(깜빡임 방지) — 이미지 세그먼트와 동일 처리.
+    var vseg=el("seg-vid"); if(vseg) vseg.className="seg "+(videoGenDone()?"done":"idle");
+    updateProgress();
   }
   function renderVideoGallery(){
     var gal=vgEls.gallery; if(!gal) return; gal.innerHTML="";
@@ -2673,7 +2677,7 @@
       : "로컬 LLM CLI 실행 · 제작 스크립트 + <b>릴스는 영상 엔진(Higgsfield)으로 실제 영상까지</b>";
     var scope=el("helpScopeNote"); if(scope) scope.innerHTML=(eff==="server")
       ? "서버 모드는 로그인한 계정의 API provider로 텍스트·이미지를 생성하고 결과를 서버 저장소에 보관합니다. 영상 제작은 서버에 영상 provider가 연결된 경우에만 활성화됩니다."
-      : "기본은 <b>이미지·영상 제작용 스크립트</b>를 생성합니다. 카드뉴스·피드·스토리는 <b>codex·agy</b> 로 실제 이미지를, <b>릴스</b>는 영상 엔진(<b>Higgsfield</b>)을 <b>codex·claude</b> CLI→MCP 로 호출해 <b>실제 영상까지</b> 만들어 작업폴더 <code>output/</code> 에 저장합니다.";
+      : "기본은 <b>이미지·영상 제작용 스크립트</b>를 생성합니다. 카드뉴스는 <b>codex·agy</b> 로 실제 이미지를, <b>릴스</b>는 영상 엔진(<b>Higgsfield</b>)을 <b>codex·claude</b> CLI→MCP 로 호출해 <b>실제 영상까지</b> 만들어 작업폴더 <code>output/</code> 에 저장합니다.";
     var foot=el("footerNote"); if(foot) foot.textContent=(eff==="server")
       ? "서버 모드 · 작업과 미디어는 로그인 계정별 서버 저장소에 안전하게 보관됩니다."
       : "단일 HTML + 로컬 브리지(Node, 의존성 0) · LLM은 로컬 CLI 실행 · 릴스는 영상 엔진(Higgsfield)을 CLI→MCP 로 호출해 실제 영상까지 생성합니다.";

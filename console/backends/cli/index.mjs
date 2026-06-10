@@ -135,21 +135,17 @@ async function collectImages(dir, sinceMs, recursive) {
   }
   return out;
 }
-// 콘텐츠 유형 → 목표 종횡비(세로형). 프론트 갤러리 박스(card/feed 4:5, story/reels 9:16) 및 API sizeForKind 와
-// 정책을 맞춰, size 파라미터를 못 받는 codex/agy 내장 모델이 매번 제각각 비율로 내던 것을 프롬프트로 의도한 비율에 수렴시킨다.
-// (CLI 모델은 픽셀 단위 고정이 불가능 → '비율 수렴'이 목표. 자연어 비율 지시는 모델명 힌트와 달리 NO_IMAGE_GEN 회귀와 무관.)
+// 콘텐츠 유형 → 목표 종횡비. UI 유형은 카드뉴스(이미지)·릴스(영상)뿐이고 이미지 생성은 카드뉴스만 → 4:5 하나.
+// codex/agy 내장 모델이 size 를 안 받아 제각각 비율로 내므로, 생성 후 sips 로 이 비율에 맞춰 정규화한다.
+// (레거시 저장 작업이 피드/스토리일 수 있으나 그 경우 null → 정규화만 스킵, 생성은 정상.)
 function aspectForKind(kind) {
-  const k = String(kind || "").toLowerCase();
-  if (k === "story" || k === "reels") return { ratio: "9:16", example: "1080x1920" };
-  if (k === "card" || k === "feed") return { ratio: "4:5", example: "1080x1350" };
-  return null; // misc 등 — 비율 강제 없이 모델 자유(기존 동작 유지)
+  if (String(kind || "").toLowerCase() === "card") return { ratio: "4:5", example: "1080x1350" };
+  return null; // 카드뉴스 외(릴스=영상 등) — 비율 강제 없음
 }
 
-// 생성된 이미지를 목표 비율·픽셀로 contain-pad 정규화(macOS 내장 sips). codex/agy 내장 모델이 비율 지시를
-// 무시하므로(실측: codex 0.640~0.800, agy 1:1 정사각 — 프롬프트/aspect_ratio 구문/CLI 플래그/대화형 모두 무효) 생성
-// 후처리로 강제 통일한다. crop 은 세로 긴 원본의 상/하단(제목·캡션)을 잘라 폐기하므로 → '축소 + 배경 평균색 pad'
-// 로 잘림 0 보장(여백은 배경색이라 자연스럽게 섞임). sips 는 macOS 내장이라 npm 의존성 0 유지. 비-macOS·실패
-// 시 null → 호출부가 원본 폴백(서버는 API 백엔드라 generateImage 미사용, sizeForKind 로 1024x1536 고정 → 무관).
+// 생성된 이미지를 목표 비율·픽셀로 cover-crop 정규화(macOS 내장 sips). codex/agy 내장 모델이 비율 지시를
+// 무시하므로 생성 후처리로 강제 통일한다. pad 없이 목표 캔버스를 꽉 채우기 위해 긴 변을 중앙 crop 한다.
+// sips 는 macOS 내장이라 npm 의존성 0 유지. 비-macOS·실패 시 null → 호출부가 원본 폴백.
 function sipsRun(args) {
   return new Promise((res) => {
     let child;
@@ -173,22 +169,6 @@ function sipsDims(path) {
     });
   });
 }
-// 이미지 평균색(≈배경색) 추출 — sips 로 1x1 BMP 리샘플 후 픽셀 1개를 읽는다(의존성0). pad 여백을 이 색으로 채워
-// 배경과 자연스럽게 잇는다. 실패 시 null → 호출부는 sips 기본(흰색) 폴백.
-async function avgColorHex(path, scratchDir) {
-  const bmpPath = join(scratchDir, "norm-px.bmp");
-  const ok = await sipsRun(["-s", "format", "bmp", "-z", "1", "1", path, "--out", bmpPath]);
-  if (!ok) return null;
-  let d;
-  try { d = await readFile(bmpPath); } catch (_) { return null; }
-  try {
-    const off = d.readUInt32LE(10);                        // BMP 헤더의 픽셀 데이터 오프셋
-    if (off + 3 > d.length) return null;
-    const b = d[off], g = d[off + 1], r = d[off + 2];      // BMP 픽셀은 BGR 순
-    const hx = (n) => n.toString(16).padStart(2, "0").toUpperCase();
-    return hx(r) + hx(g) + hx(b);
-  } catch (_) { return null; }
-}
 async function normalizeAspect(buf, ar, scratchDir, ext) {
   if (process.platform !== "darwin") return null;          // sips 는 macOS 전용
   if (!ar || !ar.example) return null;                     // 비율 미지정(misc) → 정규화 안 함
@@ -202,13 +182,15 @@ async function normalizeAspect(buf, ar, scratchDir, ext) {
   const dim = await sipsDims(inPath);
   if (!dim) return null;
   if (dim.w === TW && dim.h === TH) return null;            // 이미 목표 픽셀 → 원본 그대로
-  // contain: 목표 안에 전부 들어가도록 한 변 기준 축소한 뒤, 남는 여백을 '배경 평균색'으로 pad(잘림 0 — 제목·캡션 보존).
-  // 원본이 목표보다 가로로 넓으면 폭 기준 축소(→상하 여백), 세로로 길면 높이 기준 축소(→좌우 여백).
-  const resample = (dim.w / dim.h > TW / TH) ? ["--resampleWidth", String(TW)] : ["--resampleHeight", String(TH)];
-  const pad = await avgColorHex(inPath, scratchDir);
-  const padArgs = pad ? ["--padColor", pad] : [];          // 추출 실패 시 sips 기본(흰색)
-  const ok = await sipsRun([...resample, "--padToHeightWidth", String(TH), String(TW), ...padArgs, inPath, "--out", outPath]);
-  if (!ok) return null;
+  // cover: 목표 캔버스를 꽉 채우도록 확대/축소한 뒤 중앙 crop 한다. pad/letterbox 없음.
+  const scale = Math.max(TW / dim.w, TH / dim.h);
+  const RW = Math.max(TW, Math.ceil(dim.w * scale));
+  const RH = Math.max(TH, Math.ceil(dim.h * scale));
+  const resizedPath = join(scratchDir, "norm-resized" + e);
+  const resized = await sipsRun(["--resampleHeightWidth", String(RH), String(RW), inPath, "--out", resizedPath]);
+  if (!resized) return null;
+  const cropped = await sipsRun(["--cropToHeightWidth", String(TH), String(TW), resizedPath, "--out", outPath]);
+  if (!cropped) return null;
   let outBuf;
   try { outBuf = await readFile(outPath); } catch (_) { return null; }
   const det = detectImage(outBuf);
