@@ -158,11 +158,22 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
 .slide .no{ position:absolute; top:8px; left:8px; font-size:10.5px; font-weight:700; background:rgba(20,24,18,.5); color:#fff; border-radius:999px; padding:2px 8px; }
 .slide .errbox{ aspect-ratio:4/5; display:flex; flex-direction:column; gap:8px; align-items:center; justify-content:center; color:var(--err); font-size:12px; padding:14px; text-align:center; background:var(--err-soft); }
 .outbox{ background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); margin-bottom:14px; overflow:hidden; }
-.outbox-h{ display:flex; align-items:center; gap:8px; padding:12px 16px; cursor:pointer; }
-.outbox-h .t{ font-weight:700; font-size:13.5px; flex:1; }
-.outbox-h .copy{ font-size:11.5px; }
+.outbox-h{ display:flex; align-items:center; gap:6px; padding:12px 16px; cursor:pointer; flex-wrap:wrap; }
+.outbox-h .t{ font-weight:700; font-size:13.5px; flex:1; min-width:120px; }
+.outbox-h .btn{ font-size:11.5px; padding:5px 10px; border-radius:8px; }
+.outbox-h .stale-tag{ font-size:10.5px; font-weight:700; color:var(--warn); background:var(--gold-soft); border-radius:999px; padding:3px 9px; }
 .outbox pre{ margin:0; padding:4px 18px 16px; white-space:pre-wrap; word-break:break-word; font-family:inherit; font-size:13px; color:var(--ink-2); line-height:1.7; max-height:480px; overflow:auto; }
 .outbox.fold pre{ display:none; }
+.outbox .editarea{ display:block; width:calc(100% - 32px); margin:0 16px 12px; min-height:240px; max-height:520px; border:1px solid var(--brand-line); border-radius:var(--r1); background:var(--input); color:var(--ink); font-family:inherit; font-size:13px; line-height:1.7; padding:12px; resize:vertical; outline:none; }
+.outbox .edit-acts{ display:flex; gap:8px; justify-content:flex-end; padding:0 16px 14px; }
+.stalebar{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; background:var(--gold-soft); border:1px solid var(--gold-line); color:var(--ink-2); border-radius:var(--r1); padding:10px 14px; font-size:13px; margin-bottom:14px; }
+.stalebar .sp{ flex:1; }
+.tl-step.stale .tl-ico{ background:var(--gold-soft); color:var(--warn); border-color:transparent; }
+.slide .pedit{ padding:12px; display:flex; flex-direction:column; gap:8px; aspect-ratio:4/5; }
+.slide .pedit .pe-t{ font-size:11px; font-weight:700; color:var(--gold); }
+.slide .pedit textarea{ flex:1; border:1px solid var(--brand-line); border-radius:var(--r1); background:var(--input); color:var(--ink); font-family:inherit; font-size:11.5px; line-height:1.55; padding:9px; resize:none; outline:none; }
+.slide .pedit .acts{ display:flex; gap:6px; justify-content:flex-end; }
+.slide .pedit .btn{ font-size:11px; padding:5px 10px; border-radius:8px; }
 .stage .note{ font-size:12.5px; color:var(--muted); margin:10px 2px; }
 .stage .errnote{ background:var(--err-soft); color:var(--err); border-radius:var(--r1); padding:10px 14px; font-size:13px; margin-bottom:14px; }
 
@@ -263,6 +274,10 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
     </aside>
     <section class="stage">
       <div class="errnote" id="stageErr" hidden></div>
+      <div class="stalebar" id="staleBar" hidden>
+        <span>✏️ 수정한 내용이 있어요. 뒤따르는 단계에 반영하려면 다시 만들어 주세요.</span><span class="sp"></span>
+        <button class="btn pri" id="rebuildBtn" type="button">▶ 수정 반영해 다시 만들기</button>
+      </div>
       <div class="tabs" id="tabs">
         <button data-tab="slides" class="on" type="button">🖼 슬라이드</button>
         <button data-tab="copy" type="button">✍️ 문구·캡션</button>
@@ -658,18 +673,30 @@ window.addEventListener("popstate", function(){
 });
 
 /* ====== 스튜디오: 진행 타임라인 + 결과 렌더 ====== */
-var runFlow={ busy:false, stepState:{}, imgState:"idle", stoppedAt:null };  // stepState: id -> idle|run|done|err
+// stepState: id -> idle|run|done|err · stale: 수정으로 영향받아 '다시 만들기 권장'인 단계 · imgStale: 이미지 재생성 권장
+var runFlow={ busy:false, stepState:{}, stale:{}, imgState:"idle", imgStale:false, stoppedAt:null };
+function freshFlow(){ return { busy:false, stepState:{}, stale:{}, imgState:"idle", imgStale:false, stoppedAt:null }; }
 function isCard(){ return typeKey(state.platform)==="card"; }
+function anyStale(){ for(var k in runFlow.stale){ if(runFlow.stale[k]) return true; } return runFlow.imgStale; }
 function timelineItems(){
-  var items=STEPS.map(function(s){ var d=s.simple||{t:s.title,d:s.desc}; return { key:"s"+s.id, nm:d.t, ds:d.d, st:runFlow.stepState[s.id]||"idle" }; });
-  if(isCard()) items.push({ key:"img", nm:"🖼 슬라이드 이미지", ds:"이미지를 실제로 생성해요", st:runFlow.imgState });
+  var items=STEPS.map(function(s){
+    var d=s.simple||{t:s.title,d:s.desc};
+    var st=runFlow.stepState[s.id]||"idle";
+    if(runFlow.stale[s.id] && st!=="run") st="stale";
+    return { key:"s"+s.id, nm:d.t, ds:(st==="stale"?"수정 영향 — 다시 만들기 권장":d.d), st:st };
+  });
+  if(isCard()){
+    var ist=runFlow.imgState;
+    if(runFlow.imgStale && ist!=="run") ist="stale";
+    items.push({ key:"img", nm:"🖼 슬라이드 이미지", ds:(ist==="stale"?"수정 영향 — 다시 만들기 권장":"이미지를 실제로 생성해요"), st:ist });
+  }
   return items;
 }
 function renderTimeline(){
   var box=el("tlList"); box.innerHTML="";
   timelineItems().forEach(function(it){
     var d=document.createElement("div"); d.className="tl-step "+it.st;
-    var ico=it.st==="done"?"✓":it.st==="err"?"!":it.st==="run"?'<span class="spin"></span>':"·";
+    var ico=it.st==="done"?"✓":it.st==="err"?"!":it.st==="stale"?"✎":it.st==="run"?'<span class="spin"></span>':"·";
     d.innerHTML='<span class="tl-ico">'+ico+'</span><div><div class="nm">'+esc(it.nm)+'</div><div class="ds">'+esc(it.ds||"")+'</div></div>';
     box.appendChild(d);
   });
@@ -681,9 +708,11 @@ function renderTimeline(){
   badge.textContent=anyRun?"만드는 중":anyErr?"중단됨":allDone?"완성":"대기";
   el("retryBtn").hidden=!(anyErr&&!runFlow.busy);
   el("remakeBtn").disabled=runFlow.busy;
+  el("staleBar").hidden=!(anyStale()&&!runFlow.busy);
   el("studioTitle").textContent=jobTitle();
 }
 function copyStepId(){ return isCard()?5:4; }   // 카드: 슬라이드 카피 / 릴스: 대본
+var editingSlide=null;   // 프롬프트 편집 중인 슬라이드 index
 function renderPanes(){
   /* 슬라이드 탭 */
   var ps=el("pane-slides"); ps.innerHTML="";
@@ -694,31 +723,43 @@ function renderPanes(){
       var grid=document.createElement("div"); grid.className="slides";
       items.forEach(function(it,i){
         var s=document.createElement("div"); s.className="slide";
-        if(it && it.url){
+        if(editingSlide===i && it){
+          /* 이 슬라이드의 이미지 프롬프트를 직접 고친 뒤 재생성 */
+          s.innerHTML='<div class="pedit"><div class="pe-t">'+(i+1)+'번 슬라이드 이미지 프롬프트</div>'+
+            '<textarea></textarea>'+
+            '<div class="acts"><button class="btn ghost" type="button" data-pecancel="1">취소</button>'+
+            '<button class="btn pri" type="button" data-pesave="'+i+'">↻ 이 내용으로 재생성</button></div></div>';
+          s.querySelector("textarea").value=it.prompt||"";
+        } else if(it && it.url){
           s.innerHTML='<span class="no">'+(i+1)+'</span><img src="'+esc(mediaSrc(it.url))+'" alt="슬라이드 '+(i+1)+'">'+
-            '<div class="ops"><button type="button" title="다시 생성" data-re="'+i+'">↻</button>'+
+            '<div class="ops"><button type="button" title="이미지 프롬프트 수정" data-pe="'+i+'">✏️</button>'+
+            '<button type="button" title="같은 프롬프트로 다시 생성" data-re="'+i+'">↻</button>'+
             '<a href="'+esc(mediaSrc(it.url))+'" download="slide-'+(i+1)+'.png" title="다운로드">⬇</a></div>';
         } else if(it && it.error){
           s.innerHTML='<div class="errbox">생성 실패<br><small>'+esc(String(it.error).slice(0,90))+'</small>'+
-            '<button class="btn" type="button" data-re="'+i+'" style="margin-top:8px;">다시 생성</button></div>';
-        } else {
+            '<div style="display:flex; gap:6px; margin-top:8px;"><button class="btn" type="button" data-pe="'+i+'">✏️ 프롬프트 수정</button>'+
+            '<button class="btn" type="button" data-re="'+i+'">다시 생성</button></div></div>';
+        } else if(runFlow.busy || runFlow.imgState==="run"){
           s.innerHTML='<div class="ph"><span class="spin"></span>'+(i+1)+'번 만드는 중…</div>';
+        } else {
+          /* 중단된 작업의 미생성 슬롯 — 스피너 대신 직접 생성/수정 버튼 제공 */
+          s.innerHTML='<div class="ph">'+(i+1)+'번 · 아직 생성 전이에요'+
+            '<div style="display:flex; gap:6px;"><button class="btn" type="button" data-pe="'+i+'">✏️</button>'+
+            '<button class="btn" type="button" data-re="'+i+'">생성</button></div></div>';
         }
         grid.appendChild(s);
       });
       ps.appendChild(grid);
     }
   } else {
-    var s5=state.steps[5]&&state.steps[5].output, s6=state.steps[6]&&state.steps[6].output;
     ps.innerHTML='<div class="note">릴스는 촬영·편집에 바로 쓸 수 있는 <b>대본·장면별 프롬프트</b>를 만들어 드려요. 아래에서 복사해 영상 툴에 활용하세요.</div>';
-    if(s5) ps.appendChild(outBox("📝 인서트컷 이미지 프롬프트", s5));
-    if(s6) ps.appendChild(outBox("🎬 영상 프롬프트 · 스토리보드", s6));
+    if((state.steps[5]||{}).output) ps.appendChild(stepBox("📝 인서트컷 이미지 프롬프트", 5));
+    if((state.steps[6]||{}).output) ps.appendChild(stepBox("🎬 영상 프롬프트 · 스토리보드", 6));
   }
   /* 문구·캡션 탭 */
   var pc=el("pane-copy"); pc.innerHTML="";
-  var cs=state.steps[copyStepId()]&&state.steps[copyStepId()].output;
-  if(cs) pc.appendChild(outBox(isCard()?"✍️ 슬라이드 문구 · 캡션 · 해시태그":"✍️ 대본 · 캡션 · 해시태그", cs));
-  else pc.innerHTML='<div class="note">콘텐츠가 만들어지면 게시물에 바로 붙여넣을 문구가 여기에 정리됩니다.</div>';
+  if((state.steps[copyStepId()]||{}).output) pc.appendChild(stepBox(isCard()?"✍️ 슬라이드 문구 · 캡션 · 해시태그":"✍️ 대본 · 캡션 · 해시태그", copyStepId()));
+  else pc.innerHTML='<div class="note">콘텐츠가 만들어지면 게시물에 바로 붙여넣을 문구가 여기에 정리됩니다. 만들어진 뒤에는 ✏️ 편집으로 직접 고치거나 ↻ 로 다시 생성할 수 있어요.</div>';
   /* 기획 노트 탭 */
   var pp=el("pane-plan"); pp.innerHTML="";
   var any=false;
@@ -726,22 +767,80 @@ function renderPanes(){
     if(s.id===copyStepId() || (isCard()&&s.id===6) || (!isCard()&&(s.id===5||s.id===6))) return;  // 결과 탭과 중복 제외
     var o=state.steps[s.id]&&state.steps[s.id].output; if(!o) return;
     any=true; var d=s.simple||{t:s.title};
-    pp.appendChild(outBox(d.t, o, true));
+    pp.appendChild(stepBox(d.t, s.id, true));
   });
-  if(!any) pp.innerHTML='<div class="note">기획 과정(주제 정리 → 분석 → 기획)이 단계별로 기록됩니다.</div>';
+  if(!any) pp.innerHTML='<div class="note">기획 과정(주제 정리 → 분석 → 기획)이 단계별로 기록됩니다. 각 단계는 ✏️ 편집·↻ 다시 생성으로 고칠 수 있어요.</div>';
 }
-function outBox(title, text, folded){
+function copyToClipboard(text, b){
+  (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(text):Promise.reject()).then(
+    function(){ b.textContent="복사됨!"; setTimeout(function(){ b.textContent="복사"; },1200); },
+    function(){ try{ var ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); b.textContent="복사됨!"; setTimeout(function(){ b.textContent="복사"; },1200); }catch(e){} });
+}
+/* 단계 결과 박스 — 펼침/접힘 + 복사 + ✏️ 직접 수정 + ↻ 이 단계만 다시 생성 */
+function stepBox(title, stepId, folded){
+  var text=(state.steps[stepId]&&state.steps[stepId].output)||"";
   var d=document.createElement("div"); d.className="outbox"+(folded?" fold":"");
-  d.innerHTML='<div class="outbox-h"><span class="t">'+esc(title)+'</span><button class="btn ghost copy" type="button">복사</button></div><pre></pre>';
+  d.innerHTML='<div class="outbox-h"><span class="t">'+esc(title)+'</span>'+
+    (runFlow.stale[stepId]?'<span class="stale-tag">수정 영향</span>':'')+
+    '<button class="btn ghost edit" type="button" title="내용을 직접 고칩니다">✏️ 편집</button>'+
+    '<button class="btn ghost regen" type="button" title="이 단계만 AI로 다시 만듭니다">↻ 다시 생성</button>'+
+    '<button class="btn ghost copy" type="button">복사</button></div><pre></pre>';
   d.querySelector("pre").textContent=text;
-  d.querySelector(".outbox-h").addEventListener("click", function(e){ if(e.target.classList.contains("copy")) return; d.classList.toggle("fold"); });
-  d.querySelector(".copy").addEventListener("click", function(){
-    var b=this;
-    (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(text):Promise.reject()).then(
-      function(){ b.textContent="복사됨!"; setTimeout(function(){ b.textContent="복사"; },1200); },
-      function(){ try{ var ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); b.textContent="복사됨!"; setTimeout(function(){ b.textContent="복사"; },1200); }catch(e){} });
+  var editBtn=d.querySelector(".edit"), regenBtn=d.querySelector(".regen");
+  editBtn.disabled=regenBtn.disabled=runFlow.busy;
+  d.querySelector(".outbox-h").addEventListener("click", function(e){ if(e.target.closest("button")) return; d.classList.toggle("fold"); });
+  d.querySelector(".copy").addEventListener("click", function(){ copyToClipboard((state.steps[stepId]&&state.steps[stepId].output)||"", this); });
+  regenBtn.addEventListener("click", function(){ regenStep(stepId); });
+  editBtn.addEventListener("click", function(){
+    if(runFlow.busy || d.querySelector(".editarea")) return;
+    d.classList.remove("fold");
+    var pre=d.querySelector("pre"); pre.style.display="none";
+    var ta=document.createElement("textarea"); ta.className="editarea"; ta.value=(state.steps[stepId]&&state.steps[stepId].output)||"";
+    var acts=document.createElement("div"); acts.className="edit-acts";
+    acts.innerHTML='<button class="btn ghost ecancel" type="button">취소</button><button class="btn pri esave" type="button">저장</button>';
+    d.appendChild(ta); d.appendChild(acts); ta.focus();
+    acts.querySelector(".ecancel").addEventListener("click", function(){ ta.remove(); acts.remove(); pre.style.display=""; });
+    acts.querySelector(".esave").addEventListener("click", function(){
+      var v=ta.value.replace(/\s+$/,"");
+      if(!v.trim()){ ta.focus(); return; }
+      state.steps[stepId].output=v;
+      delete runFlow.stale[stepId];          // 직접 고친 내용이 최신 — 이 단계의 '수정 영향'은 해소
+      markStaleAfter(stepId);                // 뒤따르는 단계·이미지는 반영 필요로 표시
+      saveLocal(); syncJob(); renderStudio();
+    });
   });
   return d;
+}
+/* stepId 이후(출력이 이미 있는) 단계와 생성된 이미지를 '수정 영향'으로 표시 */
+function markStaleAfter(stepId){
+  STEPS.forEach(function(s){
+    if(s.id<=stepId) return;
+    if(((state.steps[s.id]||{}).output||"").trim()) runFlow.stale[s.id]=true;
+  });
+  if(isCard() && (state.imageGen.items||[]).some(function(it){ return it&&(it.url||it.key); })) runFlow.imgStale=true;
+}
+/* 한 단계만 다시 생성 — 완료 후 뒤 단계는 '수정 영향' 표시(자동 연쇄 재실행은 사용자가 선택) */
+function regenStep(stepId){
+  if(runFlow.busy) return;
+  var s=stepById(stepId); if(!s) return;
+  runFlow.busy=true; runFlow.stepState[stepId]="run"; stageError(null); renderStudio();
+  runStepReq(s).then(function(){
+    runFlow.busy=false; runFlow.stepState[stepId]="done"; delete runFlow.stale[stepId];
+    markStaleAfter(stepId);
+    saveLocal(); syncJob(); renderStudio();
+  }).catch(function(e){
+    runFlow.busy=false; runFlow.stepState[stepId]="err";
+    stageError("'"+((s.simple&&s.simple.t)||s.title)+"' 다시 생성 실패: "+((e&&e.message)||e));
+    renderStudio();
+  });
+}
+/* 수정 반영: '수정 영향' 단계만 다시 실행(나머지는 그대로) → 이미지가 영향권이면 이미지도 재생성 */
+function rebuildStale(){
+  if(runFlow.busy) return;
+  STEPS.forEach(function(s){ if(runFlow.stale[s.id]){ delete runFlow.stale[s.id]; runFlow.stepState[s.id]="idle"; } });
+  if(runFlow.imgStale){ runFlow.imgStale=false; runFlow.imgState="idle"; }
+  stageError(null);
+  runPipeline(0);
 }
 function renderStudio(){ renderTimeline(); renderPanes(); }
 function stageError(msg){ var e=el("stageErr"); if(msg){ e.hidden=false; e.textContent=msg; } else e.hidden=true; }
@@ -781,6 +880,8 @@ function runPipeline(fromStepIdx){
 }
 function afterTextSteps(){
   if(!isCard()){ runFlow.busy=false; saveLocal(); syncJob(); renderStudio(); return; }
+  /* 이미지가 이미 완성돼 있고 수정 영향도 없으면 유지(텍스트 일부만 다시 만든 경우 불필요한 재생성 방지) */
+  if(runFlow.imgState==="done" && !runFlow.imgStale){ runFlow.busy=false; saveLocal(); syncJob(); renderStudio(); return; }
   /* 카드뉴스: 이미지 프롬프트 추출 → 실제 이미지 생성 */
   var src=null; for(var i=0;i<STEPS.length;i++){ if(STEPS[i].imageSource){ src=STEPS[i]; break; } }
   var prompts=src?extractImagePrompts((state.steps[src.id]&&state.steps[src.id].output)||""):[];
@@ -846,7 +947,7 @@ function startCreate(){
   state=freshState();
   state.topic=topic; state.rulepack=(el("ruleInput").value||"").trim(); state.platform=fmtSel;
   setSteps(state.platform); ensureJobId();
-  runFlow={ busy:false, stepState:{}, imgState:"idle", stoppedAt:null };
+  runFlow=freshFlow();
   saveLocal();
   showStudio(); renderStudio();
   runPipeline(0);
@@ -872,7 +973,7 @@ function openJob(id){
       }
       if(st.videoGen && typeof st.videoGen==="object") state.videoGen=st.videoGen;
       /* 완료 상태 재구성 — 출력 있는 단계는 done */
-      runFlow={ busy:false, stepState:{}, imgState:"idle", stoppedAt:null };
+      runFlow=freshFlow();
       STEPS.forEach(function(s){ if((state.steps[s.id].output||"").trim()) runFlow.stepState[s.id]="done"; });
       if(isCard() && (state.imageGen.items||[]).some(function(it){ return it&&it.url; })) runFlow.imgState="done";
       saveLocal();
@@ -893,7 +994,7 @@ function remake(){
     var topic=state.topic, rule=state.rulepack, platform=state.platform, jid=state.jobId;
     state=freshState(); state.topic=topic; state.rulepack=rule; state.platform=platform; state.jobId=jid;
     setSteps(platform);
-    runFlow={ busy:false, stepState:{}, imgState:"idle", stoppedAt:null };
+    runFlow=freshFlow();
     stageError(null); saveLocal(); renderStudio();
     runPipeline(0);
   });
@@ -946,8 +1047,23 @@ function init(){
     el("tabs").querySelectorAll("button").forEach(function(x){ x.classList.toggle("on",x===b); });
     ["slides","copy","plan"].forEach(function(t){ el("pane-"+t).classList.toggle("on", b.getAttribute("data-tab")===t); });
   });
-  /* 슬라이드 액션(위임): 다시 생성 / 라이트박스 */
+  el("rebuildBtn").addEventListener("click", rebuildStale);
+  /* 슬라이드 액션(위임): 프롬프트 편집 / 다시 생성 / 라이트박스 */
   el("pane-slides").addEventListener("click", function(e){
+    var pe=e.target.closest&&e.target.closest("[data-pe]");
+    if(pe){ if(!runFlow.busy){ editingSlide=parseInt(pe.getAttribute("data-pe"),10); renderPanes(); } return; }
+    var pc=e.target.closest&&e.target.closest("[data-pecancel]");
+    if(pc){ editingSlide=null; renderPanes(); return; }
+    var psv=e.target.closest&&e.target.closest("[data-pesave]");
+    if(psv){
+      var i=parseInt(psv.getAttribute("data-pesave"),10);
+      var ta=psv.closest(".pedit").querySelector("textarea");
+      var v=(ta.value||"").trim(); if(!v){ ta.focus(); return; }
+      if(state.imageGen.items[i]) state.imageGen.items[i].prompt=v;
+      editingSlide=null;
+      regenSlide(i);   // 수정한 프롬프트로 이 슬라이드만 재생성
+      return;
+    }
     var re=e.target.closest&&e.target.closest("[data-re]");
     if(re){ regenSlide(parseInt(re.getAttribute("data-re"),10)); return; }
     if(e.target.tagName==="IMG"){ el("lightboxImg").src=e.target.src; el("lightbox").classList.add("open"); }
