@@ -58,8 +58,9 @@ async function verifyToken(token) {
   const expAud = process.env.JWT_EXPECTED_AUD, expIss = process.env.JWT_EXPECTED_ISS;
   if (expAud) { const a = p.aud; if (!(Array.isArray(a) ? a.includes(expAud) : a === expAud)) return { ok: false }; }
   if (expIss && p.iss !== expIss) return { ok: false };
-  // master 전용 콘솔 — 다른 역할(operator/seller 등)은 서명이 유효해도 거부. 사유를 내려 '조용한 401'(LLM 연동 장애처럼 보임)을 방지.
-  if (p.admin_role_cd !== "master") return { ok: false, error: "이 콘솔은 master 권한 계정만 사용할 수 있습니다. (현재 권한: " + (p.admin_role_cd || "없음") + ")" };
+  // master 전용 — 다른 역할(operator/seller 등)은 서명이 유효해도 거부. 사유를 내려 '조용한 401'(LLM 연동 장애처럼 보임)을 방지.
+  // 문구의 앱 명칭은 로그인 화면 제목(콘텐츠 스튜디오)과 일치시킨다.
+  if (p.admin_role_cd !== "master") return { ok: false, error: "콘텐츠 스튜디오는 master 권한 계정만 이용할 수 있습니다. (현재 계정 권한: " + (p.admin_role_cd || "없음") + ")" };
   const userId = subjectOf(p);
   if (!userId) return { ok: false, error: "토큰에서 계정 식별자를 찾을 수 없습니다." };
   return { ok: true, userId };
