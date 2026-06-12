@@ -44,7 +44,7 @@ export function createCore(opts) {
     const meta = { id: j.id, title: j.title, platform: j.platform, createdAt: j.createdAt, updatedAt: j.updatedAt };
     const imgItems = j.state && j.state.imageGen && Array.isArray(j.state.imageGen.items) ? j.state.imageGen.items : [];
     const vidItems = j.state && j.state.videoGen && Array.isArray(j.state.videoGen.items) ? j.state.videoGen.items : [];
-    const firstImg = imgItems.find(Boolean);
+    const firstImg = imgItems.find((it) => it && (it.key || it.url));   // 실패/진행중 슬롯(key·url 없음)은 건너뛰고 완료분을 썸네일로
     const firstVid = vidItems.find((it) => it && (it.imageUrl || it.url || it.key));
     const thumb = firstImg || firstVid || null;
     if (thumb) {
@@ -171,19 +171,22 @@ export function createCore(opts) {
 
     if (req.method === "GET" && !id) {
       const entries = await storage.list(prefix);   // jobs/ 가 권위 있는 작업 집합(인덱스는 보조 캐시)
-      const metas = [];
-      for (const e of entries) {
-        if (!e.key.endsWith(".json")) continue;
+      // 항목별 read(인덱스→폴백 전체본→presign)를 병렬화 — 직렬이면 작업 N개 × S3 왕복으로 목록이 수 초까지 늘어진다.
+      // 항목 하나의 read 실패는 그 항목만 건너뛴다(목록 전체 500 방지).
+      const metas = (await Promise.all(entries.map(async (e) => {
+        if (!e.key.endsWith(".json")) return null;
         const jid = e.key.slice(prefix.length).replace(/\.json$/, "");
-        let meta = await storage.getJson(idxPrefix + jid + ".json");   // 경량 인덱스 우선(작고 빠름)
-        if (!meta || !meta.id) {                                       // 인덱스 없음(레거시/유실) → 전체를 읽어 계산하고 인덱스 백필(다음부터 빠름)
-          const j = await storage.getJson(e.key);
-          if (!j || !j.id) continue;
-          meta = metaOfRaw(j);
-          try { await storage.putJson(idxPrefix + jid + ".json", meta); } catch (_) {}
-        }
-        metas.push(await withThumbUrl(meta));
-      }
+        try {
+          let meta = await storage.getJson(idxPrefix + jid + ".json");   // 경량 인덱스 우선(작고 빠름)
+          if (!meta || !meta.id) {                                       // 인덱스 없음(레거시/유실) → 전체를 읽어 계산하고 인덱스 백필(다음부터 빠름)
+            const j = await storage.getJson(e.key);
+            if (!j || !j.id) return null;
+            meta = metaOfRaw(j);
+            try { await storage.putJson(idxPrefix + jid + ".json", meta); } catch (_) {}
+          }
+          return await withThumbUrl(meta);
+        } catch (_) { return null; }
+      }))).filter(Boolean);
       // 제목 검색(?q=) — 인덱스 메타의 title 부분일치(대소문자 무시). 구조 변경 없이 메타만 필터.
       const q = String((req.query && (req.query.get ? req.query.get("q") : req.query.q)) || "").trim().toLowerCase();
       const filtered = q ? metas.filter((m) => String(m.title || "").toLowerCase().includes(q)) : metas;

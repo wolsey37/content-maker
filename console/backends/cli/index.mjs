@@ -14,6 +14,7 @@
  * ========================================================================== */
 
 import { spawn } from "node:child_process";
+import { lookup } from "node:dns/promises";
 import { readFile, writeFile, readdir, rm, mkdtemp, stat, symlink } from "node:fs/promises";
 import { join, extname } from "node:path";
 import os from "node:os";
@@ -28,6 +29,8 @@ const MEDIA_DL_TIMEOUT_MS = Number(process.env.MEDIA_DL_TIMEOUT_MS) || 120000;
 const MAX_MEDIA_BYTES = Number(process.env.MAX_MEDIA_BYTES) || 256 * 1024 * 1024;
 const MEDIA_HOST_ALLOWLIST = (process.env.MEDIA_HOST_ALLOWLIST || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
 const CLAUDE_SKIP_PERMS = /^(1|true|yes)$/i.test(process.env.BRIDGE_CLAUDE_SKIP_PERMS || "");
+const SIPS_TIMEOUT_MS = Number(process.env.SIPS_TIMEOUT_MS) || 30000;          // sips 후처리 1회 상한(멈춤 방지)
+const IMG_MAX_BYTES = Number(process.env.IMG_MAX_BYTES) || 64 * 1024 * 1024;   // collectImages 후보 파일 상한(메모리 가드)
 
 /* provider -> { cmd, args(model) }. 프롬프트는 항상 args 뒤에 push 된다(인자 전달). */
 const CLI_DEFS = {
@@ -60,8 +63,9 @@ function shortCmd(cmd, args, timeoutMs) {
     catch (e) { resolve({ ok: false, error: e.message }); return; }
     const fin = (o) => { if (done) return; done = true; clearTimeout(t); resolve(o); };
     const t = setTimeout(() => { try { child.kill("SIGKILL"); } catch (_) {} fin({ ok: false, error: "timeout", out, err }); }, timeoutMs);
-    child.stdout.on("data", (d) => { out += d.toString(); });
-    child.stderr.on("data", (d) => { err += d.toString(); });
+    child.stdout.setEncoding("utf8"); child.stderr.setEncoding("utf8");   // 청크 경계 멀티바이트(한글) 깨짐 방지
+    child.stdout.on("data", (d) => { out += d; });
+    child.stderr.on("data", (d) => { err += d; });
     child.on("error", (e) => fin({ ok: false, error: e.message }));
     child.on("close", (code) => fin({ ok: code === 0, code, out, err }));
   });
@@ -127,6 +131,7 @@ async function collectImages(dir, sinceMs, recursive) {
     let s;
     try { s = await stat(p); } catch { continue; }
     if (!s.isFile()) continue;
+    if (s.size > IMG_MAX_BYTES) continue;          // 비정상 대용량 파일은 메모리 가드로 스킵
     if (sinceMs && s.mtimeMs < sinceMs) continue;
     let buf;
     try { buf = await readFile(p); } catch { continue; }
@@ -135,9 +140,8 @@ async function collectImages(dir, sinceMs, recursive) {
   }
   return out;
 }
-// 콘텐츠 유형 → 목표 종횡비. UI 유형은 카드뉴스(이미지)·릴스(영상)뿐이고 이미지 생성은 카드뉴스만 → 4:5 하나.
-// codex/agy 내장 모델이 size 를 안 받아 제각각 비율로 내므로, 생성 후 sips 로 이 비율에 맞춰 정규화한다.
-// (레거시 저장 작업이 피드/스토리일 수 있으나 그 경우 null → 정규화만 스킵, 생성은 정상.)
+// 콘텐츠 유형 → 목표 종횡비. UI 유형은 카드뉴스(이미지)·릴스(영상)뿐, 이미지 생성은 카드뉴스만 → 4:5.
+// codex/agy 내장 모델이 size 를 안 받아 제각각 비율로 내므로 생성 후 sips 로 4:5 로 정규화한다.
 function aspectForKind(kind) {
   if (String(kind || "").toLowerCase() === "card") return { ratio: "4:5", example: "1080x1350" };
   return null; // 카드뉴스 외(릴스=영상 등) — 비율 강제 없음
@@ -148,24 +152,28 @@ function aspectForKind(kind) {
 // sips 는 macOS 내장이라 npm 의존성 0 유지. 비-macOS·실패 시 null → 호출부가 원본 폴백.
 function sipsRun(args) {
   return new Promise((res) => {
-    let child;
+    let child, done = false, t;
+    const fin = (v) => { if (done) return; done = true; clearTimeout(t); res(v); };
     try { child = spawn("sips", args, { stdio: ["ignore", "ignore", "ignore"] }); }
-    catch (_) { res(false); return; }
-    child.on("error", () => res(false));
-    child.on("close", (code) => res(code === 0));
+    catch (_) { fin(false); return; }
+    t = setTimeout(() => { try { child.kill("SIGKILL"); } catch (_) {} fin(false); }, SIPS_TIMEOUT_MS);  // 멈춤 방지
+    child.on("error", () => fin(false));
+    child.on("close", (code) => fin(code === 0));
   });
 }
 function sipsDims(path) {
   return new Promise((res) => {
-    let out = "", child;
+    let out = "", child, done = false, t;
+    const fin = (v) => { if (done) return; done = true; clearTimeout(t); res(v); };
     try { child = spawn("sips", ["-g", "pixelWidth", "-g", "pixelHeight", path], { stdio: ["ignore", "pipe", "ignore"] }); }
-    catch (_) { res(null); return; }
+    catch (_) { fin(null); return; }
+    t = setTimeout(() => { try { child.kill("SIGKILL"); } catch (_) {} fin(null); }, SIPS_TIMEOUT_MS);  // 멈춤 방지
     child.stdout.on("data", (d) => { out += d.toString(); });
-    child.on("error", () => res(null));
+    child.on("error", () => fin(null));
     child.on("close", () => {
       const w = (out.match(/pixelWidth:\s*(\d+)/) || [])[1];
       const h = (out.match(/pixelHeight:\s*(\d+)/) || [])[1];
-      res(w && h ? { w: parseInt(w, 10), h: parseInt(h, 10) } : null);
+      fin(w && h ? { w: parseInt(w, 10), h: parseInt(h, 10) } : null);
     });
   });
 }
@@ -180,7 +188,7 @@ async function normalizeAspect(buf, ar, scratchDir, ext) {
   const outPath = join(scratchDir, "norm-out" + e);
   try { await writeFile(inPath, buf); } catch (_) { return null; }
   const dim = await sipsDims(inPath);
-  if (!dim) return null;
+  if (!dim || dim.w <= 0 || dim.h <= 0) return null;       // 비정상 치수 → Infinity scale 방지(원본 폴백)
   if (dim.w === TW && dim.h === TH) return null;            // 이미 목표 픽셀 → 원본 그대로
   // cover: 목표 캔버스를 꽉 채우도록 확대/축소한 뒤 중앙 crop 한다. pad/letterbox 없음.
   const scale = Math.max(TW / dim.w, TH / dim.h);
@@ -238,8 +246,9 @@ async function generateImage(provider, prompt, model, imageModel, kind) {
         const tail = [out && ("stdout: " + out.trim().slice(-500)), err && ("stderr: " + err.trim().slice(-500))].filter(Boolean).join(" / ");
         fin({ ok: false, error: `이미지 생성 시간 초과(${Math.round(IMAGE_TIMEOUT_MS / 1000)}s)` + (tail ? " · " + tail : "") });
       }, IMAGE_TIMEOUT_MS);
-      child.stdout.on("data", (d) => { out += d.toString(); });
-      child.stderr.on("data", (d) => { err += d.toString(); });
+      child.stdout.setEncoding("utf8"); child.stderr.setEncoding("utf8");   // 청크 경계 멀티바이트(한글) 깨짐 방지
+      child.stdout.on("data", (d) => { out += d; });
+      child.stderr.on("data", (d) => { err += d; });
       child.on("error", (e) => fin({ ok: false, error: e.code === "ENOENT" ? (cmd + " CLI 를 찾을 수 없습니다(설치/PATH 확인).") : (cmd + " 실행 오류: " + e.message) }));
       child.on("close", () => fin({ ok: true, out, err }));
     });
@@ -318,27 +327,42 @@ function parseResultJson(text) {
   if (m) return { ok: true, video_url: m[0], _fallback: true };
   return null;
 }
+// 내부/사설 IP·호스트 판별(IPv4 + IPv6 + IPv4-mapped IPv6 ::ffff:* 전체 차단 — 정상 CDN 은 v4-mapped 리터럴을 쓰지 않는다).
+function isPrivateHost(host) {
+  const h = String(host).toLowerCase().replace(/^\[|\]$/g, "");
+  return h === "localhost" || h === "::" || h === "::1" || h === "0.0.0.0" || h.endsWith(".local") ||
+    /^127\./.test(h) || /^0\./.test(h) || /^10\./.test(h) || /^192\.168\./.test(h) || /^169\.254\./.test(h) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(h) || /^(fc|fd)[0-9a-f]{2}:/.test(h) || /^fe80:/.test(h) || /^::ffff:/.test(h);
+}
 // 모델이 돌려준 영상 URL 안전 검증(https + 내부/사설 차단 + 선택 allowlist → SSRF 방어).
 function assertSafeMediaUrl(u) {
   let parsed;
   try { parsed = new URL(String(u)); } catch { throw new Error("잘못된 영상 URL"); }
   if (parsed.protocol !== "https:") throw new Error("https URL 만 허용됩니다");
   const h = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  const isPrivate =
-    h === "localhost" || h === "::1" || h === "0.0.0.0" || h.endsWith(".local") ||
-    /^127\./.test(h) || /^10\./.test(h) || /^192\.168\./.test(h) || /^169\.254\./.test(h) ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(h) || /^(fc|fd)[0-9a-f]{2}:/.test(h) || /^fe80:/.test(h);
-  if (isPrivate) throw new Error("내부/사설 호스트로의 다운로드는 차단됩니다");
+  if (isPrivateHost(h)) throw new Error("내부/사설 호스트로의 다운로드는 차단됩니다");
   if (MEDIA_HOST_ALLOWLIST.length && !MEDIA_HOST_ALLOWLIST.some((d) => h === d || h.endsWith("." + d))) {
     throw new Error("허용되지 않은 다운로드 호스트: " + h);
   }
   return parsed;
+}
+// DNS 리바인딩 방어: 호스트명이 사설 IP 로 resolve 되면 차단(IP 리터럴은 위 패턴 검사로 충분).
+// fetch 가 재-resolve 하는 TOCTOU 창은 남지만 단순 리바인딩 공격 비용을 크게 올린다.
+async function assertPublicDns(parsed) {
+  const h = parsed.hostname.replace(/^\[|\]$/g, "");
+  if (/^[\d.]+$/.test(h) || h.includes(":")) return;   // IPv4/IPv6 리터럴
+  let addrs;
+  try { addrs = await lookup(h, { all: true }); } catch { throw new Error("다운로드 호스트 이름을 확인할 수 없습니다: " + h); }
+  for (const a of addrs) {
+    if (isPrivateHost(a.address)) throw new Error("내부/사설 IP 로 연결되는 다운로드 호스트는 차단됩니다: " + h);
+  }
 }
 // 원격 영상(엔진 CDN)을 내려받아 {buf,ext,mime} 반환(저장은 호출자/코어). 리디렉션 hop 마다 재검증.
 async function downloadMedia(url) {
   let current = assertSafeMediaUrl(url);
   let resp;
   for (let hop = 0; hop < 4; hop++) {
+    await assertPublicDns(current);
     resp = await fetch(current, { signal: AbortSignal.timeout(MEDIA_DL_TIMEOUT_MS), redirect: "manual" });
     if (resp.status >= 300 && resp.status < 400) {
       const loc = resp.headers.get("location");
@@ -351,8 +375,16 @@ async function downloadMedia(url) {
   if (!resp || !resp.ok) throw new Error("다운로드 실패 HTTP " + (resp ? resp.status : "?"));
   const declared = Number(resp.headers.get("content-length") || 0);
   if (declared && declared > MAX_MEDIA_BYTES) throw new Error("영상이 너무 큽니다(" + Math.round(declared / 1048576) + "MB)");
-  const buf = Buffer.from(await resp.arrayBuffer());
-  if (buf.length > MAX_MEDIA_BYTES) throw new Error("영상이 너무 큽니다(" + Math.round(buf.length / 1048576) + "MB)");
+  // 스트림으로 읽으며 누적 한도 검사 — content-length 부재/거짓(chunked)이어도 메모리 상한을 보장(arrayBuffer 전량 적재 금지).
+  if (!resp.body) throw new Error("다운로드 응답 본문이 없습니다");
+  const chunks = [];
+  let total = 0;
+  for await (const chunk of resp.body) {   // 한도 초과 throw 시 for-await 가 스트림을 자동 cancel
+    total += chunk.length;
+    if (total > MAX_MEDIA_BYTES) throw new Error("영상이 너무 큽니다(" + Math.round(total / 1048576) + "MB+)");
+    chunks.push(Buffer.from(chunk));
+  }
+  const buf = Buffer.concat(chunks);
   let ext = extname(current.pathname).toLowerCase();
   if (!VIDEO_EXTS.has(ext)) ext = ".mp4";
   return { buf, ext, mime: mimeForExt(ext) };
@@ -367,7 +399,9 @@ function runCli(def, model, prompt, timeoutMs, extraArgs) {
     const baseArgs = def.args(model);
     const extra = Array.isArray(extraArgs) ? extraArgs : [];
     const useStdin = typeof def.stdinPrompt === "function" && def.stdinPrompt(model);
-    const args = useStdin ? [...baseArgs, ...extra] : [...baseArgs, ...extra, prompt];
+    // 선행 '-' 프롬프트가 CLI 플래그(--flag, --opt=값 단일 토큰)로 파싱되는 것 방지 — 공백 1자 전치는 LLM 의미 불변.
+    const argPrompt = /^\s*-/.test(prompt) ? " " + prompt : prompt;
+    const args = useStdin ? [...baseArgs, ...extra] : [...baseArgs, ...extra, argPrompt];
     const command = displayCommand(def.cmd, [...baseArgs, ...extra], prompt);
     const startedAt = Date.now();
     let child;
@@ -377,15 +411,18 @@ function runCli(def, model, prompt, timeoutMs, extraArgs) {
       resolve({ ok: false, error: "CLI 실행 시작 실패: " + e.message, command });
       return;
     }
-    if (useStdin) { try { child.stdin.write(prompt); child.stdin.end(); } catch (e) {} }
+    // stdin 'error' 핸들러 필수: child 가 stdin 을 읽기 전에 죽으면(미로그인 등) 비동기 EPIPE 가 발생하는데,
+    // try/catch 는 동기 예외만 잡아 unhandled stream error 로 프로세스 전체가 죽을 수 있다.
+    if (useStdin) { child.stdin.on("error", () => {}); try { child.stdin.write(prompt); child.stdin.end(); } catch (e) {} }
     let stdout = "", stderr = "", done = false;
     const finish = (obj) => { if (done) return; done = true; clearTimeout(timer); resolve(obj); };
     const timer = setTimeout(() => {
       try { child.kill("SIGKILL"); } catch (_) {}
       finish({ ok: false, error: `시간 초과(${Math.round(TO / 1000)}s) — 실행을 중단했습니다.`, command, stderr, durationMs: Date.now() - startedAt });
     }, TO);
-    child.stdout.on("data", (d) => { stdout += d.toString(); });
-    child.stderr.on("data", (d) => { stderr += d.toString(); });
+    child.stdout.setEncoding("utf8"); child.stderr.setEncoding("utf8");   // 청크 경계 멀티바이트(한글) 깨짐 방지
+    child.stdout.on("data", (d) => { stdout += d; });
+    child.stderr.on("data", (d) => { stderr += d; });
     child.on("error", (e) => {
       const msg = e && e.code === "ENOENT"
         ? `CLI 를 찾을 수 없습니다: '${def.cmd}'. 설치 여부와 PATH 를 확인하세요.`

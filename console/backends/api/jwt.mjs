@@ -40,7 +40,9 @@ export function verifyJwtHS256(token, secret) {
   if (expected.length !== given.length || !timingSafeEqual(expected, given)) return { ok: false, error: "서명이 일치하지 않습니다." };
 
   const now = Math.floor(Date.now() / 1000);
-  if (typeof payload.exp === "number" && payload.exp <= now) return { ok: false, error: "토큰이 만료되었습니다." };
+  // exp 필수 — 없으면 영구 유효 토큰이 되므로 거부(클라이언트 isJwtExpired 와 동일 기준. 파마브로스 발급 토큰은 항상 exp 포함).
+  if (typeof payload.exp !== "number") return { ok: false, error: "만료 시각(exp)이 없는 토큰은 거부합니다." };
+  if (payload.exp <= now) return { ok: false, error: "토큰이 만료되었습니다." };
   if (typeof payload.nbf === "number" && payload.nbf > now) return { ok: false, error: "아직 유효하지 않은 토큰입니다." };
 
   return { ok: true, payload };
