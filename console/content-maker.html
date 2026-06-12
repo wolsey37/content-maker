@@ -1084,7 +1084,11 @@
     var o={}; for(var ok in opts) o[ok]=opts[ok]; o.headers=headers;
     return fetch(apiBase()+path, o).then(function(resp){
       // 서버 모드에서 토큰 만료/무효(401) → 세션 종료하고 로그인 화면으로(중간 만료 dead-end 방지).
-      if(resp && resp.status===401 && runMode()==="server"){ clearJwt(); showLogin(); }
+      // 서버가 내린 거부 사유(예: master 권한 아님)는 로그인 화면에 표시 — 조용한 401 이 'LLM 연동 장애'처럼 보이지 않게.
+      if(resp && resp.status===401 && runMode()==="server"){
+        clearJwt(); showLogin();
+        resp.clone().json().then(function(d){ var m=d&&d.error; if(m && !/^인증이 필요/.test(m)) loginErr(m); }).catch(function(){});
+      }
       return resp;
     });
   }

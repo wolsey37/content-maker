@@ -306,7 +306,7 @@ export function createCore(opts) {
     let auth = { ok: true, userId: null };
     if (requireAuth) {
       auth = await verifyToken(bearer(req.headers["authorization"]));
-      if (!auth || !auth.ok) return J(401, { ok: false, error: "인증이 필요합니다." });
+      if (!auth || !auth.ok) return J(401, { ok: false, error: (auth && auth.error) || "인증이 필요합니다." });
     }
 
     if (req.method === "GET" && req.path === "/models") return models();
