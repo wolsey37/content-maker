@@ -78,10 +78,27 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
 .composer:focus-within{ border-color:var(--brand-line); box-shadow:var(--sh-2), 0 0 0 4px var(--brand-soft); }
 .composer textarea{ width:100%; border:none; outline:none; resize:none; background:transparent; color:var(--ink); font-family:inherit; font-size:16.5px; line-height:1.5; min-height:54px; padding:2px 4px; }
 .composer textarea::placeholder{ color:var(--muted); opacity:.75; }
-.composer-foot{ display:flex; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap; }
+.composer-foot{ display:flex; align-items:center; gap:12px; margin-top:10px; }
+.foot-controls{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; flex:1 1 auto; min-width:0; }
+.composer-foot .btn.pri.lg{ flex:none; }
+.prov-sel{ position:relative; }
+.prov-trigger{ display:inline-flex; align-items:center; gap:8px; background:var(--chip); border:1px solid var(--line); color:var(--ink); border-radius:999px; padding:7px 13px; font-size:12.5px; font-weight:600; cursor:pointer; transition:background .15s, border-color .15s; }
+.prov-trigger:hover{ background:var(--hover); }
+.prov-sel.open .prov-trigger{ border-color:var(--brand-line); background:var(--hover); }
+.prov-caret{ color:var(--muted); font-size:10px; line-height:1; transition:transform .15s; }
+.prov-sel.open .prov-caret{ transform:rotate(180deg); }
+.prov-menu{ position:absolute; z-index:40; top:calc(100% + 6px); left:0; min-width:172px; background:var(--panel); border:1px solid var(--line); border-radius:13px; box-shadow:var(--sh-2); padding:5px; }
+.prov-menu button{ display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; border:none; background:transparent; color:var(--ink); font-size:13px; font-weight:600; text-align:left; padding:8px 11px; border-radius:9px; cursor:pointer; }
+.prov-menu button:hover:not(:disabled){ background:var(--hover); }
+.prov-menu button.on{ color:var(--brand); }
+.prov-menu button:disabled{ opacity:.42; cursor:not-allowed; }
+.prov-menu .ck{ color:var(--brand); font-size:12px; opacity:0; }
+.prov-menu button.on .ck{ opacity:1; }
 .fmt-seg{ display:inline-flex; background:var(--chip); border-radius:999px; padding:3px; gap:2px; }
 .fmt-seg button{ border:none; background:transparent; font-size:12.5px; font-weight:600; color:var(--muted); border-radius:999px; padding:7px 14px; cursor:pointer; }
 .fmt-seg button.on{ background:var(--panel); color:var(--brand); box-shadow:var(--sh-1); }
+.fmt-seg button:disabled{ opacity:.38; cursor:not-allowed; }
+.composer-foot .foot-div{ width:1px; align-self:stretch; min-height:20px; background:var(--line); margin:0 2px; flex:none; }
 .composer-foot .sp{ flex:1; }
 .rule-toggle{ font-size:12px; color:var(--muted); cursor:pointer; border:none; background:none; padding:4px 6px; border-radius:8px; }
 .rule-toggle:hover{ color:var(--ink); background:var(--hover); }
@@ -227,9 +244,17 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
         <textarea id="ruleInput" placeholder="지켜야 할 기준 (선택) — 예: 의약품 광고 심의 기준 준수, 전문의약품 제품명 언급 금지, 효능 단정 표현 금지"></textarea>
       </div>
       <div class="composer-foot">
-        <div class="fmt-seg" id="fmtSeg"></div>
-        <button class="rule-toggle" id="ruleToggle" type="button">+ 지켜야 할 기준</button>
-        <div class="sp"></div>
+        <div class="foot-controls">
+          <div class="fmt-seg" id="fmtSeg"></div>
+          <span class="foot-div" id="provDiv" aria-hidden="true"></span>
+          <div class="prov-sel" id="provBox">
+            <button type="button" class="prov-trigger" id="provTrigger" title="콘텐츠(기획·대본)를 생성할 AI 모델" aria-haspopup="listbox" aria-expanded="false">
+              <span class="prov-cur" id="provCur">Claude</span><span class="prov-caret" aria-hidden="true">▾</span>
+            </button>
+            <div class="prov-menu" id="provMenu" role="listbox" hidden></div>
+          </div>
+          <button class="rule-toggle" id="ruleToggle" type="button">+ 지켜야 할 기준</button>
+        </div>
         <button class="btn pri lg" id="createBtn" type="button">✨ 만들기</button>
       </div>
     </div>
@@ -604,6 +629,10 @@ function checkConn(){
         var ip=imageProvider(), pm=md&&md.providers&&md.providers[ip];
         serverImageModel=(pm&&pm.imageModels&&pm.imageModels[0]&&pm.imageModels[0].id)||"";
       }).catch(function(){});
+    } else {
+      detectedProviders=d.providers||{};
+      if(detectedProviders[provSel]===false){ var fb=PROVIDERS.filter(function(p){ return detectedProviders[p.k]!==false; })[0]; if(fb) provSel=fb.k; }
+      renderProv();
     }
     connected=true; refreshConnUI();
   }).catch(function(){ connected=false; refreshConnUI(); });
@@ -621,6 +650,30 @@ function renderFmt(){
     seg.appendChild(b);
   });
 }
+/* 콘텐츠(기획·대본)를 생성할 LLM provider 선택 — 로컬 CLI 모드 전용(서버 모드는 서버가 결정) */
+var PROVIDERS=[ {k:"claude", l:"Claude"}, {k:"codex", l:"Codex"}, {k:"agy", l:"Antigravity"} ];
+var provSel=(function(){ try{ return localStorage.getItem("cp_provider")||"claude"; }catch(e){ return "claude"; } })();
+var detectedProviders={};   // 로컬 모드 /health 의 CLI 설치 감지 결과 (id->bool)
+function renderProv(){
+  var box=el("provBox"), div=el("provDiv"), cur=el("provCur"), menu=el("provMenu");
+  if(!box||!menu) return;
+  if(runMode()==="server"){ box.style.display="none"; if(div) div.style.display="none"; return; }
+  box.style.display=""; if(div) div.style.display="";
+  var sel=PROVIDERS.filter(function(p){ return p.k===provSel; })[0]||PROVIDERS[0];
+  if(cur) cur.textContent=sel.l;
+  menu.innerHTML="";
+  PROVIDERS.forEach(function(p){
+    var b=document.createElement("button"); b.type="button"; b.setAttribute("role","option");
+    b.className=(provSel===p.k)?"on":"";
+    b.innerHTML='<span>'+esc(p.l)+'</span><span class="ck" aria-hidden="true">✓</span>';
+    if(detectedProviders[p.k]===false){ b.disabled=true; b.title=p.l+" CLI가 설치되어 있지 않아요"; }
+    else b.title=p.l+" 로 콘텐츠(기획·대본)를 생성합니다";
+    b.addEventListener("click", function(){ provSel=p.k; try{ localStorage.setItem("cp_provider",provSel); }catch(e){} closeProvMenu(); renderProv(); });
+    menu.appendChild(b);
+  });
+}
+function openProvMenu(){ var m=el("provMenu"),b=el("provBox"),t=el("provTrigger"); if(!m) return; m.hidden=false; if(b) b.classList.add("open"); if(t) t.setAttribute("aria-expanded","true"); }
+function closeProvMenu(){ var m=el("provMenu"),b=el("provBox"),t=el("provTrigger"); if(!m) return; m.hidden=true; if(b) b.classList.remove("open"); if(t) t.setAttribute("aria-expanded","false"); }
 
 /* ====== 홈: 내 콘텐츠 그리드 ====== */
 function fmtBadge(platform){ return typeKey(platform)==="card"?"카드뉴스":"릴스"; }
@@ -897,7 +950,7 @@ function afterTextSteps(){
   state.imageGen.items=prompts.map(function(p){ return { pending:true, prompt:p }; });
   renderStudio();
   var cursor=0, completed=0, okCount=0;
-  var conc=Math.min(runMode()==="server"?3:2, prompts.length);
+  var conc=prompts.length; /* 한 번에 전부 동시 요청 — 배치/동시성 제한 없음 */
   function worker(){
     if(cursor>=prompts.length) return;
     var i=cursor++;
@@ -945,7 +998,7 @@ function startCreate(){
   if(connected===false){ refreshConnUI(); return; }
   if(runMode()==="server" && !ensureAuth()) return;
   state=freshState();
-  state.topic=topic; state.rulepack=(el("ruleInput").value||"").trim(); state.platform=fmtSel;
+  state.topic=topic; state.rulepack=(el("ruleInput").value||"").trim(); state.platform=fmtSel; state.provider=provSel;
   setSteps(state.platform); ensureJobId();
   runFlow=freshFlow();
   saveLocal();
@@ -961,6 +1014,7 @@ function openJob(id){
       state=freshState();
       var st=j.state||{};
       ["topic","rulepack","platform","refData"].forEach(function(k){ if(typeof st[k]==="string") state[k]=st[k]; });
+      if(typeof st.provider==="string" && st.provider){ state.provider=st.provider; provSel=st.provider; renderProv(); }
       state.jobId=j.id;
       setSteps(state.platform);
       if(st.steps && typeof st.steps==="object"){
@@ -1022,8 +1076,11 @@ function toggleTheme(){
 
 /* ====== 초기화 ====== */
 function init(){
-  renderFmt(); applyThemeIcon();
+  renderFmt(); renderProv(); applyThemeIcon();
   el("createBtn").addEventListener("click", startCreate);
+  el("provTrigger").addEventListener("click", function(e){ e.stopPropagation(); if(el("provMenu").hidden) openProvMenu(); else closeProvMenu(); });
+  document.addEventListener("click", function(e){ var b=el("provBox"); if(b && !b.contains(e.target)) closeProvMenu(); });
+  document.addEventListener("keydown", function(e){ if(e.key==="Escape") closeProvMenu(); });
   el("topicInput").addEventListener("keydown", function(e){ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); startCreate(); } });
   el("ruleToggle").addEventListener("click", function(){ el("ruleBox").classList.toggle("open"); });
   el("suggest").addEventListener("click", function(e){
