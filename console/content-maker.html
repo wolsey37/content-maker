@@ -442,10 +442,6 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
               <div class="opt-seg" id="bRatio"></div>
             </div>
             <div class="bi-field">
-              <span class="bi-label">컬러 테마</span>
-              <div class="palette-row" id="bPalette"></div>
-            </div>
-            <div class="bi-field">
               <span class="bi-label">제목 서체</span>
               <div class="opt-seg" id="bFont"></div>
             </div>
@@ -1363,7 +1359,7 @@ function toggleTheme(){
    ========================================================================== */
 var CARD_W=1080, CARD_H=1350;
 // 인스타 카드뉴스 비율 — 너비는 1080 고정, 높이만 변경(레이아웃은 세로 비율로 자동 적응).
-var PHARM_RATIOS=[ {k:"4:5",w:1080,h:1350,l:"피드 4:5"}, {k:"1:1",w:1080,h:1080,l:"정사각 1:1"}, {k:"9:16",w:1080,h:1920,l:"스토리 9:16"} ];
+var PHARM_RATIOS=[ {k:"4:5",w:1080,h:1350,l:"4:5"}, {k:"1:1",w:1080,h:1080,l:"1:1"}, {k:"9:16",w:1080,h:1920,l:"9:16"} ];
 function ratioDef(){ return PHARM_RATIOS.filter(function(r){ return r.k===((state.pharmacy&&state.pharmacy.ratio)||"4:5"); })[0]||PHARM_RATIOS[0]; }
 function ratioCss(){ var r=ratioDef(); return r.w+"/"+r.h; }
 var PHARM_PLATFORM="약국 소개 카드뉴스";
@@ -1405,7 +1401,7 @@ var pharmServerProviders={};   // 람다 활성 provider (id->true)
 var pharmEngineSel=(function(){ try{ return localStorage.getItem("cp_pharm_engine")||"openai:"; }catch(e){ return "openai:"; } })();
 function availEngines(){ var a=PHARM_ENGINES.filter(function(e){ return pharmServerProviders[e.provider]; }); return a.length?a:[PHARM_ENGINES[0]]; }
 function currentEngine(){ var a=availEngines(); return a.filter(function(e){ return e.k===pharmEngineSel; })[0]||a[0]; }
-function paletteAccent(){ var p=PHARM_PALETTES.filter(function(x){ return x.id===(ph().palette||"gold"); })[0]||PHARM_PALETTES[0]; return p.accent; }
+function paletteAccent(){ return "#b08d4f"; }   // 골드 액센트 고정(컬러 테마 옵션 제거됨)
 function overlayAlpha(){ var o=PHARM_OVERLAYS.filter(function(x){ return x.k===(ph().overlay||"med"); })[0]||PHARM_OVERLAYS[1]; return o.a; }
 var pharmUploading=0, pharmBusy=false, pharmEditing=null;
 function ph(){ if(!state.pharmacy) state.pharmacy=freshState().pharmacy; return state.pharmacy; }
@@ -1487,7 +1483,6 @@ function renderEngineSel(){
   sel.value=currentEngine().k;
 }
 function renderDesignOpts(){
-  renderPalette();
   renderOptSeg("bRatio", PHARM_RATIOS, function(){ return ph().ratio||"4:5"; }, function(v){ ph().ratio=v; });
   renderOptSeg("bFont", PHARM_FONTS, function(){ return ph().font||"serif"; }, function(v){ ph().font=v; });
   renderOptSeg("bAlign", PHARM_ALIGNS, function(){ return ph().align||"left"; }, function(v){ ph().align=v; });
