@@ -1549,42 +1549,58 @@ function composeCard(card, img, tplId){
   var ACCENT=paletteAccent();
   var titleFont=(ph().font==="sans")?SANS:SERIF;
   var align=(ph().align==="center")?"center":"left";
-  var PAD=96, CW=CARD_W-PAD*2;
+  var PAD=100, CW=CARD_W-PAD*2;
   var tx=(align==="center")?CARD_W/2:PAD;          // 텍스트 기준 x
-  var bx=(align==="center")?(CARD_W/2-36):PAD;     // accent bar x
+  var bx=(align==="center")?(CARD_W/2-28):PAD;     // accent bar x (가운데면 중앙)
   var fX=(card.focusX==null?0.5:card.focusX), fY=(card.focusY==null?0.5:card.focusY);
   var title=card.headline||"", body=card.body||"";
+  var cards=ph().cards||[]; var idx=cards.indexOf(card); if(idx<0) idx=0; var total=cards.length||1;
   ctx.fillStyle=IVORY; ctx.fillRect(0,0,CARD_W,CARD_H); ctx.textBaseline="top"; ctx.textAlign=align;
   function darkBg(x,y,w,h){ var g=ctx.createLinearGradient(0,0,w,h); g.addColorStop(0,DK1); g.addColorStop(1,DK2); ctx.fillStyle=g; ctx.fillRect(x,y,w,h); }
+  function bar(x,y){ ctx.fillStyle=ACCENT; roundRectPath(ctx,x,y,56,7,3.5); ctx.fill(); }   // 둥근 액센트 바
+  // 캐러셀 페이지 닷(하단 중앙) — 모던한 carousel 시그널
+  function dots(cy, onCol, offCol){
+    if(total<2 || total>10) return;
+    var gap=26, w=(total-1)*gap, x0=CARD_W/2-w/2;
+    for(var k=0;k<total;k++){ ctx.beginPath();
+      if(k===idx){ ctx.fillStyle=onCol; ctx.arc(x0+k*gap,cy,6,0,Math.PI*2); }
+      else { ctx.fillStyle=offCol; ctx.arc(x0+k*gap,cy,4,0,Math.PI*2); }
+      ctx.fill(); }
+  }
   if(tplId==="split"){
-    var top=Math.round(CARD_H*0.56);
+    var top=Math.round(CARD_H*0.55);
     if(img) drawCover(ctx,img,0,0,CARD_W,top,fX,fY); else darkBg(0,0,CARD_W,top);
     ctx.fillStyle=IVORY; ctx.fillRect(0,top,CARD_W,CARD_H-top);
-    ctx.fillStyle=ACCENT; ctx.fillRect(bx,top+72,72,6);
-    ctx.fillStyle=INK; ctx.font='700 68px '+titleFont;
-    var y=top+104; wrapLines(ctx,title,CW,3).forEach(function(l){ ctx.fillText(l,tx,y); y+=84; });
-    ctx.fillStyle=SUB; ctx.font='400 38px '+SANS; y+=12;
-    wrapLines(ctx,body,CW,3).forEach(function(l){ ctx.fillText(l,tx,y); y+=54; });
+    bar(bx,top+76);
+    ctx.fillStyle=INK; ctx.font='800 72px '+titleFont;
+    var y=top+104; wrapLines(ctx,title,CW,3).forEach(function(l){ ctx.fillText(l,tx,y); y+=88; });
+    ctx.fillStyle=SUB; ctx.font='400 39px '+SANS; y+=14;
+    wrapLines(ctx,body,CW,3).forEach(function(l){ ctx.fillText(l,tx,y); y+=56; });
+    dots(CARD_H-66, ACCENT, "rgba(20,23,26,.22)");
   } else if(tplId==="frame"){
-    ctx.fillStyle=ACCENT; ctx.fillRect(bx,124,72,6);
-    ctx.fillStyle=INK; ctx.font='700 64px '+titleFont;
-    var y2=156; wrapLines(ctx,title,CW,2).forEach(function(l){ ctx.fillText(l,tx,y2); y2+=78; });
-    var fx=PAD, fy=y2+26, fw=CW, fh=Math.round(CARD_H*0.45);
-    ctx.save(); roundRectPath(ctx,fx,fy,fw,fh,26); ctx.clip();
+    bar(bx,132);
+    ctx.fillStyle=INK; ctx.font='800 74px '+titleFont;
+    var y2=164; wrapLines(ctx,title,CW,2).forEach(function(l){ ctx.fillText(l,tx,y2); y2+=88; });
+    var fx=PAD, fy=y2+30, fw=CW, fh=Math.round(CARD_H*0.46);
+    ctx.save(); roundRectPath(ctx,fx,fy,fw,fh,28); ctx.clip();
     if(img) drawCover(ctx,img,fx,fy,fw,fh,fX,fY); else { ctx.fillStyle="#e7e7e9"; ctx.fillRect(fx,fy,fw,fh); }
     ctx.restore();
-    ctx.fillStyle=SUB; ctx.font='400 38px '+SANS; var by=fy+fh+36;
-    wrapLines(ctx,body,CW,3).forEach(function(l){ ctx.fillText(l,tx,by); by+=54; });
-  } else {
+    ctx.fillStyle=SUB; ctx.font='400 39px '+SANS; var by=fy+fh+40;
+    wrapLines(ctx,body,CW,3).forEach(function(l){ ctx.fillText(l,tx,by); by+=56; });
+    dots(CARD_H-66, ACCENT, "rgba(20,23,26,.22)");
+  } else {   // fullbleed
     if(img) drawCover(ctx,img,0,0,CARD_W,CARD_H,fX,fY); else darkBg(0,0,CARD_W,CARD_H);
     var a=overlayAlpha();
-    var sg=ctx.createLinearGradient(0,CARD_H*0.38,0,CARD_H); sg.addColorStop(0,"rgba(10,10,12,0)"); sg.addColorStop(1,"rgba(10,10,12,"+a+")"); ctx.fillStyle=sg; ctx.fillRect(0,0,CARD_W,CARD_H);
-    ctx.font='900 76px '+titleFont; var tl3=wrapLines(ctx,title,CW,3);
-    ctx.font='400 40px '+SANS; var bl3=wrapLines(ctx,body,CW,3);
-    var th=tl3.length*92, bh=bl3.length*56, startY=CARD_H-140-bh-(bl3.length?28:0)-th;
-    ctx.fillStyle=ACCENT; ctx.fillRect(bx,startY-40,72,6);
-    ctx.fillStyle=WHITE; ctx.font='900 76px '+titleFont; var yy=startY; tl3.forEach(function(l){ ctx.fillText(l,tx,yy); yy+=92; });
-    yy+=16; ctx.fillStyle="rgba(255,255,255,.93)"; ctx.font='400 40px '+SANS; bl3.forEach(function(l){ ctx.fillText(l,tx,yy); yy+=56; });
+    var sg=ctx.createLinearGradient(0,CARD_H*0.32,0,CARD_H); sg.addColorStop(0,"rgba(8,9,11,0)"); sg.addColorStop(0.6,"rgba(8,9,11,"+(a*0.55)+")"); sg.addColorStop(1,"rgba(8,9,11,"+a+")"); ctx.fillStyle=sg; ctx.fillRect(0,0,CARD_W,CARD_H);
+    ctx.font='900 86px '+titleFont; var tl3=wrapLines(ctx,title,CW,3);
+    ctx.font='400 42px '+SANS; var bl3=wrapLines(ctx,body,CW,3);
+    var th=tl3.length*100, bh=bl3.length*58, startY=CARD_H-176-bh-(bl3.length?30:0)-th;
+    bar(bx,startY-46);
+    ctx.save(); ctx.shadowColor="rgba(0,0,0,.5)"; ctx.shadowBlur=18; ctx.shadowOffsetY=2;
+    ctx.fillStyle=WHITE; ctx.font='900 86px '+titleFont; var yy=startY; tl3.forEach(function(l){ ctx.fillText(l,tx,yy); yy+=100; });
+    yy+=18; ctx.fillStyle="rgba(255,255,255,.94)"; ctx.font='400 42px '+SANS; bl3.forEach(function(l){ ctx.fillText(l,tx,yy); yy+=58; });
+    ctx.restore();
+    dots(CARD_H-72, "#ffffff", "rgba(255,255,255,.4)");
   }
   ctx.textAlign="left";
   return cv;
@@ -1728,6 +1744,7 @@ function openPharmacyJob(j){
   if(typeof st.provider==="string"&&st.provider){ state.provider=st.provider; provSel=st.provider; renderProv(); }
   if(st.pharmacy&&typeof st.pharmacy==="object"){
     state.pharmacy={ intro:st.pharmacy.intro||"", tone:st.pharmacy.tone||"warm", templateId:st.pharmacy.templateId||"fullbleed",
+      palette:st.pharmacy.palette||"gold", align:st.pharmacy.align||"left", overlay:st.pharmacy.overlay||"med", font:st.pharmacy.font||"serif",
       photos:Array.isArray(st.pharmacy.photos)?st.pharmacy.photos:[], cards:Array.isArray(st.pharmacy.cards)?st.pharmacy.cards:[], runId:st.pharmacy.runId||"" };
   }
   if(st.imageGen&&typeof st.imageGen==="object"){ state.imageGen.runId=st.imageGen.runId||""; state.imageGen.items=Array.isArray(st.imageGen.items)?st.imageGen.items:[]; }
