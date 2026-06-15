@@ -1340,9 +1340,12 @@ function toggleTheme(){
 var CARD_W=1080, CARD_H=1350;
 var PHARM_PLATFORM="약국 소개 카드뉴스";
 var BUILDER_TEMPLATES=[
-  { id:"fullbleed", name:"풀블리드 (사진 가득)", swatch:"linear-gradient(160deg,#3a3b40,#0f1012)" },
-  { id:"split",     name:"분할 (사진+여백)",     swatch:"linear-gradient(180deg,#3a3b40 56%,#f4f4f3 56%)" },
-  { id:"frame",     name:"프레임 (아이보리)",     swatch:"linear-gradient(160deg,#f7f5ef,#e6dcc4)" }
+  { id:"fullbleed", name:"풀블리드 (사진 가득)" },
+  { id:"split",     name:"분할 (사진+여백)" },
+  { id:"frame",     name:"프레임 (아이보리)" },
+  { id:"band",      name:"밴드 (하단 띠)" },
+  { id:"card",      name:"플로팅 카드" },
+  { id:"minimal",   name:"미니멀 (원형)" }
 ];
 var PHARM_TONES=[ {k:"warm",l:"따뜻한"}, {k:"pro",l:"전문적인"}, {k:"friendly",l:"친근한"} ];
 // 약사님이 막막하지 않게 — 클릭하면 '항목별'로 설명칸을 채우는 예시(○○ 부분만 우리 약국 정보로 바꾸면 됨)
@@ -1395,6 +1398,20 @@ function tplPreview(id){
     '<span class="pp-line" style="left:16%;right:32%;top:22%;background:#43454a"></span>'+
     '<div style="position:absolute;left:16%;right:16%;top:35%;height:40%;border-radius:5px;background:#1c1d21"></div>'+
     '<span class="pp-line" style="left:16%;right:36%;bottom:11%;height:4px;background:#9aa0a6"></span></div>';
+  if(id==="band") return '<div class="tpl-prev" style="background:#34363c">'+
+    '<div style="position:absolute;left:0;right:0;bottom:0;height:42%;background:#0e0f12"></div>'+
+    '<div style="position:absolute;left:0;right:0;bottom:42%;height:3px;background:var(--gold)"></div>'+
+    '<span class="pp-line" style="left:16%;right:26%;bottom:26%"></span>'+
+    '<span class="pp-line" style="left:16%;right:44%;bottom:15%;height:4px;opacity:.75"></span></div>';
+  if(id==="card") return '<div class="tpl-prev" style="background:#34363c">'+
+    '<div style="position:absolute;left:14%;right:14%;bottom:12%;height:34%;border-radius:6px;background:#f4f4f3;box-shadow:0 3px 8px rgba(0,0,0,.4)"></div>'+
+    '<span class="pp-bar" style="left:22%;bottom:38%"></span>'+
+    '<span class="pp-line" style="left:22%;right:30%;bottom:30%;background:#43454a"></span>'+
+    '<span class="pp-line" style="left:22%;right:46%;bottom:21%;height:4px;background:#9aa0a6"></span></div>';
+  if(id==="minimal") return '<div class="tpl-prev" style="background:#f4f4f3">'+
+    '<div style="position:absolute;left:50%;top:14%;width:32%;aspect-ratio:1;transform:translateX(-50%);border-radius:50%;background:#1c1d21;border:2px solid var(--gold)"></div>'+
+    '<span class="pp-line" style="left:26%;right:26%;top:56%;background:#43454a"></span>'+
+    '<span class="pp-line" style="left:34%;right:34%;top:68%;height:4px;background:#9aa0a6"></span></div>';
   return '<div class="tpl-prev" style="background:#1c1d21">'+   // fullbleed
     '<span class="pp-bar" style="left:16%;bottom:36%"></span>'+
     '<span class="pp-line" style="left:16%;right:22%;bottom:25%"></span>'+
@@ -1624,6 +1641,44 @@ function composeCard(card, img, tplId){
     ctx.fillStyle=SUB; ctx.font='400 39px '+SANS; var by=fy+fh+40;
     wrapLines(ctx,body,CW,3).forEach(function(l){ ctx.fillText(l,tx,by); by+=56; });
     dots(CARD_H-66, ACCENT, "rgba(20,23,26,.22)");
+  } else if(tplId==="band"){   // 사진 + 하단 솔리드 띠
+    if(img) drawCover(ctx,img,0,0,CARD_W,CARD_H,fX,fY); else darkBg(0,0,CARD_W,CARD_H);
+    var bandTop=Math.round(CARD_H*0.60);
+    ctx.fillStyle="rgba(12,13,16,.93)"; ctx.fillRect(0,bandTop,CARD_W,CARD_H-bandTop);
+    ctx.fillStyle=ACCENT; ctx.fillRect(0,bandTop,CARD_W,6);   // 액센트 경계선
+    bar(bx,bandTop+66);
+    ctx.fillStyle=WHITE; ctx.font='800 70px '+titleFont;
+    var yb=bandTop+98; wrapLines(ctx,title,CW,2).forEach(function(l){ ctx.fillText(l,tx,yb); yb+=84; });
+    ctx.fillStyle="rgba(255,255,255,.9)"; ctx.font='400 38px '+SANS; yb+=10;
+    wrapLines(ctx,body,CW,2).forEach(function(l){ ctx.fillText(l,tx,yb); yb+=54; });
+    dots(CARD_H-58,"#ffffff","rgba(255,255,255,.4)");
+  } else if(tplId==="card"){   // 사진 + 떠 있는 라운드 패널
+    if(img) drawCover(ctx,img,0,0,CARD_W,CARD_H,fX,fY); else darkBg(0,0,CARD_W,CARD_H);
+    var sgc=ctx.createLinearGradient(0,0,0,CARD_H); sgc.addColorStop(0,"rgba(8,9,11,.18)"); sgc.addColorStop(1,"rgba(8,9,11,.42)"); ctx.fillStyle=sgc; ctx.fillRect(0,0,CARD_W,CARD_H);
+    ctx.font='800 60px '+titleFont; var ctl=wrapLines(ctx,title,CW-112,3);
+    ctx.font='400 36px '+SANS; var cbl=wrapLines(ctx,body,CW-112,3);
+    var panelH=56+ctl.length*74+(cbl.length?18:0)+cbl.length*52+56;
+    var ppx=72, ppw=CARD_W-144, ppy=CARD_H-panelH-92;
+    ctx.save(); ctx.shadowColor="rgba(0,0,0,.4)"; ctx.shadowBlur=44; ctx.shadowOffsetY=18;
+    ctx.fillStyle=IVORY; roundRectPath(ctx,ppx,ppy,ppw,panelH,30); ctx.fill(); ctx.restore();
+    var inx=(align==="center")?CARD_W/2:ppx+56, inbx=(align==="center")?(CARD_W/2-28):ppx+56;
+    ctx.fillStyle=ACCENT; roundRectPath(ctx,inbx,ppy+56,56,7,3.5); ctx.fill();
+    ctx.fillStyle=INK; ctx.font='800 60px '+titleFont; var cy2=ppy+88; ctl.forEach(function(l){ ctx.fillText(l,inx,cy2); cy2+=74; });
+    ctx.fillStyle=SUB; ctx.font='400 36px '+SANS; cy2+=16; cbl.forEach(function(l){ ctx.fillText(l,inx,cy2); cy2+=52; });
+    dots(CARD_H-46,"#ffffff","rgba(255,255,255,.5)");
+  } else if(tplId==="minimal"){   // 아이보리 + 상단 원형 사진 + 중앙 텍스트
+    ctx.fillStyle=IVORY; ctx.fillRect(0,0,CARD_W,CARD_H);
+    var cxp=CARD_W/2, avR=156, avTop=190;
+    ctx.save(); ctx.beginPath(); ctx.arc(cxp,avTop+avR,avR,0,Math.PI*2); ctx.clip();
+    if(img) drawCover(ctx,img,cxp-avR,avTop,avR*2,avR*2,fX,fY); else { ctx.fillStyle="#e7e7e9"; ctx.fillRect(cxp-avR,avTop,avR*2,avR*2); }
+    ctx.restore();
+    ctx.strokeStyle=ACCENT; ctx.lineWidth=6; ctx.beginPath(); ctx.arc(cxp,avTop+avR,avR,0,Math.PI*2); ctx.stroke();
+    ctx.textAlign="center";
+    var my=avTop+avR*2+96;
+    ctx.fillStyle=ACCENT; roundRectPath(ctx,cxp-28,my,56,7,3.5); ctx.fill();
+    ctx.fillStyle=INK; ctx.font='800 76px '+titleFont; var ym=my+34; wrapLines(ctx,title,CW,3).forEach(function(l){ ctx.fillText(l,cxp,ym); ym+=92; });
+    ctx.fillStyle=SUB; ctx.font='400 40px '+SANS; ym+=16; wrapLines(ctx,body,CW,3).forEach(function(l){ ctx.fillText(l,cxp,ym); ym+=58; });
+    dots(CARD_H-86,ACCENT,"rgba(20,23,26,.22)");
   } else {   // fullbleed
     if(img) drawCover(ctx,img,0,0,CARD_W,CARD_H,fX,fY); else darkBg(0,0,CARD_W,CARD_H);
     var a=overlayAlpha();
