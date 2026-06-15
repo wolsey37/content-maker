@@ -206,6 +206,12 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
 .lb.open{ display:flex; }
 .lb img{ max-width:min(92vw,560px); max-height:88vh; border-radius:10px; box-shadow:var(--sh-3); }
 .lb .x{ position:absolute; top:18px; right:22px; background:none; border:none; color:#fff; font-size:22px; cursor:pointer; }
+.lb .lb-nav{ position:absolute; top:50%; transform:translateY(-50%); width:52px; height:52px; border-radius:50%; border:1px solid rgba(255,255,255,.3); background:rgba(20,24,18,.5); color:#fff; font-size:28px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .12s; }
+.lb .lb-nav:hover{ background:rgba(20,24,18,.8); }
+.lb .lb-nav[disabled]{ opacity:.3; cursor:default; }
+.lb .lb-prev{ left:18px; } .lb .lb-next{ right:18px; }
+.lb .lb-count{ position:absolute; bottom:22px; left:50%; transform:translateX(-50%); color:rgba(255,255,255,.85); font-size:13px; font-weight:600; background:rgba(20,24,18,.5); border-radius:999px; padding:5px 13px; }
+@media (max-width:560px){ .lb .lb-nav{ width:44px; height:44px; font-size:24px; } .lb .lb-prev{ left:8px; } .lb .lb-next{ right:8px; } }
 .overlay{ position:fixed; inset:0; background:rgba(24,28,20,.5); backdrop-filter:blur(6px); z-index:80; display:none; align-items:center; justify-content:center; padding:20px; }
 .login-card{ width:min(380px,94vw); background:var(--panel); border-radius:var(--r3); border-top:3px solid var(--gold); box-shadow:var(--sh-3); padding:34px 30px 26px; text-align:center; }
 .login-card .lb-badge{ display:inline-block; font-size:10px; font-weight:700; letter-spacing:.26em; color:var(--gold); background:var(--gold-soft); border:1px solid var(--gold-line); border-radius:999px; padding:4px 12px; margin-bottom:14px; }
@@ -330,6 +336,13 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
 
 /* ---- 빌더: 결과 ---- */
 .br-bar{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:18px; }
+.video-bar{ background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:16px 18px; margin-bottom:18px; display:flex; flex-direction:column; gap:12px; }
+.video-bar .vb-row{ display:flex; align-items:center; gap:12px; }
+.video-bar .vb-l{ font-size:12.5px; font-weight:700; color:var(--muted); width:74px; flex:none; }
+.video-bar .opt-seg{ flex:1; }
+.video-bar .vb-act{ display:flex; align-items:center; gap:12px; margin-top:2px; }
+.video-bar .vb-status{ font-size:12.5px; color:var(--muted); }
+@media (max-width:560px){ .video-bar .vb-row{ flex-direction:column; align-items:stretch; gap:6px; } .video-bar .vb-l{ width:auto; } }
 .br-bar .br-status{ font-size:13px; color:var(--ink-2); }
 .br-bar .sp{ flex:1; }
 .cards-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:18px; }
@@ -512,14 +525,21 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
       <span class="br-status" id="bStatus"></span>
       <span class="sp"></span>
       <button class="btn ghost" id="bEditInputs" type="button">← 입력 수정</button>
+      <button class="btn ghost" id="bVideoBtn" type="button">🎬 영상</button>
       <button class="btn ghost" id="bDownloadAll" type="button">⬇ 전체 저장(ZIP)</button>
+    </div>
+    <div class="video-bar" id="bVideoPanel" hidden>
+      <div class="vb-row"><span class="vb-l">전환 효과</span><div class="opt-seg" id="vTrans"></div></div>
+      <div class="vb-row"><span class="vb-l">장당 시간</span><div class="opt-seg" id="vDur"></div></div>
+      <div class="vb-row"><span class="vb-l">움직임</span><div class="opt-seg" id="vMotion"></div></div>
+      <div class="vb-act"><button class="btn pri" id="vMake" type="button">🎬 영상 저장</button><span class="vb-status" id="vStatus"></span></div>
     </div>
     <div class="cards-grid" id="bCards"></div>
   </section>
 </main>
 
 <!-- ===== 라이트박스 / 로그인 / 확인 ===== -->
-<div class="lb" id="lightbox"><button class="x" type="button" aria-label="닫기">✕</button><img id="lightboxImg" alt=""></div>
+<div class="lb" id="lightbox"><button class="x" type="button" aria-label="닫기">✕</button><button class="lb-nav lb-prev" id="lbPrev" type="button" aria-label="이전">‹</button><img id="lightboxImg" alt=""><button class="lb-nav lb-next" id="lbNext" type="button" aria-label="다음">›</button><span class="lb-count" id="lbCount"></span></div>
 
 <div class="overlay" id="loginOverlay">
   <div class="login-card">
@@ -1900,6 +1920,98 @@ function downloadAllPharma(){
     .then(function(){ if(btn){ btn.disabled=false; btn.textContent="⬇ 전체 저장(ZIP)"; } });
 }
 
+/* ====== 라이트박스(상세보기) — 좌우 이동 ====== */
+var lbSrcs=[], lbIdx=0;
+function openLightbox(srcs, idx){
+  lbSrcs=srcs||[]; lbIdx=Math.max(0, Math.min(idx||0, lbSrcs.length-1));
+  lbRender(); el("lightbox").classList.add("open");
+}
+function lbRender(){
+  if(!lbSrcs.length) return;
+  el("lightboxImg").src=lbSrcs[lbIdx];
+  var c=el("lbCount"); if(c) c.textContent=(lbIdx+1)+" / "+lbSrcs.length;
+  var p=el("lbPrev"), n=el("lbNext"), multi=lbSrcs.length>1;
+  if(p){ p.style.display=multi?"":"none"; p.disabled=(lbIdx<=0); }
+  if(n){ n.style.display=multi?"":"none"; n.disabled=(lbIdx>=lbSrcs.length-1); }
+}
+function lbGo(d){ if(!lbSrcs.length) return; lbIdx=(lbIdx+d+lbSrcs.length)%lbSrcs.length; lbRender(); }
+function lbClose(){ el("lightbox").classList.remove("open"); }
+function lbOpen(){ return el("lightbox").classList.contains("open"); }
+// 현재 결과 카드들의 이미지 목록 + 클릭한 인덱스로 라이트박스 열기
+function openCardLightbox(imgEl){
+  var imgs=[].slice.call(el("bCards").querySelectorAll(".pc-img"));
+  var srcs=imgs.map(function(x){ return x.src; });
+  var idx=imgs.indexOf(imgEl); if(idx<0) idx=0;
+  openLightbox(srcs, idx);
+}
+
+/* ====== 슬라이드 영상(이펙트) — 카드들을 켄번스 줌 + 전환으로 webm 합성 ====== */
+var PHARM_VTRANS=[{k:"fade",l:"페이드"},{k:"slide",l:"슬라이드"},{k:"zoom",l:"줌"}];
+var PHARM_VDUR=[{k:"2",l:"2초"},{k:"3",l:"3초"},{k:"4",l:"4초"}];
+var PHARM_VMOTION=[{k:"on",l:"줌(켄번스)"},{k:"off",l:"고정"}];
+var vidTrans="fade", vidDur="3", vidMotion="on", vidBusy=false;
+function renderVideoOpts(){
+  renderOptSeg("vTrans", PHARM_VTRANS, function(){return vidTrans;}, function(v){vidTrans=v;});
+  renderOptSeg("vDur", PHARM_VDUR, function(){return vidDur;}, function(v){vidDur=v;});
+  renderOptSeg("vMotion", PHARM_VMOTION, function(){return vidMotion;}, function(v){vidMotion=v;});
+}
+function vStatus(m){ var s=el("vStatus"); if(s) s.textContent=m||""; }
+function drawCoverRect(ctx,img,dx,dy,dw,dh){   // cover-fit(중앙) — 캔버스보다 큰 rect 면 줌/크롭 효과
+  var ir=img.width/img.height, dr=dw/dh, sw,sh,sx,sy;
+  if(ir>dr){ sh=img.height; sw=sh*dr; sx=(img.width-sw)/2; sy=0; }
+  else { sw=img.width; sh=sw/dr; sx=0; sy=(img.height-sh)/2; }
+  ctx.drawImage(img,sx,sy,sw,sh,dx,dy,dw,dh);
+}
+function exportVideo(){
+  if(vidBusy) return;
+  var items=(state.imageGen.items||[]).filter(function(it){ return it&&it.url; });
+  if(!items.length){ vStatus("저장할 카드가 없어요."); return; }
+  if(typeof MediaRecorder==="undefined" || !HTMLCanvasElement.prototype.captureStream){ vStatus("이 브라우저는 영상 저장을 지원하지 않아요(크롬 권장)."); return; }
+  vidBusy=true; var mk=el("vMake"); if(mk){ mk.disabled=true; mk.textContent="만드는 중…"; }
+  vStatus("이미지 불러오는 중…");
+  Promise.all(items.map(function(it){ return loadImage(mediaSrc(it.url)); })).then(function(imgs){
+    var R=ratioDef(), W=R.w, H=R.h;
+    var cv=document.createElement("canvas"); cv.width=W; cv.height=H; var ctx=cv.getContext("2d");
+    var stream=cv.captureStream(30);
+    var mime=["video/webm;codecs=vp9","video/webm;codecs=vp8","video/webm"].filter(function(m){ return MediaRecorder.isTypeSupported(m); })[0]||"video/webm";
+    var rec=new MediaRecorder(stream,{ mimeType:mime, videoBitsPerSecond:9000000 });
+    var chunks=[]; rec.ondataavailable=function(e){ if(e.data&&e.data.size) chunks.push(e.data); };
+    var stopped=new Promise(function(res){ rec.onstop=function(){ res(new Blob(chunks,{type:"video/webm"})); }; });
+    var per=parseFloat(vidDur)*1000, trans=Math.min(700, per*0.32), total=imgs.length*per, motion=(vidMotion==="on");
+    function paint(i,p,alpha,slideX){
+      var z=motion?(1.03+0.07*p):1.0, dw=W*z, dh=H*z, ox=(W-dw)/2+(slideX||0), oy=(H-dh)/2;
+      ctx.save(); ctx.globalAlpha=alpha; drawCoverRect(ctx,imgs[i],ox,oy,dw,dh); ctx.restore();
+    }
+    rec.start();
+    new Promise(function(resolve){
+      var start=null;
+      function frame(ts){
+        if(start===null) start=ts;
+        var t=ts-start; if(t>=total){ resolve(); return; }
+        var i=Math.floor(t/per); if(i>=imgs.length) i=imgs.length-1;
+        var local=t-i*per, p=local/per;
+        ctx.fillStyle="#0c0c0e"; ctx.fillRect(0,0,W,H);
+        var tr=(i+1<imgs.length && local>per-trans), tp=tr?(local-(per-trans))/trans:0;
+        if(!tr){ paint(i,p,1,0); }
+        else if(vidTrans==="slide"){ paint(i,p,1,-W*tp); paint(i+1,0,1,W*(1-tp)); }
+        else if(vidTrans==="zoom"){ paint(i,p,1,0); ctx.save(); ctx.globalAlpha=tp; var z=1.18-0.18*tp,dw=W*z,dh=H*z; drawCoverRect(ctx,imgs[i+1],(W-dw)/2,(H-dh)/2,dw,dh); ctx.restore(); }
+        else { paint(i,p,1,0); paint(i+1,0,tp,0); }
+        vStatus("영상 합성 중… "+Math.round(t/total*100)+"%");
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    }).then(function(){
+      rec.stop(); return stopped;
+    }).then(function(blob){
+      downloadBlob("약국소개-영상.webm", blob);
+      vStatus("✓ 저장 완료 — "+imgs.length+"장 · 약 "+Math.round(total/1000)+"초 (webm)");
+      vidBusy=false; var b=el("vMake"); if(b){ b.disabled=false; b.textContent="🎬 영상 저장"; }
+    });
+  }).catch(function(e){
+    vStatus("영상 저장 실패: "+((e&&e.message)||e)); vidBusy=false; var b=el("vMake"); if(b){ b.disabled=false; b.textContent="🎬 영상 저장"; }
+  });
+}
+
 /* ====== 초기화 ====== */
 function init(){
   applyThemeIcon();
@@ -1945,14 +2057,23 @@ function init(){
     if(re){ regenSlide(parseInt(re.getAttribute("data-re"),10)); return; }
     if(e.target.tagName==="IMG"){ el("lightboxImg").src=e.target.src; el("lightbox").classList.add("open"); }
   });
-  el("lightbox").addEventListener("click", function(e){ if(e.target.tagName!=="IMG") el("lightbox").classList.remove("open"); });
-  document.addEventListener("keydown", function(e){ if(e.key==="Escape") el("lightbox").classList.remove("open"); });
+  el("lightbox").addEventListener("click", function(e){ if(e.target===el("lightbox")||e.target.classList.contains("x")) lbClose(); });
+  el("lbPrev").addEventListener("click", function(e){ e.stopPropagation(); lbGo(-1); });
+  el("lbNext").addEventListener("click", function(e){ e.stopPropagation(); lbGo(1); });
+  document.addEventListener("keydown", function(e){
+    if(!lbOpen()) return;
+    if(e.key==="Escape") lbClose();
+    else if(e.key==="ArrowLeft") lbGo(-1);
+    else if(e.key==="ArrowRight") lbGo(1);
+  });
   /* 약국 소개 빌더 */
   el("bBack").addEventListener("click", function(){
     if(pharmBusy){ appConfirm("만드는 중이에요","지금 나가도 진행 중인 합성은 멈추지 않아요.\n지금까지 결과는 저장됩니다. 나갈까요?","나가기").then(function(ok){ if(ok) showHome(); }); }
     else showHome();
   });
   el("bEditInputs").addEventListener("click", function(){ if(pharmBusy) return; openBuilderModal(); });
+  el("bVideoBtn").addEventListener("click", function(){ var p=el("bVideoPanel"); var show=p.hidden; p.hidden=!show; if(show) renderVideoOpts(); });
+  el("vMake").addEventListener("click", exportVideo);
   el("bGenerate").addEventListener("click", generatePharmacyCards);
   el("bDownloadAll").addEventListener("click", downloadAllPharma);
   el("bIntro").addEventListener("input", function(){ ph().intro=el("bIntro").value; });
@@ -1993,7 +2114,7 @@ function init(){
       pharmEditing=null; recomposeCard(i); return;
     }
     var sw=e.target.closest&&e.target.closest("[data-pswap]"); if(sw){ if(!pharmBusy) swapPhoto(parseInt(sw.getAttribute("data-pswap"),10)); return; }
-    if(e.target.classList.contains("pc-img")){ el("lightboxImg").src=e.target.src; el("lightbox").classList.add("open"); }
+    if(e.target.classList.contains("pc-img")){ openCardLightbox(e.target); }
   });
   /* 로그인 없음 — 약국 카드뉴스는 공개 도구. 로그아웃 버튼 숨김. */
   el("logoutBtn").style.display="none";
