@@ -221,6 +221,73 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
 .modal-card .acts{ display:flex; gap:8px; justify-content:flex-end; }
 .footer{ text-align:center; color:var(--muted); font-size:11.5px; padding:40px 0 10px; }
 [hidden]{ display:none !important; }
+
+/* ---- 홈: 약국 소개 진입 배너 ---- */
+.intro-entry{ display:flex; align-items:center; gap:16px; width:100%; max-width:720px; margin:30px auto 0; text-align:left;
+  background:linear-gradient(110deg,var(--brand-soft),var(--gold-soft)); border:1px solid var(--gold-line); border-radius:var(--r3);
+  padding:18px 22px; cursor:pointer; transition:transform .15s var(--ease), box-shadow .15s; }
+.intro-entry:hover{ transform:translateY(-2px); box-shadow:var(--sh-2); }
+.intro-entry .ie-ico{ font-size:30px; flex:none; }
+.intro-entry .ie-text{ display:flex; flex-direction:column; gap:3px; flex:1; min-width:0; }
+.intro-entry .ie-t{ font-family:var(--serif); font-weight:700; font-size:16.5px; color:var(--ink); }
+.intro-entry .ie-d{ font-size:12.5px; color:var(--ink-2); }
+.intro-entry .ie-go{ flex:none; font-size:12.5px; font-weight:700; color:var(--brand-d); background:var(--panel); border:1px solid var(--brand-line); border-radius:999px; padding:8px 14px; white-space:nowrap; }
+@media (max-width:560px){ .intro-entry .ie-go{ display:none; } }
+
+/* ---- 빌더: 입력 ---- */
+.builder-input{ padding-bottom:30px; }
+.bi-grid{ display:grid; grid-template-columns:1fr 280px; gap:24px; align-items:start; }
+@media (max-width:820px){ .bi-grid{ grid-template-columns:1fr; } }
+.bi-label{ font-family:var(--serif); font-weight:700; font-size:15px; color:var(--ink); }
+.bi-opt{ font-family:inherit; font-size:11px; font-weight:600; color:var(--muted); margin-left:6px; }
+.bi-hint{ font-size:12.5px; color:var(--muted); margin:5px 0 10px; }
+#bIntro{ width:100%; border:1px solid var(--line); border-radius:var(--r2); background:var(--input); color:var(--ink); font-family:inherit; font-size:14.5px; line-height:1.6; padding:14px 15px; resize:vertical; outline:none; }
+#bIntro:focus{ border-color:var(--brand-line); box-shadow:0 0 0 4px var(--brand-soft); }
+.bi-photos{ margin-top:22px; }
+.bi-photos-head{ display:flex; flex-direction:column; gap:2px; margin-bottom:10px; }
+.dropzone{ border:1.5px dashed var(--line-strong); border-radius:var(--r2); background:var(--panel); padding:26px; text-align:center; cursor:pointer; transition:border-color .15s, background .15s; }
+.dropzone:hover,.dropzone.drag{ border-color:var(--brand); background:var(--brand-soft); }
+.dz-inner{ display:flex; flex-direction:column; gap:6px; align-items:center; color:var(--ink-2); font-size:13.5px; }
+.dz-ico{ font-size:26px; }
+.dz-sub{ font-size:11.5px; color:var(--muted); }
+.photo-strip{ display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
+.photo-thumb{ position:relative; width:84px; height:105px; border-radius:var(--r1); overflow:hidden; border:1px solid var(--line); background:var(--chip); }
+.photo-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+.photo-thumb .pt-del{ position:absolute; top:3px; right:3px; width:20px; height:20px; border-radius:50%; border:none; background:rgba(20,24,18,.6); color:#fff; font-size:11px; cursor:pointer; line-height:1; }
+.photo-thumb .pt-up{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(20,24,18,.45); color:#fff; font-size:11px; }
+.photo-thumb.pending{ display:flex; align-items:center; justify-content:center; }
+.bi-side{ display:flex; flex-direction:column; gap:18px; background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:18px; position:sticky; top:74px; }
+.bi-field{ display:flex; flex-direction:column; gap:9px; }
+.tpl-pick{ display:flex; flex-direction:column; gap:8px; }
+.tpl-opt{ display:flex; align-items:center; gap:10px; border:1px solid var(--line); border-radius:var(--r1); padding:9px 11px; cursor:pointer; background:var(--panel); transition:border-color .12s, background .12s; }
+.tpl-opt:hover{ background:var(--hover); }
+.tpl-opt.on{ border-color:var(--brand); background:var(--brand-soft); }
+.tpl-swatch{ width:30px; height:38px; border-radius:5px; flex:none; border:1px solid rgba(0,0,0,.08); box-shadow:var(--sh-1); }
+.tpl-opt .tpl-nm{ font-size:13px; font-weight:600; color:var(--ink); }
+.tone-seg{ display:flex; gap:6px; flex-wrap:wrap; }
+.tone-seg button{ flex:1 1 auto; border:1px solid var(--line); background:var(--panel); color:var(--ink-2); font-size:12.5px; font-weight:600; border-radius:999px; padding:8px 6px; cursor:pointer; }
+.tone-seg button.on{ border-color:var(--brand); background:var(--brand-soft); color:var(--brand-d); }
+.bi-go{ width:100%; }
+.bi-note{ font-size:12px; color:var(--muted); text-align:center; margin:0; min-height:14px; }
+
+/* ---- 빌더: 결과 ---- */
+.br-bar{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:18px; }
+.br-bar .br-status{ font-size:13px; color:var(--ink-2); }
+.br-bar .sp{ flex:1; }
+.cards-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:18px; }
+.pcard{ background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); overflow:hidden; position:relative; }
+.pcard .pc-img{ width:100%; aspect-ratio:4/5; object-fit:cover; display:block; background:var(--chip); cursor:zoom-in; }
+.pcard .pc-ph{ aspect-ratio:4/5; display:flex; flex-direction:column; gap:8px; align-items:center; justify-content:center; color:var(--muted); font-size:12px; background:linear-gradient(150deg,var(--brand-soft),var(--gold-soft)); }
+.pcard .pc-no{ position:absolute; top:8px; left:8px; font-size:10.5px; font-weight:700; background:rgba(20,24,18,.5); color:#fff; border-radius:999px; padding:2px 9px; }
+.pcard .pc-role{ position:absolute; top:8px; right:8px; font-size:10px; font-weight:700; background:rgba(255,255,255,.85); color:var(--brand-d); border-radius:999px; padding:2px 8px; }
+html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
+.pcard .pc-ops{ display:flex; gap:6px; padding:9px 10px; border-top:1px solid var(--line-soft); flex-wrap:wrap; }
+.pcard .pc-ops .btn{ font-size:11.5px; padding:5px 9px; border-radius:8px; flex:1 1 auto; }
+.pc-edit{ padding:11px; display:flex; flex-direction:column; gap:8px; }
+.pc-edit label{ font-size:10.5px; font-weight:700; color:var(--gold); }
+.pc-edit input,.pc-edit textarea,.pc-edit select{ width:100%; border:1px solid var(--brand-line); border-radius:8px; background:var(--input); color:var(--ink); font-family:inherit; font-size:12.5px; padding:7px 9px; outline:none; resize:vertical; }
+.pc-edit .pe-acts{ display:flex; gap:6px; justify-content:flex-end; }
+.pc-edit .pe-acts .btn{ font-size:11.5px; padding:6px 11px; border-radius:8px; }
 </style>
 </head>
 <body>
@@ -270,6 +337,15 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
     <div class="conn-help" id="connHelp"></div>
   </section>
 
+  <button class="intro-entry" id="introEntry" type="button">
+    <span class="ie-ico" aria-hidden="true">🏥</span>
+    <span class="ie-text">
+      <span class="ie-t">우리 약국 소개 카드뉴스 만들기</span>
+      <span class="ie-d">약국 사진을 올리면, 소개 카드뉴스를 만들어 드려요</span>
+    </span>
+    <span class="ie-go" aria-hidden="true">사진으로 만들기 →</span>
+  </button>
+
   <section class="recent">
     <div class="recent-head">
       <h2>내 콘텐츠</h2><span class="cnt" id="jobCnt"></span>
@@ -314,6 +390,61 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
       <div class="tabpane" id="pane-plan"></div>
     </section>
   </div>
+</main>
+
+<!-- ===== 약국 소개 카드뉴스 빌더 ===== -->
+<main class="view" id="viewBuilder" hidden>
+  <div class="studio-top">
+    <button class="back" id="bBack" type="button" title="홈으로" aria-label="홈으로">←</button>
+    <div class="studio-title" id="bTitle">약국 소개 카드뉴스</div>
+    <span class="studio-badge" id="bBadge">준비</span>
+  </div>
+
+  <!-- 입력 단계 -->
+  <section class="builder-input" id="bInput">
+    <div class="bi-grid">
+      <div class="bi-main">
+        <label class="bi-label" for="bIntro">우리 약국을 소개해 주세요</label>
+        <p class="bi-hint">위치·운영시간·강점·인사말 등 편하게 적어 주세요. AI가 카드별 문구로 정리해 드려요.</p>
+        <textarea id="bIntro" rows="6" placeholder="예) 역삼동에서 10년째 운영 중인 건강드림약국입니다. 복약상담과 영양제 상담을 꼼꼼히 해드리고, 평일은 밤 10시까지·토요일도 운영합니다. 주차 가능하고 카카오톡 상담도 받아요. 우리 동네 건강 지킴이가 되겠습니다."></textarea>
+        <div class="bi-photos">
+          <div class="bi-photos-head">
+            <span class="bi-label">약국 사진 <span class="bi-opt">2~6장 권장</span></span>
+            <span class="bi-hint" id="bPhotoHint">외관·내부·약사님·상담공간 등 — 사진이 카드 배경이 됩니다</span>
+          </div>
+          <div class="dropzone" id="bDrop">
+            <input type="file" id="bFile" accept="image/*" multiple hidden>
+            <div class="dz-inner"><span class="dz-ico">📷</span><span>사진을 끌어다 놓거나 <b>클릭해서 선택</b></span><span class="dz-sub">JPG·PNG · 자동으로 최적 크기로 줄여 올려요</span></div>
+          </div>
+          <div class="photo-strip" id="bPhotoStrip"></div>
+        </div>
+      </div>
+      <aside class="bi-side">
+        <div class="bi-field">
+          <span class="bi-label">템플릿</span>
+          <div class="tpl-pick" id="bTpl"></div>
+        </div>
+        <div class="bi-field">
+          <span class="bi-label">톤</span>
+          <div class="tone-seg" id="bTone"></div>
+        </div>
+        <button class="btn pri lg bi-go" id="bGenerate" type="button">✨ 카드뉴스 만들기</button>
+        <p class="bi-note" id="bInputNote"></p>
+      </aside>
+    </div>
+  </section>
+
+  <!-- 결과 단계 -->
+  <section class="builder-result" id="bResult" hidden>
+    <div class="errnote" id="bErr" hidden></div>
+    <div class="br-bar">
+      <span class="br-status" id="bStatus"></span>
+      <span class="sp"></span>
+      <button class="btn ghost" id="bEditInputs" type="button">← 입력 수정</button>
+      <button class="btn ghost" id="bDownloadAll" type="button">⬇ 전체 저장(ZIP)</button>
+    </div>
+    <div class="cards-grid" id="bCards"></div>
+  </section>
 </main>
 
 <!-- ===== 라이트박스 / 로그인 / 확인 ===== -->
@@ -552,7 +683,9 @@ function freshState(){
   return { provider:"claude", defaultModel:"", jobId:"", topic:"", rulepack:"", platform:"", refData:"",
     steps:{}, collapsed:{}, refSites:[],
     imageGen:{ prompts:"", runId:"", items:[], provider:"codex", imageModel:"", concurrency:2 },
-    videoGen:{ cuts:"", runId:"", items:[], provider:"claude", engine:"higgsfield", videoModel:"seedance_1_5", concurrency:1 } };
+    videoGen:{ cuts:"", runId:"", items:[], provider:"claude", engine:"higgsfield", videoModel:"seedance_1_5", concurrency:1 },
+    // 약국 소개 카드뉴스 전용 — 자유 설명 + 업로드 사진 + 카드 정의(문구·배경사진·템플릿). 최종 PNG 는 imageGen.items 재사용.
+    pharmacy:{ intro:"", tone:"warm", templateId:"fullbleed", photos:[], cards:[], runId:"" } };
 }
 function setSteps(platform){
   var prev=(state&&state.steps)||{};
@@ -565,11 +698,17 @@ state=freshState(); setSteps("");
 function saveLocal(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){} }
 function genJobId(){ var d=new Date(),p=function(n){return(n<10?"0":"")+n;}; return "job-"+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+p(d.getHours())+p(d.getMinutes())+"-"+Math.random().toString(36).slice(2,7); }
 function ensureJobId(){ if(!state.jobId) state.jobId=genJobId(); return state.jobId; }
-function jobTitle(){ return ((state.topic||"").trim().slice(0,80))||"제목 없음"; }
+function jobTitle(){
+  if(isPharmacy(state.platform)){ var t=((state.pharmacy&&state.pharmacy.intro)||"").trim().split(/\n/)[0].slice(0,40); return t||"약국 소개 카드뉴스"; }
+  return ((state.topic||"").trim().slice(0,80))||"제목 없음";
+}
 function jobHasContent(){
   if((state.topic||"").trim()) return true;
   for(var k in (state.steps||{})){ if(((state.steps[k]||{}).output||"").trim()) return true; }
-  return ((state.imageGen||{}).items||[]).some(Boolean);
+  if(((state.imageGen||{}).items||[]).some(Boolean)) return true;
+  var pc=state.pharmacy||{};
+  if(((pc.intro||"").trim()) || (pc.photos||[]).length || (pc.cards||[]).length) return true;
+  return false;
 }
 function syncJob(){
   if(!state.jobId || connected!==true || !jobHasContent()) return Promise.resolve();
@@ -724,7 +863,8 @@ function refreshTrendTopics(){
 }
 
 /* ====== 홈: 내 콘텐츠 그리드 ====== */
-function fmtBadge(platform){ return typeKey(platform)==="card"?"카드뉴스":"릴스"; }
+function isPharmacy(platform){ return String(platform||"").indexOf("약국")>=0; }
+function fmtBadge(platform){ return isPharmacy(platform)?"약국소개":(typeKey(platform)==="card"?"카드뉴스":"릴스"); }
 function fmtDate(iso){ if(!iso) return ""; try{ var d=new Date(iso); return d.getFullYear()+"."+(d.getMonth()+1)+"."+d.getDate(); }catch(e){ return ""; } }
 function loadJobs(){
   var q=(el("jobSearch").value||"").trim();
@@ -758,19 +898,26 @@ function deleteJob(j){
 }
 function mediaSrc(u){ if(!u) return u; if(/^(https?:|data:)/i.test(u)) return u; return apiBase()+u; }
 
-/* ====== 화면 전환 (홈 ↔ 스튜디오) ====== */
+/* ====== 화면 전환 (홈 ↔ 스튜디오 ↔ 빌더) ====== */
 function showHome(push){
-  el("viewStudio").hidden=true; el("viewHome").hidden=false;
+  el("viewStudio").hidden=true; el("viewBuilder").hidden=true; el("viewHome").hidden=false;
   if(push!==false){ try{ history.pushState({v:"home"},"","#home"); }catch(e){} }
   loadJobs();
 }
 function showStudio(push){
-  el("viewHome").hidden=true; el("viewStudio").hidden=false;
+  el("viewHome").hidden=true; el("viewBuilder").hidden=true; el("viewStudio").hidden=false;
   if(push!==false){ try{ history.pushState({v:"studio"},"","#studio"); }catch(e){} }
   window.scrollTo(0,0);
 }
+function showBuilder(push){
+  el("viewHome").hidden=true; el("viewStudio").hidden=true; el("viewBuilder").hidden=false;
+  if(push!==false){ try{ history.pushState({v:"builder"},"","#builder"); }catch(e){} }
+  window.scrollTo(0,0);
+}
 window.addEventListener("popstate", function(){
-  if(location.hash==="#studio" && jobHasContent()) showStudio(false); else showHome(false);
+  if(location.hash==="#builder" && state.pharmacy && (state.pharmacy.intro||(state.pharmacy.photos||[]).length||(state.pharmacy.cards||[]).length)) showBuilder(false);
+  else if(location.hash==="#studio" && jobHasContent()) showStudio(false);
+  else showHome(false);
 });
 
 /* ====== 스튜디오: 진행 타임라인 + 결과 렌더 ====== */
@@ -1059,6 +1206,8 @@ function openJob(id){
     .then(function(d){
       if(!d || !d.ok || !d.job) return;
       var j=d.job;
+      // 약국 소개 카드뉴스 작업은 스튜디오가 아니라 빌더로 연다.
+      if(isPharmacy(j.platform) || (j.state && j.state.pharmacy)){ openPharmacyJob(j); return; }
       state=freshState();
       var st=j.state||{};
       ["topic","rulepack","platform","refData"].forEach(function(k){ if(typeof st[k]==="string") state[k]=st[k]; });
@@ -1122,6 +1271,369 @@ function toggleTheme(){
   applyThemeIcon();
 }
 
+/* ============================================================================
+   약국 소개 카드뉴스 빌더 — 자유 설명 + 업로드 사진 → AI 문구 → 캔버스 템플릿 합성
+   백엔드 계약(/run·/upload·/jobs)·저장소·라이브러리 파이프라인 재사용.
+   ========================================================================== */
+var CARD_W=1080, CARD_H=1350;
+var PHARM_PLATFORM="약국 소개 카드뉴스";
+var BUILDER_TEMPLATES=[
+  { id:"fullbleed", name:"풀블리드 (사진 가득)", swatch:"linear-gradient(160deg,#3a5f4a,#20271f)" },
+  { id:"split",     name:"분할 (사진+여백)",     swatch:"linear-gradient(180deg,#3a5f4a 56%,#f7f5ef 56%)" },
+  { id:"frame",     name:"프레임 (아이보리)",     swatch:"linear-gradient(160deg,#f7f5ef,#e6dcc4)" }
+];
+var PHARM_TONES=[ {k:"warm",l:"따뜻한"}, {k:"pro",l:"전문적인"}, {k:"friendly",l:"친근한"} ];
+var PHARM_TONE_DESC={ warm:"따뜻하고 정감 있는", pro:"전문적이고 신뢰감 있는", friendly:"밝고 친근한" };
+var pharmUploading=0, pharmBusy=false, pharmEditing=null;
+function ph(){ if(!state.pharmacy) state.pharmacy=freshState().pharmacy; return state.pharmacy; }
+function bInputNote(m){ var n=el("bInputNote"); if(n) n.textContent=m||""; }
+function bErr(m){ var e=el("bErr"); if(!e) return; if(m){ e.hidden=false; e.textContent=m; } else e.hidden=true; }
+function setBStatus(m){ var s=el("bStatus"); if(s) s.textContent=m||""; }
+
+/* ---- 입력 UI ---- */
+function renderTplPick(){
+  var box=el("bTpl"); if(!box) return; box.innerHTML="";
+  BUILDER_TEMPLATES.forEach(function(t){
+    var d=document.createElement("button"); d.type="button"; d.className="tpl-opt"+(ph().templateId===t.id?" on":"");
+    d.innerHTML='<span class="tpl-swatch" style="background:'+t.swatch+'"></span><span class="tpl-nm">'+esc(t.name)+'</span>';
+    d.addEventListener("click", function(){ ph().templateId=t.id; renderTplPick(); });
+    box.appendChild(d);
+  });
+}
+function renderToneSeg(){
+  var box=el("bTone"); if(!box) return; box.innerHTML="";
+  PHARM_TONES.forEach(function(t){
+    var b=document.createElement("button"); b.type="button"; b.className=(ph().tone===t.k?"on":""); b.textContent=t.l;
+    b.addEventListener("click", function(){ ph().tone=t.k; renderToneSeg(); });
+    box.appendChild(b);
+  });
+}
+function renderPhotoStrip(){
+  var box=el("bPhotoStrip"); if(!box) return; box.innerHTML="";
+  (ph().photos||[]).forEach(function(p,i){
+    var d=document.createElement("div"); d.className="photo-thumb"+(p.pending?" pending":"");
+    if(p.pending) d.innerHTML='<span class="pt-up"><span class="spin"></span></span>';
+    else d.innerHTML='<img src="'+esc(mediaSrc(p.url))+'" alt="사진 '+(i+1)+'"><button class="pt-del" type="button" data-pdel="'+i+'" title="삭제">✕</button>';
+    box.appendChild(d);
+  });
+}
+function updateGenBtn(){ var b=el("bGenerate"); if(!b) return; b.disabled=(pharmUploading>0)||pharmBusy; b.textContent=pharmUploading>0?"사진 올리는 중…":"✨ 카드뉴스 만들기"; }
+function renderBuilderInput(){ el("bIntro").value=ph().intro||""; renderTplPick(); renderToneSeg(); renderPhotoStrip(); updateGenBtn(); }
+
+/* ---- 사진 업로드(클라 다운스케일 후 /upload) ---- */
+function downscaleImage(file, maxDim, quality){
+  return new Promise(function(res,rej){
+    var url=URL.createObjectURL(file), im=new Image();
+    im.onload=function(){
+      URL.revokeObjectURL(url);
+      var w=im.width,h=im.height,m=maxDim||1600;
+      if(w>m||h>m){ if(w>=h){ h=Math.round(h*m/w); w=m; } else { w=Math.round(w*m/h); h=m; } }
+      var cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+      cv.getContext("2d").drawImage(im,0,0,w,h);
+      res(cv.toDataURL("image/jpeg", quality||0.85));
+    };
+    im.onerror=function(){ URL.revokeObjectURL(url); rej(new Error("이미지를 읽지 못했어요")); };
+    im.src=url;
+  });
+}
+function onPhotoFiles(files){
+  var arr=[].slice.call(files||[]).filter(function(f){ return /^image\//.test(f.type); });
+  if(!arr.length) return;
+  if(runMode()==="server" && !ensureAuth()) return;
+  bInputNote("");
+  var max=8, room=max-(ph().photos.length);
+  if(room<=0){ bInputNote("사진은 최대 "+max+"장까지 올릴 수 있어요."); return; }
+  arr.slice(0,room).forEach(function(f){
+    var slot={ pending:true }; ph().photos.push(slot); renderPhotoStrip();
+    pharmUploading++; updateGenBtn();
+    downscaleImage(f,1600,0.85).then(function(dataUrl){
+      return apiFetch("/upload",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ data:dataUrl, slot:"uploads", jobId:ensureJobId(), idx:"u"+Date.now().toString(36)+Math.random().toString(36).slice(2,5) }) });
+    }).then(function(r){ return r.json(); }).then(function(d){
+      if(d&&d.ok){ slot.pending=false; slot.key=d.key; slot.url=d.url; }
+      else { var k=ph().photos.indexOf(slot); if(k>=0) ph().photos.splice(k,1); bInputNote("업로드 실패: "+((d&&d.error)||"")); }
+    }).catch(function(e){ var k=ph().photos.indexOf(slot); if(k>=0) ph().photos.splice(k,1); bInputNote("업로드 오류: "+((e&&e.message)||e)); })
+    .then(function(){ pharmUploading--; updateGenBtn(); renderPhotoStrip(); saveLocal(); });
+  });
+}
+
+/* ---- AI 문구 ---- */
+function buildCopyPrompt(intro, nPhotos, tone){
+  var toneD=PHARM_TONE_DESC[tone]||"따뜻하고 친근한";
+  return "당신은 약국 소개용 인스타그램 카드뉴스 카피라이터입니다. 아래 약사님이 적은 약국 설명을 바탕으로, 약국을 소개하는 카드뉴스 6장의 문구를 작성하세요.\n\n[약국 설명]\n"+(intro||"(설명이 비어 있음 — 일반적인 동네 약국 소개로 자연스럽게 작성)")+"\n\n[배경 사진]\n약사님이 올린 실제 약국 사진 "+nPhotos+"장이 각 카드 배경으로 깔립니다. 사진 위에 얹을 짧고 또렷한 문구를 써주세요.\n\n[톤]\n"+toneD+" 말투\n\n[카드 구성(6장 권장)]\n1) 표지 — 약국 이름/한 줄 소개  2) 인사말  3) 약국의 강점·특징  4) 취급·서비스 안내  5) 위치·운영시간  6) 마무리 인사(방문 환영·연락)\n\n[작성 규칙]\n- 각 카드: 제목(16자 이내, 사진 위 큰 글씨) + 본문(2줄·45자 이내)\n- 약국 설명에 있는 사실만 사용하고 지어내지 마세요. 정보가 없으면 일반적인 약국 인사로 자연스럽게 채우세요.\n- 의약품 광고 심의에 어긋나는 효능 단정·과장 표현을 쓰지 마세요.\n- 이모지·해시태그·따옴표 없이 문구만.\n\n[출력 형식] 정확히 아래 형식으로 6개 반복. 다른 설명/머리말 없이 카드만 출력:\n@@@CARD\nROLE: 표지\nTITLE: (제목)\nBODY: (본문)\n";
+}
+function cleanField(s){ return String(s||"").replace(/^["'“”\s]+|["'“”\s]+$/g,"").replace(/\s*\n\s*/g," ").trim(); }
+function parseCardPlan(text){
+  var out=[], blocks=String(text||"").split(/@@@\s*CARD/i);
+  blocks.forEach(function(b){
+    if(!/(ROLE|역할|TITLE|제목)\s*:/i.test(b)) return;
+    var role=(b.match(/(?:ROLE|역할)\s*:\s*(.+)/i)||[])[1]||"";
+    var title=(b.match(/(?:TITLE|제목)\s*:\s*(.+)/i)||[])[1]||"";
+    var bodyM=b.match(/(?:BODY|본문)\s*:\s*([\s\S]*?)(?:\n\s*\n|$)/i);
+    var body=bodyM?bodyM[1]:"";
+    role=cleanField(role); title=cleanField(title); body=cleanField(body);
+    if(title||body) out.push({ role:role, headline:title, body:body });
+  });
+  return out.slice(0,8);
+}
+
+/* ---- 캔버스 합성 ---- */
+function loadImage(src){ return new Promise(function(res,rej){ var im=new Image(); im.crossOrigin="anonymous"; im.onload=function(){ res(im); }; im.onerror=function(){ rej(new Error("이미지 로드 실패")); }; im.src=src; }); }
+var pharmFonts=null;
+function ensureFonts(){
+  if(pharmFonts) return pharmFonts;
+  pharmFonts=(document.fonts&&document.fonts.load)
+    ? Promise.all([document.fonts.load('700 64px "Noto Serif KR"'), document.fonts.load('900 76px "Noto Serif KR"')]).then(function(){ return document.fonts.ready; }).catch(function(){})
+    : Promise.resolve();
+  return pharmFonts;
+}
+function drawCover(ctx,img,dx,dy,dw,dh){
+  var ir=img.width/img.height, dr=dw/dh, sw,sh,sx,sy;
+  if(ir>dr){ sh=img.height; sw=sh*dr; sx=(img.width-sw)/2; sy=0; }
+  else { sw=img.width; sh=sw/dr; sx=0; sy=(img.height-sh)/2; }
+  ctx.drawImage(img,sx,sy,sw,sh,dx,dy,dw,dh);
+}
+function roundRectPath(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function wrapLines(ctx,text,maxW,maxLines){
+  text=String(text||"").trim(); if(!text) return [];
+  var tokens=text.split(/(\s+)/), lines=[], cur="";
+  function flush(){ var t=cur.replace(/\s+$/,""); if(t) lines.push(t); cur=""; }
+  function addChars(chunk){ for(var i=0;i<chunk.length;i++){ var t=cur+chunk[i]; if(ctx.measureText(t).width>maxW && cur){ flush(); cur=chunk[i]; } else cur=t; } }
+  for(var w=0; w<tokens.length; w++){
+    var tok=tokens[w]; if(tok==="") continue;
+    if(/^\s+$/.test(tok)){ if(ctx.measureText(cur+tok).width<=maxW) cur+=tok; continue; }
+    if(ctx.measureText(cur+tok).width<=maxW){ cur+=tok; }
+    else { flush(); if(ctx.measureText(tok).width<=maxW) cur=tok; else addChars(tok); }
+  }
+  flush();
+  if(maxLines && lines.length>maxLines){ lines=lines.slice(0,maxLines); lines[maxLines-1]=lines[maxLines-1].replace(/.$/,"…"); }
+  return lines;
+}
+function drawRoleTag(ctx,role){
+  if(!role) return;
+  ctx.font='700 30px -apple-system,"Apple SD Gothic Neo",sans-serif';
+  var w=ctx.measureText(role).width+46;
+  ctx.fillStyle="rgba(176,141,79,.94)"; roundRectPath(ctx,96,86,w,54,27); ctx.fill();
+  ctx.fillStyle="#fff"; ctx.textBaseline="middle"; ctx.fillText(role,119,114); ctx.textBaseline="top";
+}
+function composeCard(card, img, tplId){
+  var cv=document.createElement("canvas"); cv.width=CARD_W; cv.height=CARD_H;
+  var ctx=cv.getContext("2d");
+  var SERIF='"Noto Serif KR",serif', SANS='-apple-system,"Apple SD Gothic Neo",sans-serif';
+  var GREEN="#2f6b4f", IVORY="#f7f5ef", INK="#20271f", SUB="#46503f", GOLD="#b08d4f", WHITE="#ffffff";
+  var role=card.role||"", title=card.headline||"", body=card.body||"";
+  ctx.fillStyle=IVORY; ctx.fillRect(0,0,CARD_W,CARD_H); ctx.textBaseline="top";
+  if(tplId==="split"){
+    var top=Math.round(CARD_H*0.56);
+    if(img) drawCover(ctx,img,0,0,CARD_W,top);
+    else { var g=ctx.createLinearGradient(0,0,CARD_W,top); g.addColorStop(0,GREEN); g.addColorStop(1,"#23503a"); ctx.fillStyle=g; ctx.fillRect(0,0,CARD_W,top); }
+    ctx.fillStyle=IVORY; ctx.fillRect(0,top,CARD_W,CARD_H-top);
+    ctx.fillStyle=GOLD; ctx.fillRect(96,top+72,72,6);
+    ctx.fillStyle=INK; ctx.font='700 68px '+SERIF;
+    var tl=wrapLines(ctx,title,CARD_W-192,3), y=top+104; tl.forEach(function(l){ ctx.fillText(l,96,y); y+=84; });
+    ctx.fillStyle=SUB; ctx.font='400 38px '+SANS; y+=12;
+    wrapLines(ctx,body,CARD_W-192,3).forEach(function(l){ ctx.fillText(l,96,y); y+=54; });
+    drawRoleTag(ctx,role);
+  } else if(tplId==="frame"){
+    ctx.fillStyle=GOLD; ctx.fillRect(96,124,72,6);
+    ctx.fillStyle=INK; ctx.font='700 64px '+SERIF;
+    var t2=wrapLines(ctx,title,CARD_W-192,2), y2=156; t2.forEach(function(l){ ctx.fillText(l,96,y2); y2+=78; });
+    var fx=96, fy=y2+26, fw=CARD_W-192, fh=Math.round(CARD_H*0.45);
+    ctx.save(); roundRectPath(ctx,fx,fy,fw,fh,26); ctx.clip();
+    if(img) drawCover(ctx,img,fx,fy,fw,fh); else { ctx.fillStyle="#e9f1ea"; ctx.fillRect(fx,fy,fw,fh); }
+    ctx.restore();
+    ctx.fillStyle=SUB; ctx.font='400 38px '+SANS; var by=fy+fh+36;
+    wrapLines(ctx,body,CARD_W-192,3).forEach(function(l){ ctx.fillText(l,96,by); by+=54; });
+    drawRoleTag(ctx,role);
+  } else {
+    if(img) drawCover(ctx,img,0,0,CARD_W,CARD_H);
+    else { var g2=ctx.createLinearGradient(0,0,CARD_W,CARD_H); g2.addColorStop(0,GREEN); g2.addColorStop(1,"#1c3a2b"); ctx.fillStyle=g2; ctx.fillRect(0,0,CARD_W,CARD_H); }
+    var sg=ctx.createLinearGradient(0,CARD_H*0.42,0,CARD_H); sg.addColorStop(0,"rgba(15,20,12,0)"); sg.addColorStop(1,"rgba(15,20,12,.86)"); ctx.fillStyle=sg; ctx.fillRect(0,0,CARD_W,CARD_H);
+    ctx.font='900 76px '+SERIF; var tl3=wrapLines(ctx,title,CARD_W-192,3);
+    ctx.font='400 40px '+SANS; var bl3=wrapLines(ctx,body,CARD_W-192,3);
+    var th=tl3.length*92, bh=bl3.length*56, startY=CARD_H-140-bh-(bl3.length?28:0)-th;
+    ctx.fillStyle=GOLD; ctx.fillRect(96,startY-40,72,6);
+    ctx.fillStyle=WHITE; ctx.font='900 76px '+SERIF; var yy=startY; tl3.forEach(function(l){ ctx.fillText(l,96,yy); yy+=92; });
+    yy+=16; ctx.fillStyle="rgba(255,255,255,.93)"; ctx.font='400 40px '+SANS; bl3.forEach(function(l){ ctx.fillText(l,96,yy); yy+=56; });
+    drawRoleTag(ctx,role);
+  }
+  return cv;
+}
+function composeAndSave(card, i, replaceKey, idxStr){
+  var photo=(card.photoIdx>=0)?ph().photos[card.photoIdx]:null;
+  var imgP=(photo&&photo.url)?loadImage(mediaSrc(photo.url)).catch(function(){ return null; }):Promise.resolve(null);
+  return imgP.then(function(img){
+    var cv=composeCard(card, img, card.templateId||ph().templateId);
+    var dataUrl=cv.toDataURL("image/png");
+    return apiFetch("/upload",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ data:dataUrl, slot:"card", jobId:ensureJobId(), runId:ph().runId, idx:idxStr||String(i+1), replaceKey:replaceKey||"" }) })
+      .then(function(r){ return r.json(); }).then(function(d){
+        if(!d||!d.ok) throw new Error((d&&d.error)||"저장 실패");
+        return { url:d.url, key:d.key, role:card.role, headline:card.headline, body:card.body };
+      });
+  });
+}
+
+/* ---- 결과 그리드 + 카드별 편집 ---- */
+function renderPharmaCards(){
+  var grid=el("bCards"); if(!grid) return; grid.innerHTML="";
+  var items=state.imageGen.items||[], cards=ph().cards||[];
+  cards.forEach(function(card,i){
+    var it=items[i]||{};
+    var d=document.createElement("div"); d.className="pcard";
+    if(pharmEditing===i){
+      var opts='<option value="-1">사진 없음 (브랜드 배경)</option>';
+      (ph().photos||[]).forEach(function(p,pi){ opts+='<option value="'+pi+'">'+(pi+1)+'번 사진</option>'; });
+      d.innerHTML='<div class="pc-edit"><label>제목</label><input type="text" class="pe-title" maxlength="40">'+
+        '<label>본문</label><textarea class="pe-body" rows="3" maxlength="120"></textarea>'+
+        '<label>배경 사진</label><select class="pe-photo">'+opts+'</select>'+
+        '<div class="pe-acts"><button class="btn ghost" type="button" data-pcancel="1">취소</button>'+
+        '<button class="btn pri" type="button" data-psave="'+i+'">저장·다시 합성</button></div></div>';
+      d.querySelector(".pe-title").value=card.headline||"";
+      d.querySelector(".pe-body").value=card.body||"";
+      d.querySelector(".pe-photo").value=String(card.photoIdx);
+    } else {
+      var inner;
+      if(it.url) inner='<img class="pc-img" src="'+esc(mediaSrc(it.url))+'" alt="'+esc(card.role||"")+'">';
+      else if(it.error) inner='<div class="pc-ph">⚠ 합성 실패<br><small>'+esc(String(it.error).slice(0,60))+'</small></div>';
+      else inner='<div class="pc-ph"><span class="spin"></span>'+(i+1)+'번 만드는 중…</div>';
+      d.innerHTML='<span class="pc-no">'+(i+1)+'</span>'+(card.role?'<span class="pc-role">'+esc(card.role)+'</span>':'')+inner+
+        '<div class="pc-ops"><button class="btn ghost" type="button" data-pedit="'+i+'">✏️ 문구</button>'+
+        '<button class="btn ghost" type="button" data-pswap="'+i+'">🔄 사진</button>'+
+        (it.url?'<a class="btn ghost" href="'+esc(mediaSrc(it.url))+'" download="약국소개-'+(i+1)+'.png">⬇</a>':'')+'</div>';
+    }
+    grid.appendChild(d);
+  });
+}
+function recomposeCard(i){
+  var card=ph().cards[i]; if(!card || pharmBusy) return;
+  pharmBusy=true; var old=state.imageGen.items[i]||{};
+  state.imageGen.items[i]={ pending:true }; renderPharmaCards();
+  ensureFonts().then(function(){ return composeAndSave(card, i, old.key||"", (i+1)+"-r"+Math.random().toString(36).slice(2,5)); })
+    .then(function(item){ state.imageGen.items[i]=item; })
+    .catch(function(e){ state.imageGen.items[i]={ error:(e&&e.message)||String(e) }; })
+    .then(function(){ pharmBusy=false; saveLocal(); syncJob(); renderPharmaCards(); });
+}
+function swapPhoto(i){
+  var card=ph().cards[i]; if(!card) return;
+  var n=(ph().photos||[]).length; if(!n){ bErr("올린 사진이 없어요. [입력 수정]에서 사진을 추가하세요."); return; }
+  card.photoIdx = (card.photoIdx>=n-1) ? -1 : card.photoIdx+1;
+  recomposeCard(i);
+}
+
+/* ---- 생성 파이프라인 ---- */
+function generatePharmacyCards(){
+  if(pharmBusy) return;
+  if(pharmUploading>0){ bInputNote("사진 업로드가 끝난 뒤 눌러주세요."); return; }
+  var intro=(el("bIntro").value||"").trim();
+  var photos=ph().photos.filter(function(p){ return p&&p.url; });
+  if(!intro && !photos.length){ bInputNote("약국 설명을 적거나 사진을 한 장 이상 올려주세요."); el("bIntro").focus(); return; }
+  if(connected===false){ refreshConnUI(); bInputNote("연결을 먼저 확인해 주세요."); return; }
+  if(runMode()==="server" && !ensureAuth()) return;
+  pharmBusy=true; pharmEditing=null;
+  ph().intro=intro; ph().tone=ph().tone||"warm"; ph().templateId=ph().templateId||"fullbleed";
+  state.platform=PHARM_PLATFORM; state.provider=provSel; ensureJobId();
+  ph().runId="p"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,6);
+  el("bInput").hidden=true; el("bResult").hidden=false; bErr(null);
+  el("bBadge").textContent="만드는 중"; el("bBadge").className="studio-badge run";
+  setBStatus("① 약국 소개 문구를 만들고 있어요…"); el("bCards").innerHTML="";
+  var prov=runMode()==="server"?textProvider():provSel;
+  apiFetch("/run",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({ provider:prov, model:"", prompt:buildCopyPrompt(intro, photos.length, ph().tone) }) })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(!d||!d.ok||!(d.output||"").trim()) throw new Error((d&&d.error)||"문구 생성 실패");
+      var cards=parseCardPlan(d.output);
+      if(cards.length<3) throw new Error("문구를 충분히 만들지 못했어요");
+      var pn=photos.length;
+      cards.forEach(function(c,i){ c.id="c"+i; c.photoIdx=pn?(i%pn):-1; c.templateId=ph().templateId; });
+      ph().cards=cards;
+      state.imageGen.runId=ph().runId;
+      state.imageGen.items=cards.map(function(){ return { pending:true }; });
+      renderPharmaCards(); setBStatus("② 사진 위에 카드 디자인을 합성하고 있어요…");
+      return ensureFonts().then(function(){
+        var ok=0, chain=Promise.resolve();
+        cards.forEach(function(card,i){
+          chain=chain.then(function(){
+            return composeAndSave(card, i, "").then(function(item){ state.imageGen.items[i]=item; ok++; })
+              .catch(function(e){ state.imageGen.items[i]={ error:(e&&e.message)||String(e) }; })
+              .then(function(){ renderPharmaCards(); setBStatus("② 카드 합성 중… ("+(i+1)+"/"+cards.length+")"); });
+          });
+        });
+        return chain.then(function(){ return ok; });
+      });
+    })
+    .then(function(ok){
+      pharmBusy=false;
+      el("bBadge").textContent= ok>0?"완성":"실패"; el("bBadge").className="studio-badge "+(ok>0?"done":"err");
+      setBStatus(ok===(ph().cards||[]).length ? "✓ 카드뉴스 "+ok+"장 완성! 카드별로 ✏️ 문구·🔄 사진을 고칠 수 있어요." : (ok+"/"+(ph().cards||[]).length+"장 완성 · 일부는 카드의 ✏️/🔄 로 다시 시도하세요."));
+      saveLocal(); syncJob(); renderPharmaCards();
+    })
+    .catch(function(e){
+      pharmBusy=false; el("bBadge").textContent="중단됨"; el("bBadge").className="studio-badge err";
+      bErr("만들기에 실패했어요: "+((e&&e.message)||e)+" · [입력 수정]에서 다시 시도해 주세요."); setBStatus("");
+    });
+}
+
+/* ---- 진입 / 작업 열기 ---- */
+function startPharmacy(){
+  if(runMode()==="server" && !ensureAuth()) return;
+  state=freshState(); state.platform=PHARM_PLATFORM; state.provider=provSel;
+  pharmBusy=false; pharmEditing=null; pharmUploading=0;
+  el("bInput").hidden=false; el("bResult").hidden=true; bErr(null); bInputNote("");
+  renderBuilderInput(); showBuilder();
+}
+function openPharmacyJob(j){
+  state=freshState(); var st=j.state||{};
+  state.jobId=j.id; state.platform=st.platform||PHARM_PLATFORM;
+  if(typeof st.provider==="string"&&st.provider){ state.provider=st.provider; provSel=st.provider; renderProv(); }
+  if(st.pharmacy&&typeof st.pharmacy==="object"){
+    state.pharmacy={ intro:st.pharmacy.intro||"", tone:st.pharmacy.tone||"warm", templateId:st.pharmacy.templateId||"fullbleed",
+      photos:Array.isArray(st.pharmacy.photos)?st.pharmacy.photos:[], cards:Array.isArray(st.pharmacy.cards)?st.pharmacy.cards:[], runId:st.pharmacy.runId||"" };
+  }
+  if(st.imageGen&&typeof st.imageGen==="object"){ state.imageGen.runId=st.imageGen.runId||""; state.imageGen.items=Array.isArray(st.imageGen.items)?st.imageGen.items:[]; }
+  pharmBusy=false; pharmEditing=null; pharmUploading=0;
+  renderBuilderInput();
+  var hasResult=(state.pharmacy.cards||[]).length>0;
+  el("bInput").hidden=hasResult; el("bResult").hidden=!hasResult; bErr(null);
+  if(hasResult){ el("bBadge").textContent="완성"; el("bBadge").className="studio-badge done"; setBStatus("저장된 카드뉴스예요. 카드별로 ✏️·🔄 로 수정할 수 있어요."); renderPharmaCards(); }
+  showBuilder();
+}
+
+/* ---- 전체 ZIP 저장 ---- */
+var ZIP_CRC=(function(){ var t=[]; for(var n=0;n<256;n++){ var c=n; for(var k=0;k<8;k++) c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1); t[n]=c>>>0; } return t; })();
+function crc32(buf){ var c=0xFFFFFFFF; for(var i=0;i<buf.length;i++) c=ZIP_CRC[(c^buf[i])&0xFF]^(c>>>8); return (c^0xFFFFFFFF)>>>0; }
+function makeZip(files){
+  var enc=new TextEncoder(), chunks=[], central=[], offset=0;
+  function u16(n){ return [n&255,(n>>>8)&255]; }
+  function u32(n){ return [n&255,(n>>>8)&255,(n>>>16)&255,(n>>>24)&255]; }
+  files.forEach(function(f){
+    var nameB=enc.encode(f.name), data=f.data, crc=crc32(data);
+    var local=[].concat(u32(0x04034b50),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(data.length),u32(data.length),u16(nameB.length),u16(0));
+    chunks.push(new Uint8Array(local), nameB, data);
+    var cen=[].concat(u32(0x02014b50),u16(20),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(data.length),u32(data.length),u16(nameB.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(offset));
+    central.push(new Uint8Array(cen), nameB);
+    offset+=local.length+nameB.length+data.length;
+  });
+  var cenSize=central.reduce(function(s,a){ return s+a.length; },0);
+  var end=[].concat(u32(0x06054b50),u16(0),u16(0),u16(files.length),u16(files.length),u32(cenSize),u32(offset),u16(0));
+  return new Blob(chunks.concat(central,[new Uint8Array(end)]),{ type:"application/zip" });
+}
+function downloadBlob(name, blob){ var u=URL.createObjectURL(blob); var a=document.createElement("a"); a.href=u; a.download=name; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(function(){ URL.revokeObjectURL(u); },1000); }
+function downloadAllPharma(){
+  var items=(state.imageGen.items||[]).filter(function(it){ return it&&it.url; });
+  if(!items.length){ bErr("저장할 카드가 없어요."); return; }
+  var btn=el("bDownloadAll"); if(btn){ btn.disabled=true; btn.textContent="준비 중…"; }
+  var files=[], chain=Promise.resolve();
+  items.forEach(function(it,i){
+    chain=chain.then(function(){ return fetch(mediaSrc(it.url)); }).then(function(r){ return r.arrayBuffer(); })
+      .then(function(buf){ files.push({ name:"약국소개-"+String(i+1).padStart(2,"0")+".png", data:new Uint8Array(buf) }); });
+  });
+  chain.then(function(){ downloadBlob("약국소개-카드뉴스.zip", makeZip(files)); })
+    .catch(function(e){ bErr("전체 저장 실패: "+((e&&e.message)||e)); })
+    .then(function(){ if(btn){ btn.disabled=false; btn.textContent="⬇ 전체 저장(ZIP)"; } });
+}
+
 /* ====== 초기화 ====== */
 function init(){
   renderFmt(); renderProv(); initSuggest(); applyThemeIcon();
@@ -1176,6 +1688,36 @@ function init(){
   });
   el("lightbox").addEventListener("click", function(e){ if(e.target.tagName!=="IMG") el("lightbox").classList.remove("open"); });
   document.addEventListener("keydown", function(e){ if(e.key==="Escape") el("lightbox").classList.remove("open"); });
+  /* 약국 소개 빌더 */
+  el("introEntry").addEventListener("click", startPharmacy);
+  el("bBack").addEventListener("click", function(){
+    if(pharmBusy){ appConfirm("만드는 중이에요","지금 나가도 진행 중인 합성은 멈추지 않아요.\n지금까지 결과는 저장됩니다. 나갈까요?","나가기").then(function(ok){ if(ok) showHome(); }); }
+    else showHome();
+  });
+  el("bEditInputs").addEventListener("click", function(){ if(pharmBusy) return; el("bResult").hidden=true; el("bInput").hidden=false; renderBuilderInput(); });
+  el("bGenerate").addEventListener("click", generatePharmacyCards);
+  el("bDownloadAll").addEventListener("click", downloadAllPharma);
+  el("bIntro").addEventListener("input", function(){ ph().intro=el("bIntro").value; });
+  var dz=el("bDrop"), fi=el("bFile");
+  dz.addEventListener("click", function(){ fi.click(); });
+  fi.addEventListener("change", function(){ onPhotoFiles(fi.files); fi.value=""; });
+  dz.addEventListener("dragover", function(e){ e.preventDefault(); dz.classList.add("drag"); });
+  dz.addEventListener("dragleave", function(){ dz.classList.remove("drag"); });
+  dz.addEventListener("drop", function(e){ e.preventDefault(); dz.classList.remove("drag"); onPhotoFiles(e.dataTransfer&&e.dataTransfer.files); });
+  el("bPhotoStrip").addEventListener("click", function(e){ var b=e.target.closest&&e.target.closest("[data-pdel]"); if(!b) return; ph().photos.splice(parseInt(b.getAttribute("data-pdel"),10),1); renderPhotoStrip(); saveLocal(); });
+  el("bCards").addEventListener("click", function(e){
+    var ed=e.target.closest&&e.target.closest("[data-pedit]"); if(ed){ if(!pharmBusy){ pharmEditing=parseInt(ed.getAttribute("data-pedit"),10); renderPharmaCards(); } return; }
+    var cc=e.target.closest&&e.target.closest("[data-pcancel]"); if(cc){ pharmEditing=null; renderPharmaCards(); return; }
+    var sv=e.target.closest&&e.target.closest("[data-psave]"); if(sv){
+      var i=parseInt(sv.getAttribute("data-psave"),10), box=sv.closest(".pc-edit"), card=ph().cards[i]; if(!card) return;
+      card.headline=(box.querySelector(".pe-title").value||"").trim();
+      card.body=(box.querySelector(".pe-body").value||"").trim();
+      card.photoIdx=parseInt(box.querySelector(".pe-photo").value,10);
+      pharmEditing=null; recomposeCard(i); return;
+    }
+    var sw=e.target.closest&&e.target.closest("[data-pswap]"); if(sw){ if(!pharmBusy) swapPhoto(parseInt(sw.getAttribute("data-pswap"),10)); return; }
+    if(e.target.classList.contains("pc-img")){ el("lightboxImg").src=e.target.src; el("lightbox").classList.add("open"); }
+  });
   /* 로그인 */
   el("loginBtn").addEventListener("click", doLogin);
   el("loginPw").addEventListener("keydown", function(e){ if(e.key==="Enter") doLogin(); });

@@ -12,7 +12,19 @@
  * ========================================================================== */
 
 import { extname } from "node:path";
-import { MEDIA_EXTS } from "./util.mjs";
+import { MEDIA_EXTS, detectImage } from "./util.mjs";
+
+// 사용자 업로드 사진·합성 카드(PNG) 1장의 디코드 후 최대 바이트(과대 페이로드 방어). 클라가 다운스케일해 보내므로 넉넉히.
+const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES) || 10 * 1024 * 1024;
+// data URL("data:image/...;base64,XXXX") 또는 순수 base64 → Buffer. 형식은 매직바이트로 따로 검증.
+function decodeDataImage(s) {
+  let b64 = String(s || "");
+  const m = /^data:[^,]*,(.*)$/s.exec(b64);
+  if (m) b64 = m[1];
+  if (!b64.trim()) return null;
+  let buf; try { buf = Buffer.from(b64, "base64"); } catch (_) { return null; }
+  return (buf && buf.length) ? buf : null;
+}
 
 function san(s, max) { return String(s == null ? "" : s).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, max || 64); }
 function bearer(h) { const m = /^Bearer\s+(.+)$/i.exec(String(h || "").trim()); return m ? m[1].trim() : ""; }
@@ -38,6 +50,9 @@ export function createCore(opts) {
       if (!items) continue;
       for (const it of items) { if (it && it.key) { try { it.url = await storage.urlFor(it.key); } catch (_) {} } }
     }
+    // 약국 소개 빌더의 업로드 사진도 fresh url 로 갱신(재방문 시 presigned 만료로 재합성이 깨지지 않게).
+    const photos = state.pharmacy && Array.isArray(state.pharmacy.photos) ? state.pharmacy.photos : null;
+    if (photos) { for (const p of photos) { if (p && p.key) { try { p.url = await storage.urlFor(p.key); } catch (_) {} } } }
   }
   // 작업의 '목록용 경량 메타'(presign 없이) — 인덱스 저장·목록 표시에 공용. 전체 state 를 안 담아 작고 빠르다.
   function metaOfRaw(j) {
@@ -131,6 +146,33 @@ export function createCore(opts) {
       const rk = String(p.replaceKey || "").replace(/^\/+|\/+$/g, "");
       if (rk && rk !== saved.key && rk.startsWith(`${userPrefix(auth)}content/${base}/`)) { try { await storage.del(rk); } catch (_) {} }
       return J(200, { ok: true, url: saved.url, key: saved.key, path: saved.key, mime: gen.mime, bytes: gen.buf.length });
+    } catch (e) { return J(200, { ok: false, error: "이미지 저장 실패: " + (e && e.message || e) }); }
+  }
+
+  // 사용자 사진 업로드 + 브라우저에서 합성한 최종 카드(PNG) 저장 — AI 생성 없이 바이트만 검증·저장.
+  //   slot="uploads" → content/<job>/uploads/<idx>.<ext> (원본 사진)
+  //   slot="card"    → content/<job>/card/<runId>/<idx>.<ext> (합성 결과 — 라이브러리 썸네일·갤러리 파이프라인 재사용)
+  async function upload(req, auth) {
+    const p = parseBody(req); if (!p) return J(400, { ok: false, error: "잘못된 요청 본문(JSON 파싱 실패)" });
+    const buf = decodeDataImage(p.data || p.dataUrl || p.b64 || "");
+    if (!buf) return J(400, { ok: false, error: "이미지 데이터가 비어 있거나 잘못되었습니다." });
+    if (buf.length > MAX_UPLOAD_BYTES) return J(413, { ok: false, error: "이미지가 너무 큽니다(최대 " + Math.round(MAX_UPLOAD_BYTES / 1048576) + "MB). 더 작은 사진으로 올려주세요." });
+    const det = detectImage(buf);   // 클라가 보낸 확장자 불신 — 매직바이트로 실제 형식 판별
+    if (!det) return J(400, { ok: false, error: "지원하지 않는 이미지 형식입니다(JPG·PNG·WEBP·GIF만)." });
+    const slot = (p.slot === "card") ? "card" : "uploads";
+    const runId = san(p.runId || "u", 40) || "u";
+    const idx = san(p.idx != null ? p.idx : 0, 16) || "0";
+    const jobId = san(p.jobId || "", 60);
+    const base = jobId || ("_unsaved-" + runId);
+    const key = slot === "card"
+      ? `${userPrefix(auth)}content/${base}/card/${runId}/${idx}.${det.ext}`
+      : `${userPrefix(auth)}content/${base}/uploads/${idx}.${det.ext}`;
+    try {
+      const saved = await storage.save(key, buf, det.mime);
+      // 재합성 교체: 이전 객체 삭제(같은 계정·작업 폴더 내, 새 키와 다를 때만 — 경로 주입 방어).
+      const rk = String(p.replaceKey || "").replace(/^\/+|\/+$/g, "");
+      if (rk && rk !== saved.key && rk.startsWith(`${userPrefix(auth)}content/${base}/`)) { try { await storage.del(rk); } catch (_) {} }
+      return J(200, { ok: true, url: saved.url, key: saved.key, path: saved.key, mime: det.mime, bytes: buf.length });
     } catch (e) { return J(200, { ok: false, error: "이미지 저장 실패: " + (e && e.message || e) }); }
   }
 
@@ -312,6 +354,7 @@ export function createCore(opts) {
     if (req.method === "GET" && req.path === "/models") return models();
     if (req.method === "POST" && req.path === "/run") return run(req);
     if (req.method === "POST" && req.path === "/image") return image(req, auth);
+    if (req.method === "POST" && req.path === "/upload") return upload(req, auth);
     if (req.method === "POST" && req.path === "/video") return video(req, auth);
     if (req.path === "/jobs" || req.path.startsWith("/jobs/")) return jobs(req, auth);
     if (req.path === "/prompt-templates") return promptTemplates(req, auth);
