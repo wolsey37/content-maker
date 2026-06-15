@@ -425,6 +425,10 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
               <div class="tpl-pick" id="bTpl"></div>
             </div>
             <div class="bi-field">
+              <span class="bi-label">비율 <span class="bi-opt">게시 형식</span></span>
+              <div class="opt-seg" id="bRatio"></div>
+            </div>
+            <div class="bi-field">
               <span class="bi-label">컬러 테마</span>
               <div class="palette-row" id="bPalette"></div>
             </div>
@@ -775,7 +779,7 @@ function freshState(){
     imageGen:{ prompts:"", runId:"", items:[], provider:"codex", imageModel:"", concurrency:2 },
     videoGen:{ cuts:"", runId:"", items:[], provider:"claude", engine:"higgsfield", videoModel:"seedance_1_5", concurrency:1 },
     // 약국 소개 카드뉴스 전용 — 자유 설명 + 업로드 사진 + 카드 정의(문구·배경사진·템플릿). 최종 PNG 는 imageGen.items 재사용.
-    pharmacy:{ intro:"", tone:"warm", templateId:"fullbleed", palette:"gold", align:"left", overlay:"med", font:"serif", photos:[], cards:[], runId:"" } };
+    pharmacy:{ intro:"", tone:"warm", templateId:"fullbleed", ratio:"4:5", palette:"gold", align:"left", overlay:"med", font:"serif", photos:[], cards:[], runId:"" } };
 }
 function setSteps(platform){
   var prev=(state&&state.steps)||{};
@@ -1338,6 +1342,10 @@ function toggleTheme(){
    백엔드 계약(/run·/upload·/jobs)·저장소·라이브러리 파이프라인 재사용.
    ========================================================================== */
 var CARD_W=1080, CARD_H=1350;
+// 인스타 카드뉴스 비율 — 너비는 1080 고정, 높이만 변경(레이아웃은 세로 비율로 자동 적응).
+var PHARM_RATIOS=[ {k:"4:5",w:1080,h:1350,l:"피드 4:5"}, {k:"1:1",w:1080,h:1080,l:"정사각 1:1"}, {k:"9:16",w:1080,h:1920,l:"스토리 9:16"} ];
+function ratioDef(){ return PHARM_RATIOS.filter(function(r){ return r.k===((state.pharmacy&&state.pharmacy.ratio)||"4:5"); })[0]||PHARM_RATIOS[0]; }
+function ratioCss(){ var r=ratioDef(); return r.w+"/"+r.h; }
 var PHARM_PLATFORM="약국 소개 카드뉴스";
 var BUILDER_TEMPLATES=[
   { id:"fullbleed", name:"풀블리드 (사진 가득)" },
@@ -1460,6 +1468,7 @@ function renderEngineSel(){
 }
 function renderDesignOpts(){
   renderPalette();
+  renderOptSeg("bRatio", PHARM_RATIOS, function(){ return ph().ratio||"4:5"; }, function(v){ ph().ratio=v; });
   renderOptSeg("bFont", PHARM_FONTS, function(){ return ph().font||"serif"; }, function(v){ ph().font=v; });
   renderOptSeg("bAlign", PHARM_ALIGNS, function(){ return ph().align||"left"; }, function(v){ ph().align=v; });
   renderOptSeg("bOverlay", PHARM_OVERLAYS, function(){ return ph().overlay||"med"; }, function(v){ ph().overlay=v; });
@@ -1595,6 +1604,7 @@ function wrapLines(ctx,text,maxW,maxLines){
 // 분류 라벨(표지·강점 등)은 결과 그리드의 UI 배지로만 — 발행 카드 이미지에는 박지 않는다(인쇄되면 어색).
 // 디자인 옵션: 컬러 테마(accent)·글자 정렬·사진 농도·제목 서체·이미지 위치(focusX/Y).
 function composeCard(card, img, tplId){
+  var CARD_H=ratioDef().h;   // 선택 비율의 높이로 캔버스·레이아웃 적응(너비 1080 고정). 아래 모든 CARD_H 는 이 지역값.
   var cv=document.createElement("canvas"); cv.width=CARD_W; cv.height=CARD_H;
   var ctx=cv.getContext("2d");
   var SERIF='"Noto Serif KR",serif', SANS='-apple-system,"Apple SD Gothic Neo",sans-serif';
@@ -1739,9 +1749,10 @@ function renderPharmaCards(){
       d.querySelector(".pe-photo").value=String(card.photoIdx);
     } else {
       var inner;
-      if(it.url) inner='<img class="pc-img" crossorigin="anonymous" src="'+esc(mediaSrc(it.url))+'" alt="'+esc(card.role||"")+'">';
-      else if(it.error) inner='<div class="pc-ph">⚠ 합성 실패<br><small>'+esc(String(it.error).slice(0,60))+'</small></div>';
-      else inner='<div class="pc-ph"><span class="spin"></span>'+(i+1)+'번 만드는 중…</div>';
+      var ar=' style="aspect-ratio:'+ratioCss()+'"';
+      if(it.url) inner='<img class="pc-img" crossorigin="anonymous"'+ar+' src="'+esc(mediaSrc(it.url))+'" alt="'+esc(card.role||"")+'">';
+      else if(it.error) inner='<div class="pc-ph"'+ar+'>⚠ 합성 실패<br><small>'+esc(String(it.error).slice(0,60))+'</small></div>';
+      else inner='<div class="pc-ph"'+ar+'><span class="spin"></span>'+(i+1)+'번 만드는 중…</div>';
       d.innerHTML='<span class="pc-no">'+(i+1)+'</span>'+(card.role?'<span class="pc-role">'+esc(card.role)+'</span>':'')+inner+
         '<div class="pc-ops"><button class="btn ghost" type="button" data-pedit="'+i+'">✏️ 문구</button>'+
         '<button class="btn ghost" type="button" data-pswap="'+i+'">🔄 사진</button>'+
@@ -1840,7 +1851,7 @@ function openPharmacyJob(j){
   state.jobId=j.id; state.platform=st.platform||PHARM_PLATFORM;
   if(typeof st.provider==="string"&&st.provider){ state.provider=st.provider; provSel=st.provider; renderProv(); }
   if(st.pharmacy&&typeof st.pharmacy==="object"){
-    state.pharmacy={ intro:st.pharmacy.intro||"", tone:st.pharmacy.tone||"warm", templateId:st.pharmacy.templateId||"fullbleed",
+    state.pharmacy={ intro:st.pharmacy.intro||"", tone:st.pharmacy.tone||"warm", templateId:st.pharmacy.templateId||"fullbleed", ratio:st.pharmacy.ratio||"4:5",
       palette:st.pharmacy.palette||"gold", align:st.pharmacy.align||"left", overlay:st.pharmacy.overlay||"med", font:st.pharmacy.font||"serif",
       photos:Array.isArray(st.pharmacy.photos)?st.pharmacy.photos:[], cards:Array.isArray(st.pharmacy.cards)?st.pharmacy.cards:[], runId:st.pharmacy.runId||"" };
   }
