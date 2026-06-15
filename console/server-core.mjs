@@ -16,6 +16,8 @@ import { MEDIA_EXTS, detectImage } from "./util.mjs";
 
 // 사용자 업로드 사진·합성 카드(PNG) 1장의 디코드 후 최대 바이트(과대 페이로드 방어). 클라가 다운스케일해 보내므로 넉넉히.
 const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES) || 10 * 1024 * 1024;
+// /run 프롬프트 최대 길이(토큰비용 폭주 방어). 약국 설명은 길어야 수천 자.
+const MAX_PROMPT_CHARS = Number(process.env.MAX_PROMPT_CHARS) || 16000;
 // data URL("data:image/...;base64,XXXX") 또는 순수 base64 → Buffer. 형식은 매직바이트로 따로 검증.
 function decodeDataImage(s) {
   let b64 = String(s || "");
@@ -75,8 +77,9 @@ export function createCore(opts) {
   }
   // 서버 모드(인증)에서 모든 S3 객체(미디어·작업)를 prod/<계정>/ 아래로 격리한다.
   // 로컬 모드는 userId 가 없으므로 "" → 기존 output/ 경로(회귀 없음).
-  // 약국 소개 카드뉴스(공개·무로그인)는 전용 폴더 pharmacy/ 아래로 별도 관리(계정 무관).
-  const userPrefix = (auth) => (auth && auth.pharmacy) ? "pharmacy/" : ((auth && auth.userId) ? ("prod/" + (san(auth.userId) || "unknown") + "/") : "");
+  // 약국 소개 카드뉴스(공개·무로그인)는 전용 폴더 pharmacy/ 아래로 별도 관리.
+  // 로그인이 없으므로 디바이스별 익명 토큰(clientId)으로 격리 → pharmacy/<cid>/ (타 디바이스의 목록/삭제 차단).
+  const userPrefix = (auth) => (auth && auth.pharmacy) ? ("pharmacy/" + (san(auth.clientId) || "anon") + "/") : ((auth && auth.userId) ? ("prod/" + (san(auth.userId) || "unknown") + "/") : "");
 
   // 작업 state 에 의미 있는 내용(주제·단계 출력·생성 미디어)이 있는지 — 빈 작업 저장 거부용(클라이언트 jobHasContent 와 동일 기준).
   function stateHasContent(state) {
@@ -117,11 +120,13 @@ export function createCore(opts) {
 
   async function run(req) {
     const p = parseBody(req); if (!p) return J(400, { ok: false, error: "잘못된 요청 본문(JSON 파싱 실패)" });
-    const provider = backend.providers[p.provider];
-    if (!provider) return J(400, { ok: false, error: "알 수 없는 provider: " + p.provider });
+    // provider 폴백 — 클라/서버 버전 드리프트로 정확한 id 가 없어도 첫 텍스트 provider 로(하드 400 방지).
+    const provider = backend.providers[p.provider] || backend.providers.openai || Object.values(backend.providers)[0];
+    if (!provider) return J(400, { ok: false, error: "사용 가능한 텍스트 provider 가 없습니다." });
     if (!provider.runText) return J(200, { ok: false, disabled: true, error: provider.id + " 는 텍스트 생성을 지원하지 않습니다." });
     const prompt = String(p.prompt || "");
     if (!prompt.trim()) return J(400, { ok: false, error: "prompt 가 비어 있습니다." });
+    if (prompt.length > MAX_PROMPT_CHARS) return J(400, { ok: false, error: "요청이 너무 깁니다(최대 " + MAX_PROMPT_CHARS + "자)." });   // 토큰비용 폭주 방어
     const result = await provider.runText({ model: (p.model || "").toString().trim(), prompt });
     return J(200, result);   // 실패도 200 + {ok:false} (콘솔이 메시지 표시)
   }
@@ -346,9 +351,11 @@ export function createCore(opts) {
     // /health 는 인증 게이트 앞에서 응답 — 외부 uptime/LB 헬스체크가 토큰 없이도 200 을 받도록(provider 키 값 등 민감정보는 없음).
     if (req.method === "GET" && req.path === "/health") return health();
 
-    // 약국 소개 카드뉴스 — 공개(로그인 없음), 전용 폴더 pharmacy/. 인증 게이트 앞에 둔다.
+    // 약국 소개 카드뉴스 — 공개(로그인 없음), 전용 폴더 pharmacy/<clientId>/. 인증 게이트 앞에 둔다.
+    //   디바이스별 익명 토큰(x-client-id)으로 격리 → 타 디바이스의 목록·조회·삭제 불가(프라이버시).
     //   /pharmacy/run(문구 생성·서버 provider) · /pharmacy/upload(사진·합성카드 저장) · /pharmacy/jobs(목록·CRUD)
-    const PHARM_AUTH = { ok: true, pharmacy: true };
+    const cid = san(req.headers["x-client-id"] || "", 40) || "anon";
+    const PHARM_AUTH = { ok: true, pharmacy: true, clientId: cid };
     if (req.method === "POST" && req.path === "/pharmacy/run") return run(req);
     if (req.method === "POST" && req.path === "/pharmacy/upload") return upload(req, PHARM_AUTH);
     if (req.path === "/pharmacy/jobs" || req.path.startsWith("/pharmacy/jobs/")) {
