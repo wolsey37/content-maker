@@ -268,24 +268,41 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
 .photo-thumb .pt-move button:first-child{ border-right:1px solid rgba(255,255,255,.2); }
 .photo-thumb .pt-up{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(20,24,18,.45); color:#fff; font-size:11px; }
 .photo-thumb.pending{ display:flex; align-items:center; justify-content:center; }
-.bi-side{ display:flex; flex-direction:column; gap:18px; background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:18px; position:sticky; top:74px; }
+.bi-side{ display:flex; flex-direction:column; gap:16px; background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:18px 16px; position:sticky; top:74px; }
 .bi-field{ display:flex; flex-direction:column; gap:9px; }
-.tpl-pick{ display:flex; flex-direction:column; gap:8px; }
-.tpl-opt{ display:flex; align-items:center; gap:10px; border:1px solid var(--line); border-radius:var(--r1); padding:9px 11px; cursor:pointer; background:var(--panel); transition:border-color .12s, background .12s; }
-.tpl-opt:hover{ background:var(--hover); }
-.tpl-opt.on{ border-color:var(--brand); background:var(--brand-soft); }
-.tpl-swatch{ width:30px; height:38px; border-radius:5px; flex:none; border:1px solid rgba(0,0,0,.08); box-shadow:var(--sh-1); }
-.tpl-opt .tpl-nm{ font-size:13px; font-weight:600; color:var(--ink); }
-.tone-seg,.opt-seg{ display:flex; gap:6px; flex-wrap:wrap; }
-.tone-seg button,.opt-seg button{ flex:1 1 auto; border:1px solid var(--line); background:var(--panel); color:var(--ink-2); font-size:12.5px; font-weight:600; border-radius:999px; padding:8px 6px; cursor:pointer; white-space:nowrap; }
-.tone-seg button.on,.opt-seg button.on{ border-color:var(--brand); background:var(--brand-soft); color:var(--brand-d); }
-.palette-row{ display:flex; gap:8px; flex-wrap:wrap; }
-.palette-row button{ width:34px; height:34px; border-radius:50%; border:2px solid var(--line); cursor:pointer; padding:0; position:relative; }
-.palette-row button.on{ border-color:var(--ink); box-shadow:0 0 0 2px var(--panel) inset; }
+/* 옵션 패널 라벨 — 작고 또렷한 툴 스타일(메인 헤딩의 세리프와 구분) */
+.bi-side .bi-label{ font-family:inherit; font-weight:700; font-size:11.5px; letter-spacing:.04em; color:var(--muted); text-transform:none; }
+.bi-side .bi-label .bi-opt{ font-weight:600; color:var(--line-strong); margin-left:5px; }
+/* 템플릿 — 미니 미리보기 카드 3열 */
+.tpl-pick{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.tpl-opt{ display:flex; flex-direction:column; gap:6px; align-items:center; border:1px solid var(--line); border-radius:12px; padding:8px 7px; cursor:pointer; background:var(--panel); transition:border-color .14s var(--ease), box-shadow .14s, transform .08s; }
+.tpl-opt:hover{ border-color:var(--line-strong); transform:translateY(-1px); }
+.tpl-opt.on{ border-color:var(--brand); box-shadow:0 0 0 2.5px var(--brand-soft); }
+.tpl-prev{ width:100%; aspect-ratio:4/5; border-radius:7px; overflow:hidden; position:relative; background:#1c1d21; }
+.tpl-prev .pp-line{ position:absolute; height:5px; border-radius:3px; background:rgba(255,255,255,.9); }
+.tpl-prev .pp-bar{ position:absolute; width:18px; height:3px; border-radius:2px; background:var(--gold); }
+.tpl-opt .tpl-nm{ font-size:10.5px; font-weight:600; color:var(--ink-2); text-align:center; line-height:1.3; }
+.tpl-opt.on .tpl-nm{ color:var(--ink); }
+/* 세그먼트 토글 — iOS/모던 트랙+슬라이딩 액티브 */
+.tone-seg,.opt-seg{ display:flex; gap:3px; background:var(--chip); border:1px solid var(--line); border-radius:11px; padding:3px; }
+.tone-seg button,.opt-seg button{ flex:1 1 0; border:none; background:transparent; color:var(--muted); font-size:12.5px; font-weight:600; border-radius:8px; padding:8px 4px; cursor:pointer; white-space:nowrap; transition:color .12s, background .12s, box-shadow .12s; }
+.tone-seg button:hover,.opt-seg button:hover{ color:var(--ink); }
+.tone-seg button.on,.opt-seg button.on{ background:var(--panel); color:var(--ink); font-weight:700; box-shadow:0 1px 4px rgba(0,0,0,.16); }
+/* 컬러 칩 */
+.palette-row{ display:flex; gap:10px; flex-wrap:wrap; }
+.palette-row button{ width:30px; height:30px; border-radius:50%; border:none; cursor:pointer; padding:0; position:relative; box-shadow:0 0 0 1px rgba(0,0,0,.06) inset; transition:transform .1s; }
+.palette-row button:hover{ transform:scale(1.08); }
 .palette-row button .pc-dot{ position:absolute; inset:0; border-radius:50%; }
-.bi-select{ width:100%; border:1px solid var(--line); border-radius:var(--r1); background:var(--input); color:var(--ink); font-family:inherit; font-size:13px; padding:9px 11px; cursor:pointer; outline:none; }
-.bi-select:focus{ border-color:var(--brand-line); }
-.bi-go{ width:100%; }
+.palette-row button.on{ box-shadow:0 0 0 2px var(--panel), 0 0 0 4px var(--ink); }
+.palette-row button.on::after{ content:"✓"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:13px; font-weight:800; text-shadow:0 1px 2px rgba(0,0,0,.4); }
+/* 셀렉트 — 커스텀 캐럿 */
+.bi-select{ -webkit-appearance:none; appearance:none; width:100%; border:1px solid var(--line); border-radius:11px; background:var(--input); color:var(--ink); font-family:inherit; font-size:13px; font-weight:600; padding:10px 34px 10px 12px; cursor:pointer; outline:none;
+  background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%); background-position:calc(100% - 17px) 18px,calc(100% - 12px) 18px; background-size:5px 5px,5px 5px; background-repeat:no-repeat; }
+.bi-select:hover{ border-color:var(--line-strong); }
+.bi-select:focus{ border-color:var(--brand-line); box-shadow:0 0 0 3px var(--brand-soft); }
+/* 옵션 그룹 구분선 */
+.bi-divider{ height:1px; background:var(--line-soft); margin:2px 0; border:0; }
+.bi-go{ width:100%; margin-top:2px; }
 .bi-note{ font-size:12px; color:var(--muted); text-align:center; margin:0; min-height:14px; }
 
 /* ---- 홈: 리스트 중심 히어로 ---- */
@@ -413,6 +430,7 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
               <span class="bi-label">사진 농도 <span class="bi-opt">풀블리드</span></span>
               <div class="opt-seg" id="bOverlay"></div>
             </div>
+            <hr class="bi-divider">
             <div class="bi-field">
               <span class="bi-label">톤 <span class="bi-opt">문구 말투</span></span>
               <div class="tone-seg" id="bTone"></div>
@@ -1338,11 +1356,29 @@ function bErr(m){ var e=el("bErr"); if(!e) return; if(m){ e.hidden=false; e.text
 function setBStatus(m){ var s=el("bStatus"); if(s) s.textContent=m||""; }
 
 /* ---- 입력 UI ---- */
+// 템플릿 레이아웃을 작게 시각화 — 실제 구조(사진 영역·텍스트·골드바)를 미니로 표현
+function tplPreview(id){
+  if(id==="split") return '<div class="tpl-prev" style="background:#f4f4f3">'+
+    '<div style="position:absolute;top:0;left:0;right:0;height:56%;background:#1c1d21"></div>'+
+    '<span class="pp-bar" style="left:16%;top:64%"></span>'+
+    '<span class="pp-line" style="left:16%;right:24%;top:73%;background:#43454a"></span>'+
+    '<span class="pp-line" style="left:16%;right:42%;top:83%;height:4px;background:#9aa0a6"></span></div>';
+  if(id==="frame") return '<div class="tpl-prev" style="background:#f4f4f3">'+
+    '<span class="pp-bar" style="left:16%;top:13%"></span>'+
+    '<span class="pp-line" style="left:16%;right:32%;top:22%;background:#43454a"></span>'+
+    '<div style="position:absolute;left:16%;right:16%;top:35%;height:40%;border-radius:5px;background:#1c1d21"></div>'+
+    '<span class="pp-line" style="left:16%;right:36%;bottom:11%;height:4px;background:#9aa0a6"></span></div>';
+  return '<div class="tpl-prev" style="background:#1c1d21">'+   // fullbleed
+    '<span class="pp-bar" style="left:16%;bottom:36%"></span>'+
+    '<span class="pp-line" style="left:16%;right:22%;bottom:25%"></span>'+
+    '<span class="pp-line" style="left:16%;right:40%;bottom:15%;height:4px;opacity:.7"></span></div>';
+}
 function renderTplPick(){
   var box=el("bTpl"); if(!box) return; box.innerHTML="";
   BUILDER_TEMPLATES.forEach(function(t){
     var d=document.createElement("button"); d.type="button"; d.className="tpl-opt"+(ph().templateId===t.id?" on":"");
-    d.innerHTML='<span class="tpl-swatch" style="background:'+t.swatch+'"></span><span class="tpl-nm">'+esc(t.name)+'</span>';
+    var shortName=t.name.split(" (")[0];
+    d.innerHTML=tplPreview(t.id)+'<span class="tpl-nm">'+esc(shortName)+'</span>';
     d.addEventListener("click", function(){ ph().templateId=t.id; renderTplPick(); });
     box.appendChild(d);
   });
