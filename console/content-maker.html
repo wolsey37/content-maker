@@ -1427,19 +1427,13 @@ function wrapLines(ctx,text,maxW,maxLines){
   if(maxLines && lines.length>maxLines){ lines=lines.slice(0,maxLines); lines[maxLines-1]=lines[maxLines-1].replace(/.$/,"…"); }
   return lines;
 }
-function drawRoleTag(ctx,role){
-  if(!role) return;
-  ctx.font='700 30px -apple-system,"Apple SD Gothic Neo",sans-serif';
-  var w=ctx.measureText(role).width+46;
-  ctx.fillStyle="rgba(176,141,79,.94)"; roundRectPath(ctx,96,86,w,54,27); ctx.fill();
-  ctx.fillStyle="#fff"; ctx.textBaseline="middle"; ctx.fillText(role,119,114); ctx.textBaseline="top";
-}
+// 분류 라벨(표지·강점 등)은 결과 그리드의 UI 배지로만 — 발행 카드 이미지에는 박지 않는다(인쇄되면 어색).
 function composeCard(card, img, tplId){
   var cv=document.createElement("canvas"); cv.width=CARD_W; cv.height=CARD_H;
   var ctx=cv.getContext("2d");
   var SERIF='"Noto Serif KR",serif', SANS='-apple-system,"Apple SD Gothic Neo",sans-serif';
   var GREEN="#2f6b4f", IVORY="#f7f5ef", INK="#20271f", SUB="#46503f", GOLD="#b08d4f", WHITE="#ffffff";
-  var role=card.role||"", title=card.headline||"", body=card.body||"";
+  var title=card.headline||"", body=card.body||"";
   ctx.fillStyle=IVORY; ctx.fillRect(0,0,CARD_W,CARD_H); ctx.textBaseline="top";
   if(tplId==="split"){
     var top=Math.round(CARD_H*0.56);
@@ -1450,9 +1444,7 @@ function composeCard(card, img, tplId){
     ctx.fillStyle=INK; ctx.font='700 68px '+SERIF;
     var tl=wrapLines(ctx,title,CARD_W-192,3), y=top+104; tl.forEach(function(l){ ctx.fillText(l,96,y); y+=84; });
     ctx.fillStyle=SUB; ctx.font='400 38px '+SANS; y+=12;
-    wrapLines(ctx,body,CARD_W-192,3).forEach(function(l){ ctx.fillText(l,96,y); y+=54; });
-    drawRoleTag(ctx,role);
-  } else if(tplId==="frame"){
+    wrapLines(ctx,body,CARD_W-192,3).forEach(function(l){ ctx.fillText(l,96,y); y+=54; });  } else if(tplId==="frame"){
     ctx.fillStyle=GOLD; ctx.fillRect(96,124,72,6);
     ctx.fillStyle=INK; ctx.font='700 64px '+SERIF;
     var t2=wrapLines(ctx,title,CARD_W-192,2), y2=156; t2.forEach(function(l){ ctx.fillText(l,96,y2); y2+=78; });
@@ -1461,9 +1453,7 @@ function composeCard(card, img, tplId){
     if(img) drawCover(ctx,img,fx,fy,fw,fh); else { ctx.fillStyle="#e9f1ea"; ctx.fillRect(fx,fy,fw,fh); }
     ctx.restore();
     ctx.fillStyle=SUB; ctx.font='400 38px '+SANS; var by=fy+fh+36;
-    wrapLines(ctx,body,CARD_W-192,3).forEach(function(l){ ctx.fillText(l,96,by); by+=54; });
-    drawRoleTag(ctx,role);
-  } else {
+    wrapLines(ctx,body,CARD_W-192,3).forEach(function(l){ ctx.fillText(l,96,by); by+=54; });  } else {
     if(img) drawCover(ctx,img,0,0,CARD_W,CARD_H);
     else { var g2=ctx.createLinearGradient(0,0,CARD_W,CARD_H); g2.addColorStop(0,GREEN); g2.addColorStop(1,"#1c3a2b"); ctx.fillStyle=g2; ctx.fillRect(0,0,CARD_W,CARD_H); }
     var sg=ctx.createLinearGradient(0,CARD_H*0.42,0,CARD_H); sg.addColorStop(0,"rgba(15,20,12,0)"); sg.addColorStop(1,"rgba(15,20,12,.86)"); ctx.fillStyle=sg; ctx.fillRect(0,0,CARD_W,CARD_H);
@@ -1472,9 +1462,7 @@ function composeCard(card, img, tplId){
     var th=tl3.length*92, bh=bl3.length*56, startY=CARD_H-140-bh-(bl3.length?28:0)-th;
     ctx.fillStyle=GOLD; ctx.fillRect(96,startY-40,72,6);
     ctx.fillStyle=WHITE; ctx.font='900 76px '+SERIF; var yy=startY; tl3.forEach(function(l){ ctx.fillText(l,96,yy); yy+=92; });
-    yy+=16; ctx.fillStyle="rgba(255,255,255,.93)"; ctx.font='400 40px '+SANS; bl3.forEach(function(l){ ctx.fillText(l,96,yy); yy+=56; });
-    drawRoleTag(ctx,role);
-  }
+    yy+=16; ctx.fillStyle="rgba(255,255,255,.93)"; ctx.font='400 40px '+SANS; bl3.forEach(function(l){ ctx.fillText(l,96,yy); yy+=56; });  }
   return cv;
 }
 function composeAndSave(card, i, replaceKey, idxStr){
