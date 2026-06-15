@@ -75,7 +75,8 @@ export function createCore(opts) {
   }
   // 서버 모드(인증)에서 모든 S3 객체(미디어·작업)를 prod/<계정>/ 아래로 격리한다.
   // 로컬 모드는 userId 가 없으므로 "" → 기존 output/ 경로(회귀 없음).
-  const userPrefix = (auth) => (auth && auth.userId) ? ("prod/" + (san(auth.userId) || "unknown") + "/") : "";
+  // 약국 소개 카드뉴스(공개·무로그인)는 전용 폴더 pharmacy/ 아래로 별도 관리(계정 무관).
+  const userPrefix = (auth) => (auth && auth.pharmacy) ? "pharmacy/" : ((auth && auth.userId) ? ("prod/" + (san(auth.userId) || "unknown") + "/") : "");
 
   // 작업 state 에 의미 있는 내용(주제·단계 출력·생성 미디어)이 있는지 — 빈 작업 저장 거부용(클라이언트 jobHasContent 와 동일 기준).
   function stateHasContent(state) {
@@ -344,6 +345,15 @@ export function createCore(opts) {
 
     // /health 는 인증 게이트 앞에서 응답 — 외부 uptime/LB 헬스체크가 토큰 없이도 200 을 받도록(provider 키 값 등 민감정보는 없음).
     if (req.method === "GET" && req.path === "/health") return health();
+
+    // 약국 소개 카드뉴스 — 공개(로그인 없음), 전용 폴더 pharmacy/. 인증 게이트 앞에 둔다.
+    //   /pharmacy/run(문구 생성·서버 provider) · /pharmacy/upload(사진·합성카드 저장) · /pharmacy/jobs(목록·CRUD)
+    const PHARM_AUTH = { ok: true, pharmacy: true };
+    if (req.method === "POST" && req.path === "/pharmacy/run") return run(req);
+    if (req.method === "POST" && req.path === "/pharmacy/upload") return upload(req, PHARM_AUTH);
+    if (req.path === "/pharmacy/jobs" || req.path.startsWith("/pharmacy/jobs/")) {
+      return jobs({ ...req, path: req.path.replace(/^\/pharmacy/, "") }, PHARM_AUTH);
+    }
 
     let auth = { ok: true, userId: null };
     if (requireAuth) {
