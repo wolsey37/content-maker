@@ -15,25 +15,27 @@
    백엔드 계약(/run /image /jobs /health /auth)과 작업 스키마는 기존과 동일.
    ========================================================================== */
 :root{
-  --bg:#f7f5ef; --panel:#fffefb; --ink:#20271f; --ink-2:#46503f; --muted:#79836f;
-  --line:#e7e3d6; --line-soft:#efece2; --line-strong:#d3cebd;
-  --brand:#2f6b4f; --brand-d:#26573f; --brand-soft:#e9f1ea; --brand-line:#c3d9c9;
-  --gold:#a98850; --gold-soft:#f5eede; --gold-line:#e2d3b4;
+  /* 블랙 & 아이보리 모노크롬 + 골드 액센트 */
+  --bg:#f4f4f3; --panel:#ffffff; --ink:#16171a; --ink-2:#43454a; --muted:#83858b;
+  --line:#e6e5e3; --line-soft:#efeeec; --line-strong:#d1d0cd;
+  --brand:#1c1d21; --brand-d:#000000; --brand-soft:#ececee; --brand-line:#d3d3d6;
+  --gold:#a98850; --gold-soft:#f4eede; --gold-line:#e2d3b4;
   --ok:#1f8a55; --ok-soft:#e7f4ec; --err:#c4453c; --err-soft:#faecea; --warn:#a0762a;
-  --hover:#f1eee3; --chip:#f0ede1; --input:#fffefb; --bar:rgba(252,251,245,.86);
-  --sh-1:0 1px 2px rgba(28,32,24,.05); --sh-2:0 8px 28px rgba(28,32,24,.10); --sh-3:0 24px 64px rgba(28,32,24,.18);
+  --hover:#f0efed; --chip:#eeedeb; --input:#ffffff; --bar:rgba(250,250,249,.86);
+  --sh-1:0 1px 2px rgba(20,20,22,.06); --sh-2:0 8px 28px rgba(20,20,22,.12); --sh-3:0 24px 64px rgba(20,20,22,.22);
   --r1:10px; --r2:14px; --r3:22px;
   --serif:'Noto Serif KR','Apple SD Gothic Neo',serif;
   --ease:cubic-bezier(.4,0,.2,1);
 }
 html[data-theme="dark"]{
-  --bg:#10140f; --panel:#191f17; --ink:#e9ece3; --ink-2:#bcc4b6; --muted:#919b8c;
-  --line:#2a3227; --line-soft:#222a20; --line-strong:#3c463a;
-  --brand:#74b893; --brand-d:#61a680; --brand-soft:#1c2a20; --brand-line:#32503e;
-  --gold:#cfa96a; --gold-soft:#2a2414; --gold-line:#55481f;
+  /* 트루 블랙/차콜 + 밝은 액센트 + 골드 */
+  --bg:#0b0b0d; --panel:#161618; --ink:#ececed; --ink-2:#bcbdc1; --muted:#8a8b91;
+  --line:#262629; --line-soft:#1f1f22; --line-strong:#3a3a3f;
+  --brand:#ededef; --brand-d:#ffffff; --brand-soft:#212124; --brand-line:#3a3a3f;
+  --gold:#cfa96a; --gold-soft:#272013; --gold-line:#564920;
   --ok:#4fcf8f; --ok-soft:#11271a; --err:#ff7a6e; --err-soft:#341c18; --warn:#e6b85c;
-  --hover:#232b21; --chip:#242c22; --input:#131811; --bar:rgba(19,24,18,.88);
-  --sh-1:0 1px 2px rgba(0,0,0,.4); --sh-2:0 8px 28px rgba(0,0,0,.5); --sh-3:0 24px 64px rgba(0,0,0,.6);
+  --hover:#202023; --chip:#222225; --input:#101012; --bar:rgba(12,12,14,.9);
+  --sh-1:0 1px 2px rgba(0,0,0,.5); --sh-2:0 8px 28px rgba(0,0,0,.6); --sh-3:0 24px 64px rgba(0,0,0,.7);
 }
 @media (prefers-reduced-motion: reduce){ *{ animation-duration:.001ms!important; transition-duration:.001ms!important; } }
 *{box-sizing:border-box;} html,body{margin:0;padding:0;}
@@ -61,7 +63,7 @@ button{ font-family:inherit; }
 /* ---- 공용 버튼 ---- */
 .btn{ font-size:13.5px; font-weight:600; cursor:pointer; border:1px solid var(--line); background:var(--panel); color:var(--ink); border-radius:var(--r1); padding:9px 16px; transition:all .12s var(--ease); white-space:nowrap; }
 .btn:hover{ background:var(--hover); border-color:var(--line-strong); }
-.btn.pri{ background:var(--brand); border-color:var(--brand); color:#fff; box-shadow:0 3px 14px rgba(47,107,79,.28); }
+.btn.pri{ background:var(--brand); border-color:var(--brand); color:#fff; box-shadow:0 3px 14px rgba(20,20,22,.22); }
 .btn.pri:hover{ background:var(--brand-d); }
 html[data-theme="dark"] .btn.pri{ color:#0e1611; }
 .btn.ghost{ background:transparent; }
@@ -258,6 +260,12 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
 .photo-thumb{ position:relative; width:84px; height:105px; border-radius:var(--r1); overflow:hidden; border:1px solid var(--line); background:var(--chip); }
 .photo-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
 .photo-thumb .pt-del{ position:absolute; top:3px; right:3px; width:20px; height:20px; border-radius:50%; border:none; background:rgba(20,24,18,.6); color:#fff; font-size:11px; cursor:pointer; line-height:1; }
+.photo-thumb .pt-no{ position:absolute; top:3px; left:3px; min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:rgba(20,24,18,.62); color:#fff; font-size:10.5px; font-weight:700; line-height:18px; text-align:center; }
+.photo-thumb .pt-move{ position:absolute; left:0; right:0; bottom:0; display:flex; opacity:0; transition:opacity .12s; }
+.photo-thumb:hover .pt-move{ opacity:1; }
+.photo-thumb .pt-move button{ flex:1; border:none; background:rgba(20,24,18,.66); color:#fff; font-size:11px; padding:4px 0; cursor:pointer; }
+.photo-thumb .pt-move button:disabled{ opacity:.3; cursor:default; }
+.photo-thumb .pt-move button:first-child{ border-right:1px solid rgba(255,255,255,.2); }
 .photo-thumb .pt-up{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(20,24,18,.45); color:#fff; font-size:11px; }
 .photo-thumb.pending{ display:flex; align-items:center; justify-content:center; }
 .bi-side{ display:flex; flex-direction:column; gap:18px; background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:18px; position:sticky; top:74px; }
@@ -268,9 +276,15 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
 .tpl-opt.on{ border-color:var(--brand); background:var(--brand-soft); }
 .tpl-swatch{ width:30px; height:38px; border-radius:5px; flex:none; border:1px solid rgba(0,0,0,.08); box-shadow:var(--sh-1); }
 .tpl-opt .tpl-nm{ font-size:13px; font-weight:600; color:var(--ink); }
-.tone-seg{ display:flex; gap:6px; flex-wrap:wrap; }
-.tone-seg button{ flex:1 1 auto; border:1px solid var(--line); background:var(--panel); color:var(--ink-2); font-size:12.5px; font-weight:600; border-radius:999px; padding:8px 6px; cursor:pointer; }
-.tone-seg button.on{ border-color:var(--brand); background:var(--brand-soft); color:var(--brand-d); }
+.tone-seg,.opt-seg{ display:flex; gap:6px; flex-wrap:wrap; }
+.tone-seg button,.opt-seg button{ flex:1 1 auto; border:1px solid var(--line); background:var(--panel); color:var(--ink-2); font-size:12.5px; font-weight:600; border-radius:999px; padding:8px 6px; cursor:pointer; white-space:nowrap; }
+.tone-seg button.on,.opt-seg button.on{ border-color:var(--brand); background:var(--brand-soft); color:var(--brand-d); }
+.palette-row{ display:flex; gap:8px; flex-wrap:wrap; }
+.palette-row button{ width:34px; height:34px; border-radius:50%; border:2px solid var(--line); cursor:pointer; padding:0; position:relative; }
+.palette-row button.on{ border-color:var(--ink); box-shadow:0 0 0 2px var(--panel) inset; }
+.palette-row button .pc-dot{ position:absolute; inset:0; border-radius:50%; }
+.bi-select{ width:100%; border:1px solid var(--line); border-radius:var(--r1); background:var(--input); color:var(--ink); font-family:inherit; font-size:13px; padding:9px 11px; cursor:pointer; outline:none; }
+.bi-select:focus{ border-color:var(--brand-line); }
 .bi-go{ width:100%; }
 .bi-note{ font-size:12px; color:var(--muted); text-align:center; margin:0; min-height:14px; }
 
@@ -305,6 +319,10 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
 .pc-edit input,.pc-edit textarea,.pc-edit select{ width:100%; border:1px solid var(--brand-line); border-radius:8px; background:var(--input); color:var(--ink); font-family:inherit; font-size:12.5px; padding:7px 9px; outline:none; resize:vertical; }
 .pc-edit .pe-acts{ display:flex; gap:6px; justify-content:flex-end; }
 .pc-edit .pe-acts .btn{ font-size:11.5px; padding:6px 11px; border-radius:8px; }
+.pos-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:3px; width:84px; aspect-ratio:4/5; }
+.pos-grid .pg-cell{ border:1px solid var(--line); background:var(--chip); border-radius:4px; cursor:pointer; padding:0; }
+.pos-grid .pg-cell:hover{ border-color:var(--brand-line); }
+.pos-grid .pg-cell.on{ background:var(--brand); border-color:var(--brand); }
 </style>
 </head>
 <body>
@@ -380,8 +398,28 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
               <div class="tpl-pick" id="bTpl"></div>
             </div>
             <div class="bi-field">
-              <span class="bi-label">톤</span>
+              <span class="bi-label">컬러 테마</span>
+              <div class="palette-row" id="bPalette"></div>
+            </div>
+            <div class="bi-field">
+              <span class="bi-label">제목 서체</span>
+              <div class="opt-seg" id="bFont"></div>
+            </div>
+            <div class="bi-field">
+              <span class="bi-label">글자 정렬</span>
+              <div class="opt-seg" id="bAlign"></div>
+            </div>
+            <div class="bi-field">
+              <span class="bi-label">사진 농도 <span class="bi-opt">풀블리드</span></span>
+              <div class="opt-seg" id="bOverlay"></div>
+            </div>
+            <div class="bi-field">
+              <span class="bi-label">톤 <span class="bi-opt">문구 말투</span></span>
               <div class="tone-seg" id="bTone"></div>
+            </div>
+            <div class="bi-field">
+              <span class="bi-label">AI 엔진</span>
+              <select class="bi-select" id="bEngine" title="문구를 생성할 AI"></select>
             </div>
             <button class="btn pri lg bi-go" id="bGenerate" type="button">✨ 카드뉴스 만들기</button>
             <p class="bi-note" id="bInputNote"></p>
@@ -697,7 +735,7 @@ function freshState(){
     imageGen:{ prompts:"", runId:"", items:[], provider:"codex", imageModel:"", concurrency:2 },
     videoGen:{ cuts:"", runId:"", items:[], provider:"claude", engine:"higgsfield", videoModel:"seedance_1_5", concurrency:1 },
     // 약국 소개 카드뉴스 전용 — 자유 설명 + 업로드 사진 + 카드 정의(문구·배경사진·템플릿). 최종 PNG 는 imageGen.items 재사용.
-    pharmacy:{ intro:"", tone:"warm", templateId:"fullbleed", photos:[], cards:[], runId:"" } };
+    pharmacy:{ intro:"", tone:"warm", templateId:"fullbleed", palette:"gold", align:"left", overlay:"med", font:"serif", photos:[], cards:[], runId:"" } };
 }
 function setSteps(platform){
   var prev=(state&&state.steps)||{};
@@ -767,7 +805,15 @@ function checkConn(){
   connected=null; refreshConnUI();
   pharmacyFetch("/health?_="+Date.now(),{ cache:"no-store" })
     .then(function(r){ return r.ok?r.json():null; })
-    .then(function(d){ connected=!!(d && d.ok===true); refreshConnUI(); })
+    .then(function(d){
+      connected=!!(d && d.ok===true);
+      if(d && d.providers){   // 활성 provider → AI 엔진 목록
+        pharmServerProviders={}; var act=d.providers, caps=d.capabilities||{};
+        Object.keys(act).forEach(function(id){ if(act[id]!==false && (!caps[id] || caps[id].text!==false)) pharmServerProviders[id]=true; });
+        renderEngineSel();
+      }
+      refreshConnUI();
+    })
     .catch(function(){ connected=false; refreshConnUI(); });
 }
 
@@ -1249,8 +1295,8 @@ function toggleTheme(){
 var CARD_W=1080, CARD_H=1350;
 var PHARM_PLATFORM="약국 소개 카드뉴스";
 var BUILDER_TEMPLATES=[
-  { id:"fullbleed", name:"풀블리드 (사진 가득)", swatch:"linear-gradient(160deg,#3a5f4a,#20271f)" },
-  { id:"split",     name:"분할 (사진+여백)",     swatch:"linear-gradient(180deg,#3a5f4a 56%,#f7f5ef 56%)" },
+  { id:"fullbleed", name:"풀블리드 (사진 가득)", swatch:"linear-gradient(160deg,#3a3b40,#0f1012)" },
+  { id:"split",     name:"분할 (사진+여백)",     swatch:"linear-gradient(180deg,#3a3b40 56%,#f4f4f3 56%)" },
   { id:"frame",     name:"프레임 (아이보리)",     swatch:"linear-gradient(160deg,#f7f5ef,#e6dcc4)" }
 ];
 var PHARM_TONES=[ {k:"warm",l:"따뜻한"}, {k:"pro",l:"전문적인"}, {k:"friendly",l:"친근한"} ];
@@ -1262,6 +1308,29 @@ var PHARM_EXAMPLES=[
   "약국 이름: ○○약국\n위치: ○○동 재래시장 입구\n운영시간: 평일 09:00~19:30 · 토요일 09:00~14:00\n강점: 복용 시간 큰 글씨 안내, 어르신 눈높이 설명, 혈압·당뇨 만성질환 복약 관리\n편의: 정기 복약 관리 · 가까운 거리 상담\n인사말: 어르신도 약을 헷갈리지 않게 천천히, 가족처럼 챙겨드립니다."
 ];
 var PHARM_TONE_DESC={ warm:"따뜻하고 정감 있는", pro:"전문적이고 신뢰감 있는", friendly:"밝고 친근한" };
+// 디자인 옵션(상업용 카드 툴 참고) — 컬러 테마·글자 정렬·사진 농도·제목 서체
+var PHARM_PALETTES=[
+  { id:"gold",    name:"골드",    accent:"#b08d4f" },
+  { id:"emerald", name:"에메랄드", accent:"#2f7d57" },
+  { id:"navy",    name:"네이비",  accent:"#3f6191" },
+  { id:"rose",    name:"로즈",    accent:"#b45e6e" },
+  { id:"silver",  name:"실버",    accent:"#8b9097" }
+];
+var PHARM_ALIGNS=[ {k:"left",l:"왼쪽"}, {k:"center",l:"가운데"} ];
+var PHARM_OVERLAYS=[ {k:"soft",l:"밝게",a:0.55}, {k:"med",l:"보통",a:0.78}, {k:"strong",l:"진하게",a:0.9} ];
+var PHARM_FONTS=[ {k:"serif",l:"명조(고급)"}, {k:"sans",l:"고딕(깔끔)"} ];
+// AI 엔진 후보 — 람다 /health 활성 provider 로 필터해서 노출
+var PHARM_ENGINES=[
+  { k:"openai:",            provider:"openai",    model:"",            label:"기본 · GPT-5.5" },
+  { k:"openai:gpt-5.4-mini",provider:"openai",    model:"gpt-5.4-mini",label:"빠르게 · GPT-5.4 mini" },
+  { k:"anthropic:",         provider:"anthropic", model:"",            label:"Claude · Anthropic" }
+];
+var pharmServerProviders={};   // 람다 활성 provider (id->true)
+var pharmEngineSel=(function(){ try{ return localStorage.getItem("cp_pharm_engine")||"openai:"; }catch(e){ return "openai:"; } })();
+function availEngines(){ var a=PHARM_ENGINES.filter(function(e){ return pharmServerProviders[e.provider]; }); return a.length?a:[PHARM_ENGINES[0]]; }
+function currentEngine(){ var a=availEngines(); return a.filter(function(e){ return e.k===pharmEngineSel; })[0]||a[0]; }
+function paletteAccent(){ var p=PHARM_PALETTES.filter(function(x){ return x.id===(ph().palette||"gold"); })[0]||PHARM_PALETTES[0]; return p.accent; }
+function overlayAlpha(){ var o=PHARM_OVERLAYS.filter(function(x){ return x.k===(ph().overlay||"med"); })[0]||PHARM_OVERLAYS[1]; return o.a; }
 var pharmUploading=0, pharmBusy=false, pharmEditing=null;
 function ph(){ if(!state.pharmacy) state.pharmacy=freshState().pharmacy; return state.pharmacy; }
 function bInputNote(m){ var n=el("bInputNote"); if(n) n.textContent=m||""; }
@@ -1286,17 +1355,60 @@ function renderToneSeg(){
     box.appendChild(b);
   });
 }
+// 옵션 세그먼트 공용 렌더 (글자 정렬·사진 농도·서체)
+function renderOptSeg(boxId, items, getCur, setCur){
+  var box=el(boxId); if(!box) return; box.innerHTML="";
+  items.forEach(function(t){
+    var b=document.createElement("button"); b.type="button"; b.className=(getCur()===t.k?"on":""); b.textContent=t.l;
+    b.addEventListener("click", function(){ setCur(t.k); renderOptSeg(boxId, items, getCur, setCur); });
+    box.appendChild(b);
+  });
+}
+function renderPalette(){
+  var box=el("bPalette"); if(!box) return; box.innerHTML="";
+  PHARM_PALETTES.forEach(function(p){
+    var b=document.createElement("button"); b.type="button"; b.title=p.name; b.className=((ph().palette||"gold")===p.id?"on":"");
+    b.innerHTML='<span class="pc-dot" style="background:'+p.accent+'"></span>';
+    b.addEventListener("click", function(){ ph().palette=p.id; renderPalette(); });
+    box.appendChild(b);
+  });
+}
+function renderEngineSel(){
+  var sel=el("bEngine"); if(!sel) return; var a=availEngines();
+  sel.innerHTML=""; a.forEach(function(e){ var o=document.createElement("option"); o.value=e.k; o.textContent=e.label; sel.appendChild(o); });
+  sel.value=currentEngine().k;
+}
+function renderDesignOpts(){
+  renderPalette();
+  renderOptSeg("bFont", PHARM_FONTS, function(){ return ph().font||"serif"; }, function(v){ ph().font=v; });
+  renderOptSeg("bAlign", PHARM_ALIGNS, function(){ return ph().align||"left"; }, function(v){ ph().align=v; });
+  renderOptSeg("bOverlay", PHARM_OVERLAYS, function(){ return ph().overlay||"med"; }, function(v){ ph().overlay=v; });
+  renderEngineSel();
+}
 function renderPhotoStrip(){
   var box=el("bPhotoStrip"); if(!box) return; box.innerHTML="";
+  var n=(ph().photos||[]).length;
   (ph().photos||[]).forEach(function(p,i){
     var d=document.createElement("div"); d.className="photo-thumb"+(p.pending?" pending":"");
-    if(p.pending) d.innerHTML='<span class="pt-up"><span class="spin"></span></span>';
-    else d.innerHTML='<img crossorigin="anonymous" src="'+esc(mediaSrc(p.url))+'" alt="사진 '+(i+1)+'"><button class="pt-del" type="button" data-pdel="'+i+'" title="삭제">✕</button>';
+    if(p.pending){ d.innerHTML='<span class="pt-up"><span class="spin"></span></span>'; box.appendChild(d); return; }
+    d.innerHTML='<img crossorigin="anonymous" src="'+esc(mediaSrc(p.url))+'" alt="사진 '+(i+1)+'">'+
+      '<span class="pt-no">'+(i+1)+'</span>'+
+      '<button class="pt-del" type="button" data-pdel="'+i+'" title="삭제">✕</button>'+
+      '<div class="pt-move">'+
+        '<button type="button" data-pmove="'+i+'|-1" title="앞으로"'+(i===0?' disabled':'')+'>◀</button>'+
+        '<button type="button" data-pmove="'+i+'|1" title="뒤로"'+(i>=n-1?' disabled':'')+'>▶</button>'+
+      '</div>';
     box.appendChild(d);
   });
 }
+function movePhoto(i, delta){
+  var a=ph().photos, j=i+delta;
+  if(j<0||j>=a.length) return;
+  var t=a[i]; a[i]=a[j]; a[j]=t;
+  renderPhotoStrip(); saveLocal();
+}
 function updateGenBtn(){ var b=el("bGenerate"); if(!b) return; b.disabled=(pharmUploading>0)||pharmBusy; b.textContent=pharmUploading>0?"사진 올리는 중…":"✨ 카드뉴스 만들기"; }
-function renderBuilderInput(){ el("bIntro").value=ph().intro||""; renderTplPick(); renderToneSeg(); renderPhotoStrip(); updateGenBtn(); }
+function renderBuilderInput(){ el("bIntro").value=ph().intro||""; renderTplPick(); renderToneSeg(); renderDesignOpts(); renderPhotoStrip(); updateGenBtn(); }
 
 /* ---- 사진 업로드(클라 다운스케일 후 /upload) ---- */
 function downscaleImage(file, maxDim, quality){
@@ -1335,9 +1447,13 @@ function onPhotoFiles(files){
 }
 
 /* ---- AI 문구 ---- */
-function buildCopyPrompt(intro, nPhotos, tone){
+function buildCopyPrompt(intro, nPhotos, tone, count){
   var toneD=PHARM_TONE_DESC[tone]||"따뜻하고 친근한";
-  return "당신은 약국 소개용 인스타그램 카드뉴스 카피라이터입니다. 아래 약사님이 적은 약국 설명을 바탕으로, 약국을 소개하는 카드뉴스 6장의 문구를 작성하세요.\n\n[약국 설명]\n"+(intro||"(설명이 비어 있음 — 일반적인 동네 약국 소개로 자연스럽게 작성)")+"\n\n[배경 사진]\n약사님이 올린 실제 약국 사진 "+nPhotos+"장이 각 카드 배경으로 깔립니다. 사진 위에 얹을 짧고 또렷한 문구를 써주세요.\n\n[톤]\n"+toneD+" 말투\n\n[카드 구성(6장 권장)]\n1) 표지 — 약국 이름/한 줄 소개  2) 인사말  3) 약국의 강점·특징  4) 취급·서비스 안내  5) 위치·운영시간  6) 마무리 인사(방문 환영·연락)\n\n[작성 규칙]\n- 각 카드: 제목(16자 이내, 사진 위 큰 글씨) + 본문(2줄·45자 이내)\n- 약국 설명에 있는 사실만 사용하고 지어내지 마세요. 정보가 없으면 일반적인 약국 인사로 자연스럽게 채우세요.\n- 의약품 광고 심의에 어긋나는 효능 단정·과장 표현을 쓰지 마세요.\n- 이모지·해시태그·따옴표 없이 문구만.\n\n[출력 형식] 정확히 아래 형식으로 6개 반복. 다른 설명/머리말 없이 카드만 출력:\n@@@CARD\nROLE: 표지\nTITLE: (제목)\nBODY: (본문)\n";
+  var n=count||6;
+  var photoLine=nPhotos>0
+    ? "약사님이 올린 실제 약국 사진 "+nPhotos+"장이 카드 1장당 1장씩 배경으로 깔립니다. 그래서 카드도 정확히 "+n+"장 만드세요. 사진 위에 얹을 짧고 또렷한 문구를 써주세요."
+    : "사진 없이 브랜드 배경으로 만듭니다. 카드는 "+n+"장 만드세요.";
+  return "당신은 약국 소개용 인스타그램 카드뉴스 카피라이터입니다. 아래 약사님이 적은 약국 설명을 바탕으로, 약국을 소개하는 카드뉴스 "+n+"장의 문구를 작성하세요.\n\n[약국 설명]\n"+(intro||"(설명이 비어 있음 — 일반적인 동네 약국 소개로 자연스럽게 작성)")+"\n\n[배경 사진]\n"+photoLine+"\n\n[톤]\n"+toneD+" 말투\n\n[카드 구성]\n- 정확히 "+n+"장. 첫 장은 표지(약국 이름/한 줄 소개), 마지막 장은 마무리 인사(방문 환영·연락).\n- 가운데 장들은 인사말·강점·취급/서비스·위치·운영시간 중에서 "+n+"장에 맞게 골라 자연스럽게 구성하세요.\n\n[작성 규칙]\n- 각 카드: 제목(16자 이내, 사진 위 큰 글씨) + 본문(2줄·45자 이내)\n- 약국 설명에 있는 사실만 사용하고 지어내지 마세요. 정보가 없으면 일반적인 약국 인사로 자연스럽게 채우세요.\n- 의약품 광고 심의에 어긋나는 효능 단정·과장 표현을 쓰지 마세요.\n- 이모지·해시태그·따옴표 없이 문구만.\n\n[출력 형식] 정확히 아래 형식으로 "+n+"개만 반복. 다른 설명/머리말 없이 카드만 출력:\n@@@CARD\nROLE: 표지\nTITLE: (제목)\nBODY: (본문)\n";
 }
 function cleanField(s){ return String(s||"").replace(/^["'“”\s]+|["'“”\s]+$/g,"").replace(/\s*\n\s*/g," ").trim(); }
 function parseCardPlan(text){
@@ -1364,10 +1480,11 @@ function ensureFonts(){
     : Promise.resolve();
   return pharmFonts;
 }
-function drawCover(ctx,img,dx,dy,dw,dh){
+function drawCover(ctx,img,dx,dy,dw,dh,fx,fy){
+  fx=(fx==null?0.5:fx); fy=(fy==null?0.5:fy);   // 0~1 초점(이미지 위치 이동)
   var ir=img.width/img.height, dr=dw/dh, sw,sh,sx,sy;
-  if(ir>dr){ sh=img.height; sw=sh*dr; sx=(img.width-sw)/2; sy=0; }
-  else { sw=img.width; sh=sw/dr; sx=0; sy=(img.height-sh)/2; }
+  if(ir>dr){ sh=img.height; sw=sh*dr; sx=(img.width-sw)*fx; sy=0; }
+  else { sw=img.width; sh=sw/dr; sx=0; sy=(img.height-sh)*fy; }
   ctx.drawImage(img,sx,sy,sw,sh,dx,dy,dw,dh);
 }
 function roundRectPath(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
@@ -1387,41 +1504,53 @@ function wrapLines(ctx,text,maxW,maxLines){
   return lines;
 }
 // 분류 라벨(표지·강점 등)은 결과 그리드의 UI 배지로만 — 발행 카드 이미지에는 박지 않는다(인쇄되면 어색).
+// 디자인 옵션: 컬러 테마(accent)·글자 정렬·사진 농도·제목 서체·이미지 위치(focusX/Y).
 function composeCard(card, img, tplId){
   var cv=document.createElement("canvas"); cv.width=CARD_W; cv.height=CARD_H;
   var ctx=cv.getContext("2d");
   var SERIF='"Noto Serif KR",serif', SANS='-apple-system,"Apple SD Gothic Neo",sans-serif';
-  var GREEN="#2f6b4f", IVORY="#f7f5ef", INK="#20271f", SUB="#46503f", GOLD="#b08d4f", WHITE="#ffffff";
+  var DK1="#26272c", DK2="#0c0c0e", IVORY="#f4f4f3", INK="#16171a", SUB="#43454a", WHITE="#ffffff";
+  var ACCENT=paletteAccent();
+  var titleFont=(ph().font==="sans")?SANS:SERIF;
+  var align=(ph().align==="center")?"center":"left";
+  var PAD=96, CW=CARD_W-PAD*2;
+  var tx=(align==="center")?CARD_W/2:PAD;          // 텍스트 기준 x
+  var bx=(align==="center")?(CARD_W/2-36):PAD;     // accent bar x
+  var fX=(card.focusX==null?0.5:card.focusX), fY=(card.focusY==null?0.5:card.focusY);
   var title=card.headline||"", body=card.body||"";
-  ctx.fillStyle=IVORY; ctx.fillRect(0,0,CARD_W,CARD_H); ctx.textBaseline="top";
+  ctx.fillStyle=IVORY; ctx.fillRect(0,0,CARD_W,CARD_H); ctx.textBaseline="top"; ctx.textAlign=align;
+  function darkBg(x,y,w,h){ var g=ctx.createLinearGradient(0,0,w,h); g.addColorStop(0,DK1); g.addColorStop(1,DK2); ctx.fillStyle=g; ctx.fillRect(x,y,w,h); }
   if(tplId==="split"){
     var top=Math.round(CARD_H*0.56);
-    if(img) drawCover(ctx,img,0,0,CARD_W,top);
-    else { var g=ctx.createLinearGradient(0,0,CARD_W,top); g.addColorStop(0,GREEN); g.addColorStop(1,"#23503a"); ctx.fillStyle=g; ctx.fillRect(0,0,CARD_W,top); }
+    if(img) drawCover(ctx,img,0,0,CARD_W,top,fX,fY); else darkBg(0,0,CARD_W,top);
     ctx.fillStyle=IVORY; ctx.fillRect(0,top,CARD_W,CARD_H-top);
-    ctx.fillStyle=GOLD; ctx.fillRect(96,top+72,72,6);
-    ctx.fillStyle=INK; ctx.font='700 68px '+SERIF;
-    var tl=wrapLines(ctx,title,CARD_W-192,3), y=top+104; tl.forEach(function(l){ ctx.fillText(l,96,y); y+=84; });
+    ctx.fillStyle=ACCENT; ctx.fillRect(bx,top+72,72,6);
+    ctx.fillStyle=INK; ctx.font='700 68px '+titleFont;
+    var y=top+104; wrapLines(ctx,title,CW,3).forEach(function(l){ ctx.fillText(l,tx,y); y+=84; });
     ctx.fillStyle=SUB; ctx.font='400 38px '+SANS; y+=12;
-    wrapLines(ctx,body,CARD_W-192,3).forEach(function(l){ ctx.fillText(l,96,y); y+=54; });  } else if(tplId==="frame"){
-    ctx.fillStyle=GOLD; ctx.fillRect(96,124,72,6);
-    ctx.fillStyle=INK; ctx.font='700 64px '+SERIF;
-    var t2=wrapLines(ctx,title,CARD_W-192,2), y2=156; t2.forEach(function(l){ ctx.fillText(l,96,y2); y2+=78; });
-    var fx=96, fy=y2+26, fw=CARD_W-192, fh=Math.round(CARD_H*0.45);
+    wrapLines(ctx,body,CW,3).forEach(function(l){ ctx.fillText(l,tx,y); y+=54; });
+  } else if(tplId==="frame"){
+    ctx.fillStyle=ACCENT; ctx.fillRect(bx,124,72,6);
+    ctx.fillStyle=INK; ctx.font='700 64px '+titleFont;
+    var y2=156; wrapLines(ctx,title,CW,2).forEach(function(l){ ctx.fillText(l,tx,y2); y2+=78; });
+    var fx=PAD, fy=y2+26, fw=CW, fh=Math.round(CARD_H*0.45);
     ctx.save(); roundRectPath(ctx,fx,fy,fw,fh,26); ctx.clip();
-    if(img) drawCover(ctx,img,fx,fy,fw,fh); else { ctx.fillStyle="#e9f1ea"; ctx.fillRect(fx,fy,fw,fh); }
+    if(img) drawCover(ctx,img,fx,fy,fw,fh,fX,fY); else { ctx.fillStyle="#e7e7e9"; ctx.fillRect(fx,fy,fw,fh); }
     ctx.restore();
     ctx.fillStyle=SUB; ctx.font='400 38px '+SANS; var by=fy+fh+36;
-    wrapLines(ctx,body,CARD_W-192,3).forEach(function(l){ ctx.fillText(l,96,by); by+=54; });  } else {
-    if(img) drawCover(ctx,img,0,0,CARD_W,CARD_H);
-    else { var g2=ctx.createLinearGradient(0,0,CARD_W,CARD_H); g2.addColorStop(0,GREEN); g2.addColorStop(1,"#1c3a2b"); ctx.fillStyle=g2; ctx.fillRect(0,0,CARD_W,CARD_H); }
-    var sg=ctx.createLinearGradient(0,CARD_H*0.42,0,CARD_H); sg.addColorStop(0,"rgba(15,20,12,0)"); sg.addColorStop(1,"rgba(15,20,12,.86)"); ctx.fillStyle=sg; ctx.fillRect(0,0,CARD_W,CARD_H);
-    ctx.font='900 76px '+SERIF; var tl3=wrapLines(ctx,title,CARD_W-192,3);
-    ctx.font='400 40px '+SANS; var bl3=wrapLines(ctx,body,CARD_W-192,3);
+    wrapLines(ctx,body,CW,3).forEach(function(l){ ctx.fillText(l,tx,by); by+=54; });
+  } else {
+    if(img) drawCover(ctx,img,0,0,CARD_W,CARD_H,fX,fY); else darkBg(0,0,CARD_W,CARD_H);
+    var a=overlayAlpha();
+    var sg=ctx.createLinearGradient(0,CARD_H*0.38,0,CARD_H); sg.addColorStop(0,"rgba(10,10,12,0)"); sg.addColorStop(1,"rgba(10,10,12,"+a+")"); ctx.fillStyle=sg; ctx.fillRect(0,0,CARD_W,CARD_H);
+    ctx.font='900 76px '+titleFont; var tl3=wrapLines(ctx,title,CW,3);
+    ctx.font='400 40px '+SANS; var bl3=wrapLines(ctx,body,CW,3);
     var th=tl3.length*92, bh=bl3.length*56, startY=CARD_H-140-bh-(bl3.length?28:0)-th;
-    ctx.fillStyle=GOLD; ctx.fillRect(96,startY-40,72,6);
-    ctx.fillStyle=WHITE; ctx.font='900 76px '+SERIF; var yy=startY; tl3.forEach(function(l){ ctx.fillText(l,96,yy); yy+=92; });
-    yy+=16; ctx.fillStyle="rgba(255,255,255,.93)"; ctx.font='400 40px '+SANS; bl3.forEach(function(l){ ctx.fillText(l,96,yy); yy+=56; });  }
+    ctx.fillStyle=ACCENT; ctx.fillRect(bx,startY-40,72,6);
+    ctx.fillStyle=WHITE; ctx.font='900 76px '+titleFont; var yy=startY; tl3.forEach(function(l){ ctx.fillText(l,tx,yy); yy+=92; });
+    yy+=16; ctx.fillStyle="rgba(255,255,255,.93)"; ctx.font='400 40px '+SANS; bl3.forEach(function(l){ ctx.fillText(l,tx,yy); yy+=56; });
+  }
+  ctx.textAlign="left";
   return cv;
 }
 function composeAndSave(card, i, replaceKey, idxStr){
@@ -1449,9 +1578,17 @@ function renderPharmaCards(){
     if(pharmEditing===i){
       var opts='<option value="-1">사진 없음 (브랜드 배경)</option>';
       (ph().photos||[]).forEach(function(p,pi){ opts+='<option value="'+pi+'">'+(pi+1)+'번 사진</option>'; });
+      var fX=(card.focusX==null?0.5:card.focusX), fY=(card.focusY==null?0.5:card.focusY);
+      var posGrid='<div class="pos-grid" data-posgrid="'+i+'">';
+      [0,0.5,1].forEach(function(gy){ [0,0.5,1].forEach(function(gx){
+        var on=(Math.abs(gx-fX)<0.01 && Math.abs(gy-fY)<0.01)?" on":"";
+        posGrid+='<button type="button" class="pg-cell'+on+'" data-fx="'+gx+'" data-fy="'+gy+'"></button>';
+      }); });
+      posGrid+='</div>';
       d.innerHTML='<div class="pc-edit"><label>제목</label><input type="text" class="pe-title" maxlength="40">'+
         '<label>본문</label><textarea class="pe-body" rows="3" maxlength="120"></textarea>'+
         '<label>배경 사진</label><select class="pe-photo">'+opts+'</select>'+
+        '<label>사진 위치</label>'+posGrid+
         '<div class="pe-acts"><button class="btn ghost" type="button" data-pcancel="1">취소</button>'+
         '<button class="btn pri" type="button" data-psave="'+i+'">저장·다시 합성</button></div></div>';
       d.querySelector(".pe-title").value=card.headline||"";
@@ -1501,15 +1638,17 @@ function generatePharmacyCards(){
   closeBuilderModal(); showBuilder(); el("bResult").hidden=false; bErr(null);   // 입력 팝업 닫고 결과 화면으로
   el("bBadge").textContent="만드는 중"; el("bBadge").className="studio-badge run";
   setBStatus("① 약국 소개 문구를 만들고 있어요…"); el("bCards").innerHTML="";
+  var eng=currentEngine();
+  var pn=photos.length;
+  var targetCount=pn>0 ? Math.min(8,pn) : 6;   // 사진이 있으면 사진 수 = 카드 수(1:1), 없으면 기본 6장
   pharmacyFetch("/pharmacy/run",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({ provider:"openai", model:"", prompt:buildCopyPrompt(intro, photos.length, ph().tone) }) })
+    body:JSON.stringify({ provider:eng.provider, model:eng.model, prompt:buildCopyPrompt(intro, pn, ph().tone, targetCount) }) })
     .then(function(r){ return r.json(); })
     .then(function(d){
       if(!d||!d.ok||!(d.output||"").trim()) throw new Error((d&&d.error)||"문구 생성 실패");
-      var cards=parseCardPlan(d.output);
-      if(cards.length<3) throw new Error("문구를 충분히 만들지 못했어요");
-      var pn=photos.length;
-      cards.forEach(function(c,i){ c.id="c"+i; c.photoIdx=pn?(i%pn):-1; c.templateId=ph().templateId; });
+      var cards=parseCardPlan(d.output).slice(0, targetCount);   // 목표 장수로 맞춤(AI가 더 줘도 컷)
+      if(!cards.length) throw new Error("문구를 만들지 못했어요");
+      cards.forEach(function(c,i){ c.id="c"+i; c.photoIdx=(pn? (i<pn?i:-1) : -1); c.templateId=ph().templateId; });   // 1:1 배정
       ph().cards=cards;
       state.imageGen.runId=ph().runId;
       state.imageGen.items=cards.map(function(){ return { pending:true }; });
@@ -1656,6 +1795,7 @@ function init(){
   el("bGenerate").addEventListener("click", generatePharmacyCards);
   el("bDownloadAll").addEventListener("click", downloadAllPharma);
   el("bIntro").addEventListener("input", function(){ ph().intro=el("bIntro").value; });
+  el("bEngine").addEventListener("change", function(){ pharmEngineSel=this.value; try{ localStorage.setItem("cp_pharm_engine",pharmEngineSel); }catch(e){} });
   el("bExamples").addEventListener("click", function(e){
     var b=e.target.closest&&e.target.closest("button[data-ex]"); if(!b) return;
     var ex=PHARM_EXAMPLES[parseInt(b.getAttribute("data-ex"),10)]; if(!ex) return;
@@ -1667,8 +1807,20 @@ function init(){
   dz.addEventListener("dragover", function(e){ e.preventDefault(); dz.classList.add("drag"); });
   dz.addEventListener("dragleave", function(){ dz.classList.remove("drag"); });
   dz.addEventListener("drop", function(e){ e.preventDefault(); dz.classList.remove("drag"); onPhotoFiles(e.dataTransfer&&e.dataTransfer.files); });
-  el("bPhotoStrip").addEventListener("click", function(e){ var b=e.target.closest&&e.target.closest("[data-pdel]"); if(!b) return; ph().photos.splice(parseInt(b.getAttribute("data-pdel"),10),1); renderPhotoStrip(); saveLocal(); });
+  el("bPhotoStrip").addEventListener("click", function(e){
+    var mv=e.target.closest&&e.target.closest("[data-pmove]");
+    if(mv){ var pr=mv.getAttribute("data-pmove").split("|"); movePhoto(parseInt(pr[0],10), parseInt(pr[1],10)); return; }
+    var b=e.target.closest&&e.target.closest("[data-pdel]"); if(!b) return;
+    ph().photos.splice(parseInt(b.getAttribute("data-pdel"),10),1); renderPhotoStrip(); saveLocal();
+  });
   el("bCards").addEventListener("click", function(e){
+    var pg=e.target.closest&&e.target.closest(".pg-cell");
+    if(pg){
+      var grid=pg.closest("[data-posgrid]"), ci=parseInt(grid.getAttribute("data-posgrid"),10), card=ph().cards[ci];
+      if(card){ card.focusX=parseFloat(pg.getAttribute("data-fx")); card.focusY=parseFloat(pg.getAttribute("data-fy")); }
+      grid.querySelectorAll(".pg-cell").forEach(function(c){ c.classList.toggle("on", c===pg); });   // 입력칸 유지 위해 재렌더 없이 강조만
+      return;
+    }
     var ed=e.target.closest&&e.target.closest("[data-pedit]"); if(ed){ if(!pharmBusy){ pharmEditing=parseInt(ed.getAttribute("data-pedit"),10); renderPharmaCards(); } return; }
     var cc=e.target.closest&&e.target.closest("[data-pcancel]"); if(cc){ pharmEditing=null; renderPharmaCards(); return; }
     var sv=e.target.closest&&e.target.closest("[data-psave]"); if(sv){
