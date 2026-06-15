@@ -109,6 +109,10 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
 .suggest .lbl{ font-size:11.5px; color:var(--gold); font-weight:700; letter-spacing:.06em; align-self:center; }
 .suggest button{ font-size:12.5px; color:var(--ink-2); background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:7px 14px; cursor:pointer; transition:all .12s; }
 .suggest button:hover{ border-color:var(--brand); color:var(--brand-d); background:var(--brand-soft); }
+.suggest-chips{ display:contents; }
+.suggest button.suggest-refresh{ color:var(--gold); background:var(--gold-soft); border-color:var(--gold-line); font-weight:700; }
+.suggest button.suggest-refresh:hover{ color:var(--gold); border-color:var(--gold); background:var(--gold-soft); filter:brightness(.97); }
+.suggest button.suggest-refresh:disabled{ opacity:.6; cursor:default; filter:none; }
 .conn-help{ max-width:720px; margin:18px auto 0; background:var(--panel); border:1px dashed var(--line-strong); border-radius:var(--r2); padding:14px 18px; font-size:13px; color:var(--ink-2); display:none; text-align:left; }
 .conn-help.show{ display:block; }
 .conn-help code{ background:var(--chip); border-radius:6px; padding:2px 8px; font-size:12px; }
@@ -259,12 +263,9 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
       </div>
     </div>
     <div class="suggest" id="suggest">
-      <span class="lbl">추천 주제</span>
-      <button type="button">감기약과 함께 먹으면 안 되는 약</button>
-      <button type="button">영양제 궁합 — 같이 먹으면 좋은 조합</button>
-      <button type="button">혈압약 복용 중 피해야 할 음식</button>
-      <button type="button">어린이 해열제 교차복용, 안전하게 하는 법</button>
-      <button type="button">유산균 고르는 법, 약사가 보는 기준</button>
+      <span class="lbl" id="suggestLbl">추천 주제</span>
+      <span class="suggest-chips" id="suggestChips"></span>
+      <button class="suggest-refresh" id="suggestRefresh" type="button" title="요즘 시기에 맞는 주제를 AI가 새로 추천해요">🔄 요즘 트렌드</button>
     </div>
     <div class="conn-help" id="connHelp"></div>
   </section>
@@ -675,6 +676,53 @@ function renderProv(){
 function openProvMenu(){ var m=el("provMenu"),b=el("provBox"),t=el("provTrigger"); if(!m) return; m.hidden=false; if(b) b.classList.add("open"); if(t) t.setAttribute("aria-expanded","true"); }
 function closeProvMenu(){ var m=el("provMenu"),b=el("provBox"),t=el("provTrigger"); if(!m) return; m.hidden=true; if(b) b.classList.remove("open"); if(t) t.setAttribute("aria-expanded","false"); }
 
+/* ====== 추천 주제 — 계절(요즘) 기반 기본값 + AI 트렌드 추천(그날 1회 캐시) ====== */
+var SEASONAL_TOPICS={
+  winter:[ "겨울철 감기·독감, 약 제대로 고르는 법", "면역력 챙기는 겨울 영양제 조합", "건조한 겨울, 손발 트러블 케어", "햇빛 적은 겨울 비타민D 챙기기", "난방기 켠 실내, 안구건조 관리법", "송년 모임 전후 숙취해소 똑똑하게" ],
+  spring:[ "환절기 알레르기 비염, 졸음 없이 관리하기", "황사·미세먼지철 눈·목 건강 지키기", "춘곤증 이기는 영양제와 생활습관", "봄 자외선, 이른 선크림이 중요한 이유", "새학기 아이 영양제 고르는 기준", "봄철 환절기 면역력 관리법" ],
+  summer:[ "여름 자외선 차단제, 약사가 보는 기준", "모기·벌레 물린 데 바르는 약 고르기", "여름철 식중독·장염 상비약 챙기기", "냉방병, 여름 감기와 뭐가 다를까", "휴가철 여행 상비약 체크리스트", "장마철 무좀·습진 관리법", "땀 많은 여름, 수분·전해질 보충법" ],
+  fall:[ "가을 환절기 감기 예방 똑똑하게", "독감 예방접종 전후 알아둘 점", "건조해지는 가을 피부·입술 보습법", "면역력 챙기는 가을 영양제", "가을 탈모, 약국에서 할 수 있는 케어", "일교차 큰 환절기 혈압 관리" ]
+};
+var EVERGREEN_TOPICS=[ "영양제 궁합 — 같이 먹으면 좋은 조합", "약 먹는 시간, 식전·식후 왜 다를까", "유산균 고르는 법, 약사가 보는 기준" ];
+function seasonBucket(m){ if(m===12||m<=2) return "winter"; if(m<=5) return "spring"; if(m<=8) return "summer"; return "fall"; }
+function todayStr(){ var d=new Date(),p=function(n){return(n<10?"0":"")+n;}; return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate()); }
+function seasonalTopics(){ var pool=SEASONAL_TOPICS[seasonBucket(new Date().getMonth()+1)]||[]; return pool.slice(0,4).concat(EVERGREEN_TOPICS.slice(0,1)); }
+function cachedTrend(){ try{ var c=JSON.parse(localStorage.getItem("cp_trend_topics")||"null"); if(c && c.date===todayStr() && Array.isArray(c.topics) && c.topics.length) return c.topics; }catch(e){} return null; }
+function renderSuggest(topics){
+  var box=el("suggestChips"); if(!box) return; box.innerHTML="";
+  (topics||[]).forEach(function(t){ var b=document.createElement("button"); b.type="button"; b.textContent=t; box.appendChild(b); });
+}
+function initSuggest(){ renderSuggest(cachedTrend()||seasonalTopics()); }
+var trendLoading=false;
+function parseTrendTopics(text){
+  return String(text||"").split(/\r?\n/)
+    .map(function(s){ return s.replace(/^\s*(?:[-*•]|\d+[.)])\s*/,"").replace(/^["'“”]+|["'“”]+$/g,"").trim(); })
+    .filter(function(s){ return s && s.length>=4 && s.length<=44 && !/^(주제|추천|출력|아래|다음)/.test(s); })
+    .slice(0,6);
+}
+function refreshTrendTopics(){
+  if(trendLoading) return;
+  if(connected===false){ refreshConnUI(); return; }
+  if(runMode()==="server" && !ensureAuth()) return;
+  trendLoading=true;
+  var btn=el("suggestRefresh"); if(btn){ btn.disabled=true; btn.textContent="🔄 가져오는 중…"; }
+  var m=new Date().getMonth()+1, season={winter:"겨울",spring:"봄",summer:"여름",fall:"가을"}[seasonBucket(m)];
+  var prov=runMode()==="server" ? textProvider() : provSel;
+  var prompt="당신은 한국 약국 약사의 SNS 콘텐츠 기획자입니다. 지금은 "+m+"월("+season+")입니다. 이 시기 한국에서 일반인이 관심 가질 만한, 약사가 인스타그램에 올리기 좋은 건강·의약품·영양제 콘텐츠 주제 6개를 추천하세요.\n\n[조건]\n- 지금 계절·시기에 맞는 트렌디한 주제 위주(예: 환절기·자외선·여름 상비약 등)\n- 약사의 전문성이 드러나는 실용적이고 구체적인 주제\n- 각 주제는 14~26자의 한국어 한 줄, 클릭하면 바로 콘텐츠를 만들 수 있는 제목형\n- 의약품 광고 심의에 문제 될 단정적 효능 표현은 피하기\n\n[출력 형식]\n주제만 한 줄에 하나씩, 번호·불릿·따옴표·설명 없이 정확히 6줄만 출력하세요.";
+  apiFetch("/run",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({ provider:prov, model:"", prompt:prompt }) })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(!d||!d.ok||!(d.output||"").trim()) throw new Error((d&&d.error)||"실패");
+      var topics=parseTrendTopics(d.output);
+      if(topics.length<3) throw new Error("주제를 충분히 찾지 못했어요");
+      try{ localStorage.setItem("cp_trend_topics", JSON.stringify({ date:todayStr(), topics:topics })); }catch(e){}
+      renderSuggest(topics);
+    })
+    .catch(function(){ var lb=el("suggestLbl"); if(lb){ var o=lb.textContent; lb.textContent="추천 실패 — 잠시 후 다시"; setTimeout(function(){ lb.textContent=o; },2200); } })
+    .then(function(){ trendLoading=false; var b=el("suggestRefresh"); if(b){ b.disabled=false; b.textContent="🔄 요즘 트렌드"; } });
+}
+
 /* ====== 홈: 내 콘텐츠 그리드 ====== */
 function fmtBadge(platform){ return typeKey(platform)==="card"?"카드뉴스":"릴스"; }
 function fmtDate(iso){ if(!iso) return ""; try{ var d=new Date(iso); return d.getFullYear()+"."+(d.getMonth()+1)+"."+d.getDate(); }catch(e){ return ""; } }
@@ -1076,7 +1124,7 @@ function toggleTheme(){
 
 /* ====== 초기화 ====== */
 function init(){
-  renderFmt(); renderProv(); applyThemeIcon();
+  renderFmt(); renderProv(); initSuggest(); applyThemeIcon();
   el("createBtn").addEventListener("click", startCreate);
   el("provTrigger").addEventListener("click", function(e){ e.stopPropagation(); if(el("provMenu").hidden) openProvMenu(); else closeProvMenu(); });
   document.addEventListener("click", function(e){ var b=el("provBox"); if(b && !b.contains(e.target)) closeProvMenu(); });
@@ -1085,6 +1133,7 @@ function init(){
   el("ruleToggle").addEventListener("click", function(){ el("ruleBox").classList.toggle("open"); });
   el("suggest").addEventListener("click", function(e){
     var b=e.target.closest&&e.target.closest("button"); if(!b) return;
+    if(b.id==="suggestRefresh"){ refreshTrendTopics(); return; }
     el("topicInput").value=b.textContent; el("topicInput").focus();
   });
   el("brandBtn").addEventListener("click", function(){ showHome(); });
