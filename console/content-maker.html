@@ -307,57 +307,75 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
   </div>
 </header>
 
-<!-- ===== 홈: 컴포저 + 최근 콘텐츠 ===== -->
+<!-- ===== 홈: 약국 소개 카드뉴스 빌더 + 내 콘텐츠 ===== -->
 <main class="view" id="viewHome">
-  <section class="home-hero">
+  <section class="home-hero builder-hero">
     <div class="kicker">Pharm Studio</div>
-    <h1>약사님의 한 마디가<br>오늘의 콘텐츠가 됩니다</h1>
-    <p class="sub">주제 한 줄이면 기획부터 카드뉴스 이미지까지, AI가 약사님 대신 만들어 드려요.</p>
-    <div class="composer">
-      <textarea id="topicInput" rows="2" placeholder="어떤 건강 이야기를 전해볼까요?  예: 환절기 알레르기 비염약, 졸음 부작용 줄이는 복용법"></textarea>
-      <div class="rule-box" id="ruleBox">
-        <textarea id="ruleInput" placeholder="지켜야 할 기준 (선택) — 예: 의약품 광고 심의 기준 준수, 전문의약품 제품명 언급 금지, 효능 단정 표현 금지"></textarea>
+    <h1>약사님의 약국,<br>카드뉴스로 소개하세요</h1>
+    <p class="sub">약국 사진을 올리고 소개를 적으면, AI가 약국 소개 카드뉴스를 만들어 드려요.</p>
+  </section>
+
+  <!-- 입력 단계 (메인) -->
+  <section class="builder-input" id="bInput">
+    <div class="bi-grid">
+      <div class="bi-main">
+        <label class="bi-label" for="bIntro">우리 약국을 소개해 주세요</label>
+        <p class="bi-hint">위치·운영시간·강점·인사말 등 편하게 적어 주세요. AI가 카드별 문구로 정리해 드려요.</p>
+        <textarea id="bIntro" rows="8" placeholder="아래처럼 항목별로 적으면 더 정확해요. 잘 모르겠으면 아래 [예시로 시작하기]를 누르세요.&#10;&#10;약국 이름: &#10;위치: &#10;운영시간: &#10;강점: &#10;편의: &#10;인사말: "></textarea>
+        <div class="bi-examples" id="bExamples">
+          <span class="bx-label">예시로 시작하기</span>
+          <button type="button" data-ex="0">🏠 동네 친근한 약국</button>
+          <button type="button" data-ex="1">💊 상담 전문 약국</button>
+          <button type="button" data-ex="2">✨ 새로 문 연 약국</button>
+          <button type="button" data-ex="3">👵 어르신 많은 동네 약국</button>
+        </div>
+        <div class="bi-photos">
+          <div class="bi-photos-head">
+            <span class="bi-label">약국 사진 <span class="bi-opt">2~6장 권장</span></span>
+            <span class="bi-hint" id="bPhotoHint">외관·내부·약사님·상담공간 등 — 사진이 카드 배경이 됩니다</span>
+          </div>
+          <div class="dropzone" id="bDrop">
+            <input type="file" id="bFile" accept="image/*" multiple hidden>
+            <div class="dz-inner"><span class="dz-ico">📷</span><span>사진을 끌어다 놓거나 <b>클릭해서 선택</b></span><span class="dz-sub">JPG·PNG · 자동으로 최적 크기로 줄여 올려요</span></div>
+          </div>
+          <div class="photo-strip" id="bPhotoStrip"></div>
+        </div>
       </div>
-      <div class="composer-foot">
-        <div class="foot-controls">
-          <div class="fmt-seg" id="fmtSeg"></div>
-          <span class="foot-div" id="provDiv" aria-hidden="true"></span>
+      <aside class="bi-side">
+        <div class="bi-field">
+          <span class="bi-label">템플릿</span>
+          <div class="tpl-pick" id="bTpl"></div>
+        </div>
+        <div class="bi-field">
+          <span class="bi-label">톤</span>
+          <div class="tone-seg" id="bTone"></div>
+        </div>
+        <div class="bi-field" id="provField">
+          <span class="bi-label">AI 엔진</span>
           <div class="prov-sel" id="provBox">
-            <button type="button" class="prov-trigger" id="provTrigger" title="콘텐츠(기획·대본)를 생성할 AI 모델" aria-haspopup="listbox" aria-expanded="false">
+            <button type="button" class="prov-trigger" id="provTrigger" title="문구를 생성할 AI 모델" aria-haspopup="listbox" aria-expanded="false">
               <span class="prov-cur" id="provCur">Claude</span><span class="prov-caret" aria-hidden="true">▾</span>
             </button>
             <div class="prov-menu" id="provMenu" role="listbox" hidden></div>
           </div>
-          <button class="rule-toggle" id="ruleToggle" type="button">+ 지켜야 할 기준</button>
         </div>
-        <button class="btn pri lg" id="createBtn" type="button">✨ 만들기</button>
-      </div>
+        <button class="btn pri lg bi-go" id="bGenerate" type="button">✨ 카드뉴스 만들기</button>
+        <p class="bi-note" id="bInputNote"></p>
+      </aside>
     </div>
-    <div class="suggest" id="suggest">
-      <span class="lbl" id="suggestLbl">추천 주제</span>
-      <span class="suggest-chips" id="suggestChips"></span>
-      <button class="suggest-refresh" id="suggestRefresh" type="button" title="요즘 시기에 맞는 주제를 AI가 새로 추천해요">🔄 요즘 트렌드</button>
-    </div>
-    <div class="conn-help" id="connHelp"></div>
   </section>
 
-  <button class="intro-entry" id="introEntry" type="button">
-    <span class="ie-ico" aria-hidden="true">🏥</span>
-    <span class="ie-text">
-      <span class="ie-t">우리 약국 소개 카드뉴스 만들기</span>
-      <span class="ie-d">약국 사진을 올리면, 소개 카드뉴스를 만들어 드려요</span>
-    </span>
-    <span class="ie-go" aria-hidden="true">사진으로 만들기 →</span>
-  </button>
+  <div class="conn-help" id="connHelp"></div>
 
   <section class="recent">
     <div class="recent-head">
-      <h2>내 콘텐츠</h2><span class="cnt" id="jobCnt"></span>
+      <h2>내 카드뉴스</h2><span class="cnt" id="jobCnt"></span>
       <div class="sp"></div>
-      <input type="search" id="jobSearch" placeholder="🔎 주제 검색" aria-label="주제 검색">
+      <input type="search" id="jobSearch" placeholder="🔎 검색" aria-label="검색">
+      <button class="btn ghost" id="newCardBtn" type="button">+ 새로 만들기</button>
     </div>
     <div class="grid" id="jobsGrid"></div>
-    <div class="empty" id="jobsEmpty" hidden><div class="big">🌿</div>아직 만든 콘텐츠가 없어요.<br>위에 주제를 입력하고 첫 콘텐츠를 만들어 보세요.</div>
+    <div class="empty" id="jobsEmpty" hidden><div class="big">🌿</div>아직 만든 카드뉴스가 없어요.<br>위에 약국 정보를 적고 첫 카드뉴스를 만들어 보세요.</div>
   </section>
   <p class="footer" id="footNote">팜 스튜디오 · 약사를 위한 SNS 콘텐츠 스튜디오</p>
 </main>
@@ -396,7 +414,7 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
   </div>
 </main>
 
-<!-- ===== 약국 소개 카드뉴스 빌더 ===== -->
+<!-- ===== 약국 소개 카드뉴스 결과 ===== -->
 <main class="view" id="viewBuilder" hidden>
   <div class="studio-top">
     <button class="back" id="bBack" type="button" title="홈으로" aria-label="홈으로">←</button>
@@ -404,49 +422,8 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
     <span class="studio-badge" id="bBadge">준비</span>
   </div>
 
-  <!-- 입력 단계 -->
-  <section class="builder-input" id="bInput">
-    <div class="bi-grid">
-      <div class="bi-main">
-        <label class="bi-label" for="bIntro">우리 약국을 소개해 주세요</label>
-        <p class="bi-hint">위치·운영시간·강점·인사말 등 편하게 적어 주세요. AI가 카드별 문구로 정리해 드려요.</p>
-        <textarea id="bIntro" rows="8" placeholder="아래처럼 항목별로 적으면 더 정확해요. 잘 모르겠으면 아래 [예시로 시작하기]를 누르세요.&#10;&#10;약국 이름: &#10;위치: &#10;운영시간: &#10;강점: &#10;편의: &#10;인사말: "></textarea>
-        <div class="bi-examples" id="bExamples">
-          <span class="bx-label">예시로 시작하기</span>
-          <button type="button" data-ex="0">🏠 동네 친근한 약국</button>
-          <button type="button" data-ex="1">💊 상담 전문 약국</button>
-          <button type="button" data-ex="2">✨ 새로 문 연 약국</button>
-          <button type="button" data-ex="3">👵 어르신 많은 동네 약국</button>
-        </div>
-        <div class="bi-photos">
-          <div class="bi-photos-head">
-            <span class="bi-label">약국 사진 <span class="bi-opt">2~6장 권장</span></span>
-            <span class="bi-hint" id="bPhotoHint">외관·내부·약사님·상담공간 등 — 사진이 카드 배경이 됩니다</span>
-          </div>
-          <div class="dropzone" id="bDrop">
-            <input type="file" id="bFile" accept="image/*" multiple hidden>
-            <div class="dz-inner"><span class="dz-ico">📷</span><span>사진을 끌어다 놓거나 <b>클릭해서 선택</b></span><span class="dz-sub">JPG·PNG · 자동으로 최적 크기로 줄여 올려요</span></div>
-          </div>
-          <div class="photo-strip" id="bPhotoStrip"></div>
-        </div>
-      </div>
-      <aside class="bi-side">
-        <div class="bi-field">
-          <span class="bi-label">템플릿</span>
-          <div class="tpl-pick" id="bTpl"></div>
-        </div>
-        <div class="bi-field">
-          <span class="bi-label">톤</span>
-          <div class="tone-seg" id="bTone"></div>
-        </div>
-        <button class="btn pri lg bi-go" id="bGenerate" type="button">✨ 카드뉴스 만들기</button>
-        <p class="bi-note" id="bInputNote"></p>
-      </aside>
-    </div>
-  </section>
-
   <!-- 결과 단계 -->
-  <section class="builder-result" id="bResult" hidden>
+  <section class="builder-result" id="bResult">
     <div class="errnote" id="bErr" hidden></div>
     <div class="br-bar">
       <span class="br-status" id="bStatus"></span>
@@ -754,7 +731,7 @@ function refreshConnUI(){
   var pill=el("connPill"), txt=el("connTxt"), help=el("connHelp");
   pill.className="pill"+(connected===true?" ok":connected===false?" bad":"");
   txt.textContent=connected===true?"준비됨":connected===false?"연결 안 됨":"확인 중…";
-  el("createBtn").disabled=(connected===false);
+  var gb=el("bGenerate"); if(gb) gb.disabled=(connected===false)||pharmBusy||(pharmUploading>0);
   if(connected===false){
     help.classList.add("show");
     help.innerHTML=(runMode()==="server")
@@ -806,10 +783,11 @@ var PROVIDERS=[ {k:"claude", l:"Claude"}, {k:"codex", l:"Codex"}, {k:"agy", l:"A
 var provSel=(function(){ try{ return localStorage.getItem("cp_provider")||"claude"; }catch(e){ return "claude"; } })();
 var detectedProviders={};   // 로컬 모드 /health 의 CLI 설치 감지 결과 (id->bool)
 function renderProv(){
-  var box=el("provBox"), div=el("provDiv"), cur=el("provCur"), menu=el("provMenu");
+  var box=el("provBox"), field=el("provField"), cur=el("provCur"), menu=el("provMenu");
   if(!box||!menu) return;
-  if(runMode()==="server"){ box.style.display="none"; if(div) div.style.display="none"; return; }
-  box.style.display=""; if(div) div.style.display="";
+  // 서버 모드는 서버가 provider 결정 → 선택칸 숨김. 로컬은 codex/claude/agy 선택.
+  if(runMode()==="server"){ if(field) field.style.display="none"; return; }
+  if(field) field.style.display="";
   var sel=PROVIDERS.filter(function(p){ return p.k===provSel; })[0]||PROVIDERS[0];
   if(cur) cur.textContent=sel.l;
   menu.innerHTML="";
@@ -909,10 +887,11 @@ function deleteJob(j){
 }
 function mediaSrc(u){ if(!u) return u; if(/^(https?:|data:)/i.test(u)) return u; return apiBase()+u; }
 
-/* ====== 화면 전환 (홈 ↔ 스튜디오 ↔ 빌더) ====== */
+/* ====== 화면 전환 (홈=빌더입력 ↔ 결과 ↔ 스튜디오(레거시 주제작업)) ====== */
 function showHome(push){
   el("viewStudio").hidden=true; el("viewBuilder").hidden=true; el("viewHome").hidden=false;
   if(push!==false){ try{ history.pushState({v:"home"},"","#home"); }catch(e){} }
+  renderBuilderInput();   // 홈 = 빌더 입력 — 현재 state.pharmacy 반영
   loadJobs();
 }
 function showStudio(push){
@@ -926,7 +905,7 @@ function showBuilder(push){
   window.scrollTo(0,0);
 }
 window.addEventListener("popstate", function(){
-  if(location.hash==="#builder" && state.pharmacy && (state.pharmacy.intro||(state.pharmacy.photos||[]).length||(state.pharmacy.cards||[]).length)) showBuilder(false);
+  if(location.hash==="#builder" && state.pharmacy && (state.pharmacy.cards||[]).length) showBuilder(false);
   else if(location.hash==="#studio" && jobHasContent()) showStudio(false);
   else showHome(false);
 });
@@ -1540,7 +1519,7 @@ function generatePharmacyCards(){
   ph().intro=intro; ph().tone=ph().tone||"warm"; ph().templateId=ph().templateId||"fullbleed";
   state.platform=PHARM_PLATFORM; state.provider=provSel; ensureJobId();
   ph().runId="p"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,6);
-  el("bInput").hidden=true; el("bResult").hidden=false; bErr(null);
+  showBuilder(); el("bResult").hidden=false; bErr(null);   // 결과 화면으로 전환
   el("bBadge").textContent="만드는 중"; el("bBadge").className="studio-badge run";
   setBStatus("① 약국 소개 문구를 만들고 있어요…"); el("bCards").innerHTML="";
   var prov=runMode()==="server"?textProvider():provSel;
@@ -1582,12 +1561,13 @@ function generatePharmacyCards(){
 }
 
 /* ---- 진입 / 작업 열기 ---- */
+// 새로 만들기 — 입력을 비우고 홈(빌더 입력)으로
 function startPharmacy(){
-  if(runMode()==="server" && !ensureAuth()) return;
+  if(pharmBusy) return;
   state=freshState(); state.platform=PHARM_PLATFORM; state.provider=provSel;
   pharmBusy=false; pharmEditing=null; pharmUploading=0;
-  el("bInput").hidden=false; el("bResult").hidden=true; bErr(null); bInputNote("");
-  renderBuilderInput(); showBuilder();
+  bErr(null); bInputNote(""); el("bIntro") && (el("bIntro").value="");
+  showHome();
 }
 function openPharmacyJob(j){
   state=freshState(); var st=j.state||{};
@@ -1598,12 +1578,14 @@ function openPharmacyJob(j){
       photos:Array.isArray(st.pharmacy.photos)?st.pharmacy.photos:[], cards:Array.isArray(st.pharmacy.cards)?st.pharmacy.cards:[], runId:st.pharmacy.runId||"" };
   }
   if(st.imageGen&&typeof st.imageGen==="object"){ state.imageGen.runId=st.imageGen.runId||""; state.imageGen.items=Array.isArray(st.imageGen.items)?st.imageGen.items:[]; }
-  pharmBusy=false; pharmEditing=null; pharmUploading=0;
-  renderBuilderInput();
-  var hasResult=(state.pharmacy.cards||[]).length>0;
-  el("bInput").hidden=hasResult; el("bResult").hidden=!hasResult; bErr(null);
-  if(hasResult){ el("bBadge").textContent="완성"; el("bBadge").className="studio-badge done"; setBStatus("저장된 카드뉴스예요. 카드별로 ✏️·🔄 로 수정할 수 있어요."); renderPharmaCards(); }
-  showBuilder();
+  pharmBusy=false; pharmEditing=null; pharmUploading=0; bErr(null);
+  if((state.pharmacy.cards||[]).length>0){
+    el("bBadge").textContent="완성"; el("bBadge").className="studio-badge done";
+    setBStatus("저장된 카드뉴스예요. 카드별로 ✏️·🔄 로 수정하거나 [입력 수정]에서 다시 만들 수 있어요.");
+    el("bResult").hidden=false; renderPharmaCards(); showBuilder();
+  } else {
+    showHome();   // 결과가 없으면 입력 화면으로
+  }
 }
 
 /* ---- 전체 ZIP 저장 ---- */
@@ -1642,18 +1624,11 @@ function downloadAllPharma(){
 
 /* ====== 초기화 ====== */
 function init(){
-  renderFmt(); renderProv(); initSuggest(); applyThemeIcon();
-  el("createBtn").addEventListener("click", startCreate);
+  renderProv(); applyThemeIcon();
   el("provTrigger").addEventListener("click", function(e){ e.stopPropagation(); if(el("provMenu").hidden) openProvMenu(); else closeProvMenu(); });
   document.addEventListener("click", function(e){ var b=el("provBox"); if(b && !b.contains(e.target)) closeProvMenu(); });
   document.addEventListener("keydown", function(e){ if(e.key==="Escape") closeProvMenu(); });
-  el("topicInput").addEventListener("keydown", function(e){ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); startCreate(); } });
-  el("ruleToggle").addEventListener("click", function(){ el("ruleBox").classList.toggle("open"); });
-  el("suggest").addEventListener("click", function(e){
-    var b=e.target.closest&&e.target.closest("button"); if(!b) return;
-    if(b.id==="suggestRefresh"){ refreshTrendTopics(); return; }
-    el("topicInput").value=b.textContent; el("topicInput").focus();
-  });
+  el("newCardBtn").addEventListener("click", startPharmacy);
   el("brandBtn").addEventListener("click", function(){ showHome(); });
   el("backBtn").addEventListener("click", function(){
     if(runFlow.busy){ appConfirm("만드는 중이에요","홈으로 나가도 생성은 계속 진행되지 않아요.\n지금까지 결과는 저장됩니다. 나갈까요?","나가기").then(function(ok){ if(ok) showHome(); }); }
@@ -1695,12 +1670,11 @@ function init(){
   el("lightbox").addEventListener("click", function(e){ if(e.target.tagName!=="IMG") el("lightbox").classList.remove("open"); });
   document.addEventListener("keydown", function(e){ if(e.key==="Escape") el("lightbox").classList.remove("open"); });
   /* 약국 소개 빌더 */
-  el("introEntry").addEventListener("click", startPharmacy);
   el("bBack").addEventListener("click", function(){
     if(pharmBusy){ appConfirm("만드는 중이에요","지금 나가도 진행 중인 합성은 멈추지 않아요.\n지금까지 결과는 저장됩니다. 나갈까요?","나가기").then(function(ok){ if(ok) showHome(); }); }
     else showHome();
   });
-  el("bEditInputs").addEventListener("click", function(){ if(pharmBusy) return; el("bResult").hidden=true; el("bInput").hidden=false; renderBuilderInput(); });
+  el("bEditInputs").addEventListener("click", function(){ if(pharmBusy) return; showHome(); });
   el("bGenerate").addEventListener("click", generatePharmacyCards);
   el("bDownloadAll").addEventListener("click", downloadAllPharma);
   el("bIntro").addEventListener("input", function(){ ph().intro=el("bIntro").value; });
@@ -1741,6 +1715,7 @@ function init(){
     ? "팜 스튜디오 · 콘텐츠와 이미지는 약사님 계정별 서버 저장소에 안전하게 보관됩니다."
     : "팜 스튜디오 · 로컬 모드 — 결과물은 내 PC 작업폴더(output/)에 저장됩니다.";
   try{ history.replaceState({v:"home"},"","#home"); }catch(e){}
+  renderBuilderInput();   // 메인=빌더 입력 — 템플릿·톤·사진칸 초기 렌더
   if(runMode()==="server"){ if(ensureAuth()){ checkConn(); loadJobs(); } else checkConn(); }
   else { checkConn(); loadJobs(); }
 }
