@@ -954,7 +954,7 @@ function freshState(){
     imageGen:{ prompts:"", runId:"", items:[], provider:"codex", imageModel:"", concurrency:2 },
     videoGen:{ cuts:"", runId:"", items:[], provider:"claude", engine:"higgsfield", videoModel:"seedance_1_5", concurrency:1 },
     // 약국 소개 카드뉴스 전용 — 자유 설명 + 업로드 사진 + 카드 정의(문구·배경사진·템플릿). 최종 PNG 는 imageGen.items 재사용.
-    pharmacy:{ intro:"", contentType:"intro", infoKind:"", genMode:"standard", tone:"warm", templateId:"fullbleed", ratio:"4:5", palette:"gold", align:"left", overlay:"med", font:"sans", photoFix:false, aiArt:"", photos:[], cards:[], caption:"", runId:"" } };
+    pharmacy:{ intro:"", contentType:"intro", infoKind:"", genMode:"standard", aiConcept:"", tone:"warm", templateId:"fullbleed", ratio:"4:5", palette:"gold", align:"left", overlay:"med", font:"sans", photoFix:false, aiArt:"", photos:[], cards:[], caption:"", runId:"" } };
 }
 function setSteps(platform){
   var prev=(state&&state.steps)||{};
@@ -2003,6 +2003,8 @@ var FORMAT_UI={
     examples:[ {l:"💊 영양소 기능",v:"마그네슘이 우리 몸에서 하는 일과 부족 증상"}, {l:"⏰ 영양제 섭취시간",v:"영양제 섭취 시간 한눈에 보기 (아침·점심·저녁)"}, {l:"🩹 감기약 고르기",v:"증상별 감기약 고르는 법"}, {l:"🗓️ 시기별 영양제",v:"환절기 챙기면 좋은 영양제 가이드"} ] }
 };
 function formatMeta(){ return FORMAT_UI[(ph().genMode)||"standard"]||FORMAT_UI.standard; }
+// 인포그래픽 컨셉(색·무드) — 빈 값은 자동(랜덤), 그 외는 AI_ART_DIRECTIONS 인덱스
+var PHARM_CONCEPTS=[ {k:"",l:"🎲 자동"}, {k:"0",l:"🌿 미니멀"}, {k:"1",l:"🧡 따뜻"}, {k:"2",l:"💙 신뢰"}, {k:"3",l:"🎨 컬러풀"} ];
 function renderTypeUI(){
   var g=ph().genMode||"standard", meta=formatMeta();
   var seg=el("bType");
@@ -2013,7 +2015,14 @@ function renderTypeUI(){
       seg.appendChild(b);
     });
   }
-  var ik=el("bInfoKind"); if(ik){ ik.style.display="none"; ik.innerHTML=""; }   // 정보 종류 미사용(주제 자유 입력)
+  // 인포그래픽일 때만 '컨셉' 칩 노출(자동/미니멀/따뜻/신뢰/컬러풀)
+  var ik=el("bInfoKind");
+  if(ik){
+    if(g==="ai"){
+      ik.style.display=""; ik.innerHTML='<span class="bx-label">컨셉</span>';
+      PHARM_CONCEPTS.forEach(function(c){ var b=document.createElement("button"); b.type="button"; b.className=((ph().aiConcept||"")===c.k?"on":""); b.setAttribute("data-ik",c.k); b.textContent=c.l; ik.appendChild(b); });
+    } else { ik.style.display="none"; ik.innerHTML=""; }
+  }
   var lab=el("bIntroLabel"); if(lab) lab.textContent=meta.label;
   var hint=el("bIntroHint"); if(hint) hint.textContent=meta.hint;
   var ta=el("bIntro"); if(ta) ta.placeholder=meta.ph;
@@ -2470,7 +2479,7 @@ function startPharmacyRun(opts){
       var aiMode=((ph().genMode||"standard")==="ai");
       return ensureFonts().then(function(){
         if(!aiMode) return;
-        var artDir=pickArtDir(); ph().aiArt=artDir;   // 이 세트의 공통 아트 디렉션(연결성) — 모든 카드 동일 적용
+        var artDir=(ph().aiConcept!=="" && AI_ART_DIRECTIONS[+ph().aiConcept]) ? AI_ART_DIRECTIONS[+ph().aiConcept] : pickArtDir(); ph().aiArt=artDir;   // 컨셉 선택 시 해당 스타일, 아니면 랜덤 — 세트 일관
         setBStatus(pfx+"②a 같은 시리즈 스타일로 카드 이미지를 그리고 있어요… (최대 1분)");
         var doneN=0;
         return Promise.all(cards.map(function(card){
@@ -2547,7 +2556,7 @@ function openPharmacyJob(j){
   state.jobId=j.id; state.platform=st.platform||PHARM_PLATFORM;
   if(typeof st.provider==="string"&&st.provider){ state.provider=st.provider; provSel=st.provider; renderProv(); }
   if(st.pharmacy&&typeof st.pharmacy==="object"){
-    state.pharmacy={ intro:st.pharmacy.intro||"", contentType:st.pharmacy.contentType||"intro", infoKind:st.pharmacy.infoKind||"", genMode:st.pharmacy.genMode||"standard", tone:st.pharmacy.tone||"warm", templateId:st.pharmacy.templateId||"fullbleed", ratio:st.pharmacy.ratio||"4:5",
+    state.pharmacy={ intro:st.pharmacy.intro||"", contentType:st.pharmacy.contentType||"intro", infoKind:st.pharmacy.infoKind||"", genMode:st.pharmacy.genMode||"standard", aiConcept:st.pharmacy.aiConcept||"", tone:st.pharmacy.tone||"warm", templateId:st.pharmacy.templateId||"fullbleed", ratio:st.pharmacy.ratio||"4:5",
       palette:st.pharmacy.palette||"gold", align:st.pharmacy.align||"left", overlay:st.pharmacy.overlay||"med", font:st.pharmacy.font||"sans", photoFix:!!st.pharmacy.photoFix, aiArt:st.pharmacy.aiArt||"",
       photos:Array.isArray(st.pharmacy.photos)?st.pharmacy.photos:[], cards:Array.isArray(st.pharmacy.cards)?st.pharmacy.cards:[], caption:st.pharmacy.caption||"", runId:st.pharmacy.runId||"" };
   }
@@ -2845,7 +2854,7 @@ function init(){
   el("bPhotoFix").addEventListener("change", function(){ ph().photoFix=this.checked; saveLocal(); });
   el("bInfoKind").addEventListener("click", function(e){
     var b=e.target.closest&&e.target.closest("button[data-ik]"); if(!b) return;
-    ph().infoKind=b.getAttribute("data-ik"); renderTypeUI();
+    ph().aiConcept=b.getAttribute("data-ik")||""; renderTypeUI();   // 인포그래픽 컨셉 선택
   });
   el("bExamples").addEventListener("click", function(e){
     var b=e.target.closest&&e.target.closest("button[data-ex]"); if(!b) return;
