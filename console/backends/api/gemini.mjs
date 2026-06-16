@@ -45,8 +45,33 @@ async function callText(key, model, prompt) {
 export function makeGeminiProvider(secrets, env) {
   env = env || process.env;
   const textModel = env.GEMINI_TEXT_MODEL || "gemini-2.5-flash";   // 최신 기본값
+  const imageModel = env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";   // 나노바나나(이미지 생성·편집)
   const videoModel = env.GEMINI_VIDEO_MODEL || "veo-3.0-fast-generate-001";   // Veo(영상) 모델
   const VID_TIMEOUT_MS = Number(env.GEMINI_VIDEO_HTTP_TIMEOUT_MS) || 60000;
+  const IMG_TIMEOUT_MS = Number(env.GEMINI_IMAGE_HTTP_TIMEOUT_MS) || 120000;
+  // 이미지 생성(나노바나나) — generateContent, inlineData 이미지 반환. 참조 이미지(image) 옵션.
+  async function callImage(key, model, prompt, image) {
+    try {
+      const parts = [{ text: String(prompt || "") }];
+      if (image && image.b64) parts.push({ inlineData: { mimeType: image.mime || "image/jpeg", data: image.b64 } });
+      const body = { contents: [{ parts }], generationConfig: { responseModalities: ["IMAGE"] } };
+      const resp = await fetch(BASE + "/models/" + encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(key), {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(IMG_TIMEOUT_MS),
+      });
+      const data = await resp.json().catch(() => null);
+      if (!resp.ok) return { ok: false, error: "Gemini 이미지 오류 HTTP " + resp.status + (data?.error?.message ? ": " + data.error.message : "") };
+      const cps = (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
+      const imgp = cps.find((p) => p && p.inlineData && p.inlineData.data);
+      if (!imgp) { const t = (cps.find((p) => p && p.text) || {}).text || ""; return { ok: false, error: "Gemini 이미지 응답이 없습니다." + (t ? " (" + t.slice(0, 80) + ")" : "") }; }
+      const buf = Buffer.from(imgp.inlineData.data, "base64");
+      const mime = imgp.inlineData.mimeType || "image/png";
+      const ext = mime.indexOf("jpeg") >= 0 || mime.indexOf("jpg") >= 0 ? "jpg" : (mime.indexOf("webp") >= 0 ? "webp" : "png");
+      return { ok: true, buf, ext, mime };
+    } catch (e) {
+      const msg = e && e.name === "TimeoutError" ? `시간 초과(${Math.round(IMG_TIMEOUT_MS / 1000)}s)` : (e && e.message || String(e));
+      return { ok: false, error: "Gemini 이미지 호출 실패: " + msg };
+    }
+  }
   // 영상 생성 시작 — Veo predictLongRunning(비동기). operation name 반환.
   async function startVideo({ prompt, aspect, image, model }) {
     try {
@@ -89,16 +114,32 @@ export function makeGeminiProvider(secrets, env) {
       return { ok: false, error: "Veo 응답에서 영상 URI/바이트를 찾지 못했습니다." };
     } catch (e) { return { ok: false, error: "Veo 폴링 실패: " + (e && e.message || e) }; }
   }
+  async function listRawModels() {
+    try {
+      const resp = await fetch(BASE + "/models?key=" + encodeURIComponent(secrets.GEMINI_API_KEY) + "&pageSize=300", { signal: AbortSignal.timeout(VID_TIMEOUT_MS) });
+      const data = await resp.json().catch(() => null);
+      if (!resp.ok) return { ok: false, error: "ListModels HTTP " + resp.status + (data?.error?.message ? ": " + data.error.message : "") };
+      return { ok: true, models: (data && data.models || []).map((m) => ({ name: m.name, methods: m.supportedGenerationMethods || [] })) };
+    } catch (e) { return { ok: false, error: "ListModels 실패: " + (e && e.message || e) }; }
+  }
   return {
     id: "google",
     label: "Google AI Studio (Gemini)",
-    capabilities: { text: true, image: false, video: true },
+    capabilities: { text: true, image: true, video: true },
+    listRawModels,
     enabled: (s) => !!((s || secrets) || {}).GEMINI_API_KEY,
     models: () => [
       { id: "gemini-2.5-flash", tag: "최신" },
       { id: "gemini-2.5-pro", tag: "고성능" },
     ],
+    imageModels: () => [ { id: "gemini-2.5-flash-image", name: "나노바나나 (Gemini 2.5 Flash Image)", tag: "" } ],
     runText: ({ model, prompt }) => callText(secrets.GEMINI_API_KEY, (model || "").trim() || textModel, prompt),
+    runImage: (a) => {
+      let image = null;
+      const mm = /^data:([^;]+);base64,(.+)$/.exec(String(a.refImage || ""));
+      if (mm) image = { mime: mm[1], b64: mm[2] };
+      return callImage(secrets.GEMINI_API_KEY, (a.imageModel || "").trim() || imageModel, a.prompt, image);
+    },
     startVideo,
     pollVideo,
   };
