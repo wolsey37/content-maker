@@ -1722,7 +1722,7 @@ var PHARM_ENGINES=[
 ];
 var pharmServerProviders={};   // 람다 활성 provider (id->true)
 var pharmEngineSel=(function(){ try{ var v=localStorage.getItem("cp_pharm_engine")||"openai"; return v.replace(/:.*$/,"")||"openai"; }catch(e){ return "openai"; } })();   // 구버전 "openai:..." → provider 만
-function availEngines(){ var a=PHARM_ENGINES.filter(function(e){ return pharmServerProviders[e.provider]; }); return a.length?a:[PHARM_ENGINES[0]]; }
+function availEngines(){ var a=PHARM_ENGINES.filter(function(e){ return pharmServerProviders[e.provider] || e.provider==="google"; }); return a.length?a:[PHARM_ENGINES[0]]; }   // Google 은 항상 선택지로 노출(백엔드 배포·키 필요)
 function currentEngine(){ var a=availEngines(); return a.filter(function(e){ return e.k===pharmEngineSel; })[0]||a[0]; }
 /* ===== 브랜드 키트 — 약국명·로고·대표색을 1회 저장해 모든 카드/영상에 자동 적용(기기 전역, localStorage) ===== */
 var BRAND_PRESETS=[
