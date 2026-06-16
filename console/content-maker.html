@@ -1906,10 +1906,15 @@ function pickArtDir(){ return AI_ART_DIRECTIONS[Math.floor(Math.random()*AI_ART_
 function buildCardAiTextPrompt(card, artDir){
   var art=artDir||ph().aiArt||AI_ART_DIRECTIONS[0];
   var title=((card&&card.headline)||"").replace(/\s+/g," ").trim();
-  var body=((card&&card.body)||"").replace(/\s+/g," ").trim();
   var brand=(brandKit&&brandKit.name||"").trim();
   var brandLine=brand?(" Include the pharmacy name \""+brand+"\" small in a corner as a subtle brand mark."):"";
-  return "Design ONE polished Instagram card-news slide (4:5 portrait) for a neighborhood pharmacy, part of a cohesive series. Series art direction: "+art+". On the image, render this KOREAN text with clean modern legible typography, spelled EXACTLY and correctly: a large bold headline \""+(title||" ")+"\", and a smaller subtext line \""+(body||" ")+"\"."+brandLine+" Put a soft gradient or translucent panel behind the text so it stays easy to read. IMPORTANT: place ALL text — headline, subtext and the brand name — within the central 70% of the frame, leaving the top 15% and bottom 18% completely free of text (safe margins), so nothing gets cut off. Tasteful editorial layout, professional. The Korean must be accurate and natural — no fake, broken or random characters, no English gibberish, no watermark.";
+  var pts=String((card&&card.body)||"").split(/\s*;;\s*/).map(function(s){ return s.replace(/^[\-•·]\s*/,"").replace(/\s+/g," ").trim(); }).filter(Boolean);
+  if(pts.length>1){   // 빽빽한 정보 카드 — 인포그래픽 목록
+    var list=pts.map(function(p,i){ return (i+1)+") "+p; }).join("   ");
+    return "Design ONE information-DENSE but tidy Instagram card-news slide (4:5 portrait) for a neighborhood pharmacy, part of a cohesive series. Series art direction: "+art+". Make it a clean Korean INFOGRAPHIC: a bold headline \""+(title||" ")+"\" at the top, then these points as a neat well-organized vertical list, each with a small bullet/number, spelled EXACTLY and correctly: "+list+"."+brandLine+" Pack the content densely yet keep it highly legible — light clean background, clear contrast, even spacing, like a premium Korean pharmacy info card. Keep all text within safe margins so nothing is cut. Accurate natural Korean only — no fake, broken or random characters, no English gibberish, no watermark.";
+  }
+  var body=String((card&&card.body)||"").replace(/\s+/g," ").trim();
+  return "Design ONE polished Instagram card-news slide (4:5 portrait) for a neighborhood pharmacy, part of a cohesive series. Series art direction: "+art+". On the image, render this KOREAN text with clean modern legible typography, spelled EXACTLY and correctly: a large bold headline \""+(title||" ")+"\", and a smaller subtext line \""+(body||" ")+"\"."+brandLine+" Put a soft gradient or translucent panel behind the text so it stays easy to read. IMPORTANT: place ALL text within the central 70% of the frame, leaving the top 15% and bottom 18% free of text (safe margins), so nothing gets cut off. Tasteful editorial layout, professional. The Korean must be accurate and natural — no fake, broken or random characters, no English gibberish, no watermark.";
 }
 function genCardAiBg(card, artDir){   // 카드 1장을 AI가 문구까지 디자인 → card.bgUrl + card.aiText (실패 시 빈 값=문구 합성 폴백)
   return pharmacyFetch("/pharmacy/image",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
@@ -2041,7 +2046,9 @@ function buildTypePrompt(type, text, nPhotos, tone, count){
     var ik=ph().infoKind||"", kindGuide="";
     for(var ki=0;ki<PHARM_INFO_KINDS.length;ki++){ if(PHARM_INFO_KINDS[ki].k===ik){ kindGuide=PHARM_INFO_KINDS[ki].guide||""; break; } }
     var infoLine = kindGuide ? ("\n\n[정보 유형]\n"+kindGuide) : "";
-    return "당신은 약국 인스타그램을 운영하는 약사의 건강정보 카드뉴스 카피라이터입니다. 아래 주제로 일반인이 이해하기 쉬운 건강정보 카드뉴스 "+n+"장을 작성하세요.\n\n[주제]\n"+(text||"(주제가 비어 있음 — 환절기 건강관리로 자연스럽게 작성)")+infoLine+"\n\n[배경 사진]\n"+photoLine+"\n\n[카드 구성]\n- 정확히 "+n+"장. 첫 장은 표지(주제를 한눈에), 마지막 장은 마무리(증상이 지속되면 가까운 약국·의사와 상담을 권유).\n- 가운데 장들은 핵심 포인트를 하나씩 쉽게 설명(원인·증상·생활수칙·주의점 등).\n- 일반적인 건강 상식 범위로만 작성하고, 의학적 진단·처방을 대신하지 않습니다."+fmt;
+    // 빽빽한 정보 카드 — 표지/마무리 외 본문 카드는 핵심 포인트 3~5개로 촘촘히(포인트는 ' ;; ' 로 구분)
+    var fmtH="\n\n[톤]\n"+toneD+" 말투\n\n[작성 규칙]\n- 표지(첫 장)·마무리(마지막 장)는 제목 + 한 줄 본문.\n- 가운데 '정보 카드'들은 제목(16자 이내) + 핵심 포인트 3~5개로 빽빽하게 채우세요. 비교·항목·단계·증상별·주의 등 한 주제를 촘촘히 정리.\n- 각 포인트는 짧고 구체적으로(22자 이내). 적힌 사실·일반 상식만, 효능 단정·과장·특정 제품 단정 추천 금지.\n- 이모지·해시태그·따옴표 금지.\n\n[출력 형식] 정확히 아래 형식으로 "+n+"개만 반복. 정보 카드의 BODY 포인트는 ' ;; ' 로 구분(줄바꿈 금지). 표지·마무리 BODY 는 한 줄. 다른 머리말 없이:\n@@@CARD\nROLE: (역할)\nTITLE: (제목)\nBODY: 포인트1 ;; 포인트2 ;; 포인트3 ;; 포인트4\n";
+    return "당신은 약국 인스타그램을 운영하는 약사의 건강정보 카드뉴스 카피라이터입니다. 아래 주제로 '정보가 알찬(빽빽한)' 건강정보 카드뉴스 "+n+"장을 작성하세요.\n\n[주제]\n"+(text||"(주제가 비어 있음 — 환절기 건강관리로 자연스럽게 작성)")+infoLine+"\n\n[배경 사진]\n"+photoLine+"\n\n[카드 구성]\n- 정확히 "+n+"장. 첫 장은 표지(주제를 한눈에), 마지막 장은 마무리(증상이 지속되면 가까운 약국·의사와 상담을 권유).\n- 가운데 장들은 항목·비교·단계·증상별 등으로 한 주제를 포인트 여러 개(3~5개)로 촘촘히 담으세요.\n- 일반적인 건강 상식 범위로만 작성하고, 의학적 진단·처방을 대신하지 않습니다."+fmtH;
   }
   if(type==="event"){
     return "당신은 약국 인스타그램 카피라이터입니다. 아래 내용으로 약국 이벤트·공지 카드뉴스 "+n+"장을 작성하세요.\n\n[알릴 내용]\n"+(text||"(내용이 비어 있음 — 일반적인 약국 안내로 자연스럽게 작성)")+"\n\n[배경 사진]\n"+photoLine+"\n\n[카드 구성]\n- 정확히 "+n+"장. 첫 장은 표지(무엇을 알리는지 한눈에), 마지막 장은 방문·문의 유도(CTA).\n- 가운데 장들은 기간·대상·방법·유의사항 등 꼭 필요한 정보를 또렷하게 전달하세요."+fmt;
@@ -2148,6 +2155,29 @@ function composeCard(card, img, tplId, logoImg){
       else { ctx.fillStyle=offCol; ctx.arc(x0+k*gap,cy,4,0,Math.PI*2); }
       ctx.fill(); }
   }
+  // ===== 빽빽한 정보 카드(건강 정보) — 제목 + 포인트 목록을 촘촘히 =====
+  var densePts=String(body||"").split(/\s*;;\s*/).map(function(s){ return s.replace(/^[\-•·]\s*/,"").trim(); }).filter(Boolean);
+  if(densePts.length>1){
+    ctx.fillStyle=IVORY; ctx.fillRect(0,0,CARD_W,CARD_H);
+    if(img){ drawCover(ctx,img,0,0,CARD_W,CARD_H,fX,fY); ctx.fillStyle="rgba(244,244,243,.92)"; ctx.fillRect(0,0,CARD_W,CARD_H); }   // 사진 위에 아이보리 베일(가독성)
+    ctx.textAlign="left"; ctx.textBaseline="top";
+    var mx=84, cw=CARD_W-mx*2, yy=Math.round(CARD_H*0.085);
+    ctx.fillStyle=ACCENT; roundRectPath(ctx,mx,yy,66,9,4.5); ctx.fill(); yy+=34;
+    ctx.fillStyle=INK; ctx.font='800 80px '+titleFont;
+    wrapLines(ctx,title,cw,2).forEach(function(l){ ctx.fillText(l,mx,yy); yy+=94; });
+    yy+=18; ctx.strokeStyle="rgba(20,23,26,.13)"; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(mx,yy); ctx.lineTo(CARD_W-mx,yy); ctx.stroke(); yy+=44;
+    var bottom=CARD_H-150, np=densePts.length;
+    var fs=Math.max(33, Math.min(48, Math.round((bottom-yy)/(np*2.05))));   // 남은 높이에 맞춰 폰트 적응
+    var lh=Math.round(fs*1.26), gapP=Math.round(fs*0.7);
+    densePts.forEach(function(pt){
+      ctx.font='700 '+fs+'px '+SANS; var lines=wrapLines(ctx,pt,cw-58,2);
+      ctx.fillStyle=ACCENT; ctx.beginPath(); ctx.arc(mx+12, yy+fs*0.55, 10, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle="#2a2c30"; lines.forEach(function(l){ ctx.fillText(l, mx+48, yy); yy+=lh; });
+      yy+=gapP;
+    });
+    dots(CARD_H-72, ACCENT, "rgba(20,23,26,.22)");
+    brandMark(); ctx.textAlign="left"; return cv;
+  }
   if(tplId==="split"){
     var top=Math.round(CARD_H*0.55);
     if(img) drawCover(ctx,img,0,0,CARD_W,top,fX,fY); else darkBg(0,0,CARD_W,top);
@@ -2221,8 +2251,11 @@ function composeCard(card, img, tplId, logoImg){
     ctx.restore();
     dots(CARD_H-72, "#ffffff", "rgba(255,255,255,.4)");
   }
+  brandMark();
+  ctx.textAlign="left";
+  return cv;
   // ===== 브랜드 마크(우상단 칩) — 로고+약국명. 어떤 배경에서도 읽히도록 반투명 칩 위에 흰 글씨 =====
-  (function brandMark(){
+  function brandMark(){
     if(!brandKit || !brandKit.show) return;
     var name=(brandKit.name||"").trim();
     var hasLogo=!!logoImg;
@@ -2244,9 +2277,7 @@ function composeCard(card, img, tplId, logoImg){
     }
     if(name){ ctx.fillStyle="#ffffff"; ctx.fillText(name, cur, cy+1); }
     ctx.restore();
-  })();
-  ctx.textAlign="left";
-  return cv;
+  }
 }
 function composeAndSave(card, i, replaceKey, idxStr){
   var photo=(card.photoIdx>=0)?ph().photos[card.photoIdx]:null;
