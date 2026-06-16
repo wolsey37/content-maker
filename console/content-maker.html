@@ -544,7 +544,7 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
                 </div>
                 <div class="photo-strip" id="bPhotoStrip"></div>
               </div>
-              <p class="ai-note" id="bAiNote" hidden>🎨 AI가 카드마다 <b>문구까지 이미지에 직접</b> 디자인해요(합성 없음). 사진 업로드 없이 완성됩니다. <small>4:5 비율 권장 · 카드 수만큼 AI 이미지 크레딧 소모 · 한글이 또렷하지 않으면 다시 시도해 주세요.</small></p>
+              <p class="ai-note" id="bAiNote" hidden>🎨 AI가 카드마다 <b>약사 인포그래픽 스타일</b>로 문구까지 직접 디자인해요(사진 업로드 없이 완성). <small>4:5 권장 · 카드 수만큼 AI 이미지 크레딧 소모 · 한글이 또렷하지 않으면 그 카드만 🔄로 다시 생성하세요.</small></p>
             </div>
           </div>
           <aside class="bi-side">
@@ -1512,12 +1512,6 @@ var BUILDER_TEMPLATES=[
   { id:"card",      name:"플로팅 카드" },
   { id:"minimal",   name:"미니멀 (원형)" }
 ];
-// 카드마다 레이아웃을 다양하게 — 연속 중복은 피해 랜덤 배정(레퍼런스처럼 한 세트 안에서 변화)
-function pickTemplate(prev){
-  var ids=BUILDER_TEMPLATES.map(function(t){ return t.id; });
-  var c; do{ c=ids[Math.floor(Math.random()*ids.length)]; }while(ids.length>1 && c===prev);
-  return c;
-}
 var PHARM_TONES=[ {k:"warm",l:"따뜻한"}, {k:"pro",l:"전문적인"}, {k:"friendly",l:"친근한"} ];
 // 약사님이 막막하지 않게 — 클릭하면 '항목별'로 설명칸을 채우는 예시(○○ 부분만 우리 약국 정보로 바꾸면 됨)
 var PHARM_EXAMPLES=[
@@ -1826,7 +1820,6 @@ function renderDesignOpts(){
   renderOptSeg("bAlign", PHARM_ALIGNS, function(){ return ph().align||"left"; }, function(v){ ph().align=v; });
   renderOptSeg("bOverlay", PHARM_OVERLAYS, function(){ return ph().overlay||"med"; }, function(v){ ph().overlay=v; });
   var pf=el("bPhotoFix"); if(pf) pf.checked=!!ph().photoFix;
-  var tf=el("bTpl"); if(tf){ var tff=tf.closest&&tf.closest(".bi-field"); if(tff) tff.style.display="none"; }   // 템플릿은 카드마다 자동·랜덤 → 수동 선택 숨김
   renderBrandKit();
   renderEngineSel();
   renderGenMode();
@@ -1840,8 +1833,8 @@ function applyGenMode(){
   var ai=((ph().genMode||"standard")==="ai");
   var area=el("bPhotoArea"); if(area) area.style.display=ai?"none":"";
   var note=el("bAiNote"); if(note) note.hidden=!ai;
-  // AI 모드: 캔버스 디자인 옵션(서체·정렬) 숨김 (템플릿은 항상 자동·랜덤이라 별도 숨김)
-  ["bFont","bAlign"].forEach(function(id){ var c=el(id); if(c){ var f=c.closest&&c.closest(".bi-field"); if(f) f.style.display=ai?"none":""; } });
+  // AI 모드: 카드 디자인을 AI가 통째로 만드므로 캔버스 디자인 옵션(템플릿·서체·정렬) 숨김
+  ["bTpl","bFont","bAlign"].forEach(function(id){ var c=el(id); if(c){ var f=c.closest&&c.closest(".bi-field"); if(f) f.style.display=ai?"none":""; } });
   updatePhotoDependentOpts();
 }
 // 사진 농도/자동 보정은 배경이 있을 때만 노출 — 무사진 standard 모드에선 숨김
@@ -1901,27 +1894,28 @@ function addAiBackground(){
     }).then(function(){ aiBgBusy=false; var bb=el("bAiBg"); if(bb){ bb.disabled=false; bb.textContent="🎨 AI 배경 추가"; } renderPhotoStrip(); saveLocal(); });
   });
 }
-/* AI 이미지 전체 제작 — 한 번의 생성에서 '공통 아트 디렉션'을 고정해 모든 카드를 같은 시리즈처럼 연결 */
+/* AI 이미지 전체 제작 — 제공된 예제(한국 약사 인스타 인포그래픽) 스타일. 한 세트는 같은 색/스타일로 일관. */
+var AI_REF_STYLE="Flat 2D graphic design infographic in the style of popular Korean pharmacist Instagram cards (e.g. @good.yaksa, @shine_yaksa): clean light background, soft pastel color-coded rounded boxes and section labels, simple cute flat line/emoji-like icons, friendly rounded Korean sans-serif, neatly organized with clear hierarchy. NOT a photograph — a designed graphic card.";
 var AI_ART_DIRECTIONS=[
-  "Editorial photo series of the SAME cozy neighborhood pharmacy interior, identical art direction across every slide: warm sage-green walls, light oak wood shelving and counter, soft natural window light from the left, shallow depth of field, muted cream-and-green color grade, calm minimal styling",
-  "Editorial photo series of the SAME bright modern pharmacy, identical art direction across every slide: clean white and soft mint surfaces, gentle even daylight, glass and light-wood accents, airy minimal composition, consistent pastel-green color grade",
-  "Editorial photo series of the SAME warm wellness pharmacy, identical art direction across every slide: beige and olive-green tones, soft warm lamp light, small natural plants, wooden textures, cozy premium mood, consistent warm color grade",
-  "Editorial photo series of the SAME serene clinic-style pharmacy, identical art direction across every slide: soft blue-grey and white palette, clean diffused light, minimal shelves, calm trustworthy mood, consistent cool color grade"
+  "soft mint-green and white palette, rounded pastel boxes, simple flat icons, tidy grid",
+  "warm cream and coral-orange accents, rounded cards, cute flat icons, clear sectioned layout",
+  "soft sky-blue and white palette, rounded boxes with subtle shadow, minimal flat icons",
+  "pastel multi-color coded sections (green/orange/blue/purple), rounded boxes, cute icons"
 ];
 function pickArtDir(){ return AI_ART_DIRECTIONS[Math.floor(Math.random()*AI_ART_DIRECTIONS.length)]; }
-// AI 모드: 문구까지 이미지에 직접 렌더링(합성 없이 AI 모델이 카드 전체를 디자인). 시리즈 일관 스타일 유지.
+// AI 모드: 문구까지 AI가 직접 — 제공 예제처럼 약사 인포그래픽 카드로 디자인. 한 세트 동일 팔레트로 일관.
 function buildCardAiTextPrompt(card, artDir){
-  var art=artDir||ph().aiArt||AI_ART_DIRECTIONS[0];
+  var pal=artDir||ph().aiArt||AI_ART_DIRECTIONS[0];
   var title=((card&&card.headline)||"").replace(/\s+/g," ").trim();
   var brand=(brandKit&&brandKit.name||"").trim();
-  var brandLine=brand?(" Include the pharmacy name \""+brand+"\" small in a corner as a subtle brand mark."):"";
+  var brandLine=brand?(" Put the pharmacy name \""+brand+"\" small at a top or bottom corner like an account handle."):"";
   var pts=String((card&&card.body)||"").split(/\s*;;\s*/).map(function(s){ return s.replace(/^[\-•·]\s*/,"").replace(/\s+/g," ").trim(); }).filter(Boolean);
-  if(pts.length>1){   // 빽빽한 정보 카드 — 인포그래픽 목록
+  if(pts.length>1){   // 빽빽한 정보 카드 — 표/체크리스트형 인포그래픽
     var list=pts.map(function(p,i){ return (i+1)+") "+p; }).join("   ");
-    return "Design ONE information-DENSE but tidy Instagram card-news slide (4:5 portrait) for a neighborhood pharmacy, part of a cohesive series. Series art direction: "+art+". Make it a clean Korean INFOGRAPHIC: a bold headline \""+(title||" ")+"\" at the top, then these points as a neat well-organized vertical list, each with a small bullet/number, spelled EXACTLY and correctly: "+list+"."+brandLine+" Pack the content densely yet keep it highly legible — light clean background, clear contrast, even spacing, like a premium Korean pharmacy info card. Keep all text within safe margins so nothing is cut. Accurate natural Korean only — no fake, broken or random characters, no English gibberish, no watermark.";
+    return AI_REF_STYLE+" Color theme: "+pal+". Design ONE information-DENSE but tidy Korean pharmacy infographic card (4:5 portrait). Bold headline \""+(title||" ")+"\" in a colored banner at the top, then present these points as a neat color-coded list / checklist / simple table (each row a rounded box or line with a small icon), spelled EXACTLY and correctly: "+list+"."+brandLine+" Pack it densely yet keep it clean and very easy to scan. Keep all text within safe margins so nothing is cut. Accurate natural Korean only — no fake/broken/random characters, no English gibberish, no watermark.";
   }
   var body=String((card&&card.body)||"").replace(/\s+/g," ").trim();
-  return "Design ONE polished Instagram card-news slide (4:5 portrait) for a neighborhood pharmacy, part of a cohesive series. Series art direction: "+art+". On the image, render this KOREAN text with clean modern legible typography, spelled EXACTLY and correctly: a large bold headline \""+(title||" ")+"\", and a smaller subtext line \""+(body||" ")+"\"."+brandLine+" Put a soft gradient or translucent panel behind the text so it stays easy to read. IMPORTANT: place ALL text within the central 70% of the frame, leaving the top 15% and bottom 18% free of text (safe margins), so nothing gets cut off. Tasteful editorial layout, professional. The Korean must be accurate and natural — no fake, broken or random characters, no English gibberish, no watermark.";
+  return AI_REF_STYLE+" Color theme: "+pal+". Design ONE clean Korean pharmacy infographic card (4:5 portrait). Big bold headline \""+(title||" ")+"\" prominently, with a short supporting line \""+(body||" ")+"\" below, plus one or two simple relevant icons or a small illustration."+brandLine+" Spelled EXACTLY and correctly. Keep all text within the central safe area (margins on every side) so nothing is cut. Accurate natural Korean only — no fake/broken/random characters, no English gibberish, no watermark.";
 }
 function genCardAiBg(card, artDir){   // 카드 1장을 AI가 문구까지 디자인 → card.bgUrl + card.aiText (실패 시 빈 값=문구 합성 폴백)
   return pharmacyFetch("/pharmacy/image",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
@@ -2403,7 +2397,7 @@ function startPharmacyRun(opts){
       if(!d||!d.ok||!(d.output||"").trim()) throw new Error((d&&d.error)||"문구 생성 실패");
       var cards=parseCardPlan(d.output).slice(0, targetCount);   // 목표 장수로 맞춤(AI가 더 줘도 컷)
       if(!cards.length) throw new Error("문구를 만들지 못했어요");
-      var _pt=""; cards.forEach(function(c,i){ c.id="c"+i; c.photoIdx=(pn? (i<pn?i:-1) : -1); c.templateId=pickTemplate(_pt); _pt=c.templateId; });   // 1:1 배정 + 카드별 랜덤 템플릿
+      cards.forEach(function(c,i){ c.id="c"+i; c.photoIdx=(pn? (i<pn?i:-1) : -1); c.templateId=ph().templateId; });   // 1:1 배정(템플릿은 선택값 사용)
       ph().cards=cards; nCards=cards.length;
       state.imageGen.runId=ph().runId;
       state.imageGen.items=cards.map(function(){ return { pending:true }; });
