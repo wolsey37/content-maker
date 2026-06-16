@@ -170,7 +170,9 @@ export function createCore(opts) {
     let image = null;
     const mm = /^data:([^;]+);base64,(.+)$/.exec(String(p.image || ""));
     if (mm) image = { mime: mm[1], b64: mm[2] };
-    return J(200, await provider.startVideo({ prompt, aspect, image, model: String(p.model || "") }));
+    const images = [];   // 참조 이미지 다중(Veo 3.1 referenceImages, 최대 3장)
+    if (Array.isArray(p.images)) for (const s of p.images) { const m2 = /^data:([^;]+);base64,(.+)$/.exec(String(s || "")); if (m2) images.push({ mime: m2[1], b64: m2[2] }); }
+    return J(200, await provider.startVideo({ prompt, aspect, image, images, model: String(p.model || "") }));
   }
   async function videoStatus(req, auth) {
     const p = parseBody(req); if (!p) return J(400, { ok: false, error: "잘못된 요청 본문(JSON 파싱 실패)" });

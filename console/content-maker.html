@@ -2503,18 +2503,20 @@ function runVideoGen(){
   ph().intro=intro; ph().videoUrl=""; state.platform=PHARM_PLATFORM; ensureJobId();
   ph().runId="v"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,6);
   var myRun=ph().runId; function stale(){ return ph().runId!==myRun; }
-  var refPhoto=(ph().photos||[]).filter(function(p){ return p&&p.url; })[0];
+  var refPhotos=(ph().photos||[]).filter(function(p){ return p&&p.url; }).slice(0,3);   // Veo 3.1 참조 이미지 최대 3장
   closeBuilderModal(); showBuilder(); el("bResult").hidden=false; bErr(null);
   el("bTitle").textContent="AI 영상"; el("bBadge").textContent="만드는 중"; el("bBadge").className="studio-badge run";
   el("bCards").innerHTML=""; el("bCards").hidden=true;
   el("bVideoResult").hidden=false; el("bVideoResult").innerHTML='<div class="vr-ph"><span class="spin"></span>AI가 영상을 만들고 있어요…<small>1~2분 정도 걸려요. 창을 닫지 말아 주세요.</small></div>';
   setBStatus("① 영상 준비 중…");
-  var refP = refPhoto ? fetchAsDataUrl(mediaSrc(refPhoto.url)).catch(function(){ return ""; }) : Promise.resolve("");
-  refP.then(function(refData){
+  var refP = refPhotos.length
+    ? Promise.all(refPhotos.map(function(p){ return fetchAsDataUrl(mediaSrc(p.url)).catch(function(){ return ""; }); })).then(function(a){ return a.filter(Boolean); })
+    : Promise.resolve([]);
+  refP.then(function(refList){
     if(stale()) return;
     setBStatus("② AI(Gemini Veo)가 영상을 만들고 있어요… (1~2분)");
     return pharmacyFetch("/pharmacy/video",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({ prompt:buildVideoPrompt(intro), aspect:"9:16", image:refData||"", model:"veo-3.1-fast-generate-preview", jobId:ensureJobId(), runId:ph().runId, idx:"1" }) })
+      body:JSON.stringify({ prompt:buildVideoPrompt(intro), aspect:"9:16", image:(refList[0]||""), images:refList, model:"veo-3.1-fast-generate-preview", jobId:ensureJobId(), runId:ph().runId, idx:"1" }) })
       .then(function(r){ return r.json(); }).then(function(d){
         if(stale()) return;
         if(!d||!d.ok||!d.op) throw new Error((d&&d.error)||"영상 시작 실패");

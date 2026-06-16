@@ -73,10 +73,17 @@ export function makeGeminiProvider(secrets, env) {
     }
   }
   // 영상 생성 시작 — Veo predictLongRunning(비동기). operation name 반환.
-  async function startVideo({ prompt, aspect, image, model }) {
+  async function startVideo({ prompt, aspect, image, images, model }) {
     try {
       const inst = { prompt: String(prompt || "") };
-      if (image && image.b64) inst.image = { bytesBase64Encoded: image.b64, mimeType: image.mime || "image/jpeg" };
+      // 참조 이미지: 2장 이상이면 Veo 3.1 referenceImages(asset, 최대 3장), 1장이면 첫 프레임(image-to-video).
+      const refs = (Array.isArray(images) ? images : []).filter((im) => im && im.b64).slice(0, 3);
+      if (refs.length >= 2) {
+        inst.referenceImages = refs.map((im) => ({ image: { bytesBase64Encoded: im.b64, mimeType: im.mime || "image/jpeg" }, referenceType: "asset" }));
+      } else {
+        const one = refs[0] || (image && image.b64 ? image : null);
+        if (one && one.b64) inst.image = { bytesBase64Encoded: one.b64, mimeType: one.mime || "image/jpeg" };
+      }
       const body = { instances: [inst], parameters: { aspectRatio: aspect || "9:16" } };
       const useModel = (model || "").trim() || videoModel;
       const resp = await fetch(BASE + "/models/" + encodeURIComponent(useModel) + ":predictLongRunning?key=" + encodeURIComponent(secrets.GEMINI_API_KEY), {
