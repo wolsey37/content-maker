@@ -12,7 +12,7 @@ Parameters:
     Description: 생성 이미지 + 작업(JSON) 저장 S3 버킷(전역 유일).
   ProviderSecretName:
     Type: String
-    Default: content-maker
+    Default: prod/content-maker
     Description: provider API 키(OPENAI_API_KEY·GEMINI_API_KEY 등) 시크릿 이름. 외부에서 생성·관리(스택은 참조만).
   JwtSecretArn:
     Type: String
@@ -72,7 +72,7 @@ Resources:
             AllowedHeaders: ['*']
             MaxAge: 3000
 
-  # provider 키 시크릿(content-maker)은 외부에서 생성·관리한다(jwt-secret/prod-connect 와 동일 패턴). 스택은 참조만.
+  # provider 키 시크릿(prod/content-maker)은 외부에서 생성·관리한다(jwt-secret/prod/connect 와 동일 패턴). 스택은 참조만.
 
   ApiFunction:
     Type: AWS::Serverless::Function
