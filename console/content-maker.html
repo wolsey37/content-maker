@@ -431,6 +431,9 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
 .video-bar .vb-act{ display:flex; align-items:center; gap:12px; margin-top:2px; }
 .video-bar .vb-status{ font-size:12.5px; color:var(--muted); }
 @media (max-width:560px){ .video-bar .vb-row{ flex-direction:column; align-items:stretch; gap:6px; } .video-bar .vb-l{ width:auto; } }
+.video-result{ display:flex; flex-direction:column; align-items:center; gap:14px; padding:8px 0; }
+.video-result video{ width:100%; max-width:420px; border-radius:var(--r2); background:#000; box-shadow:var(--sh-2); }
+.video-result .vr-ph{ width:100%; max-width:420px; aspect-ratio:9/16; border-radius:var(--r2); background:linear-gradient(150deg,var(--brand-soft),var(--gold-soft)); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; color:var(--muted); font-size:13px; text-align:center; padding:20px; }
 .caption-bar{ background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:16px 18px; margin-bottom:18px; display:flex; flex-direction:column; gap:11px; }
 .caption-bar .cap-head{ display:flex; align-items:center; gap:10px; }
 .caption-bar .cap-t{ font-size:13px; font-weight:800; color:var(--ink); }
@@ -556,6 +559,7 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
                 <div class="photo-strip" id="bPhotoStrip"></div>
               </div>
               <p class="ai-note" id="bAiNote" hidden>🎨 AI가 카드마다 <b>약사 인포그래픽 스타일</b>로 문구까지 직접 디자인해요(사진 업로드 없이 완성). <small>4:5 권장 · 카드 수만큼 AI 이미지 크레딧 소모 · 한글이 또렷하지 않으면 그 카드만 🔄로 다시 생성하세요.</small></p>
+              <p class="ai-note" id="bVideoNote" hidden>🎬 <b>Gemini(Veo)</b>가 짧은 세로 영상을 만들어요. 참조 사진을 올리면 그 사진을 바탕으로 합니다. <small>약 1~2분 소요 · 영상 생성 크레딧 소모 · 완료까지 창을 닫지 말아 주세요.</small></p>
             </div>
           </div>
           <aside class="bi-side">
@@ -682,6 +686,7 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
       <div class="vb-act"><button class="btn pri" id="vMake" type="button">🎬 영상 저장</button><span class="vb-status" id="vStatus"></span></div>
     </div>
     <div class="cards-grid" id="bCards"></div>
+    <div class="video-result" id="bVideoResult" hidden></div>
   </section>
 </main>
 
@@ -954,7 +959,7 @@ function freshState(){
     imageGen:{ prompts:"", runId:"", items:[], provider:"codex", imageModel:"", concurrency:2 },
     videoGen:{ cuts:"", runId:"", items:[], provider:"claude", engine:"higgsfield", videoModel:"seedance_1_5", concurrency:1 },
     // 약국 소개 카드뉴스 전용 — 자유 설명 + 업로드 사진 + 카드 정의(문구·배경사진·템플릿). 최종 PNG 는 imageGen.items 재사용.
-    pharmacy:{ intro:"", contentType:"intro", infoKind:"", genMode:"standard", aiConcept:"", tone:"warm", templateId:"fullbleed", ratio:"4:5", palette:"gold", align:"left", overlay:"med", font:"sans", photoFix:false, aiArt:"", photos:[], cards:[], caption:"", runId:"" } };
+    pharmacy:{ intro:"", contentType:"intro", infoKind:"", genMode:"standard", aiConcept:"", tone:"warm", templateId:"fullbleed", ratio:"4:5", palette:"gold", align:"left", overlay:"med", font:"sans", photoFix:false, aiArt:"", photos:[], cards:[], caption:"", videoUrl:"", runId:"" } };
 }
 function setSteps(platform){
   var prev=(state&&state.steps)||{};
@@ -976,7 +981,7 @@ function jobHasContent(){
   for(var k in (state.steps||{})){ if(((state.steps[k]||{}).output||"").trim()) return true; }
   if(((state.imageGen||{}).items||[]).some(Boolean)) return true;
   var pc=state.pharmacy||{};
-  if(((pc.intro||"").trim()) || (pc.photos||[]).length || (pc.cards||[]).length) return true;
+  if(((pc.intro||"").trim()) || (pc.photos||[]).length || (pc.cards||[]).length || (pc.videoUrl||"").trim()) return true;
   return false;
 }
 function syncJob(){
@@ -1141,7 +1146,7 @@ function loadJobs(){
         var thumb=j.thumbnailUrl?('<img crossorigin="anonymous" src="'+esc(mediaSrc(j.thumbnailUrl))+'" alt="" loading="lazy">'):"🌿";
         c.innerHTML='<div class="thumb">'+thumb+'</div>'+
           '<div class="meta"><div class="t">'+esc(j.title||"제목 없음")+'</div>'+
-          '<div class="d"><span class="badge">'+(j.genMode==="ai"?"인포그래픽":"내 사진")+'</span><span>'+fmtDate(j.updatedAt)+'</span></div></div>'+
+          '<div class="d"><span class="badge">'+(j.genMode==="ai"?"인포그래픽":(j.genMode==="video"?"영상":"내 사진"))+'</span><span>'+fmtDate(j.updatedAt)+'</span></div></div>'+
           '<button class="del" type="button" title="삭제" aria-label="삭제">✕</button>';
         c.addEventListener("click", function(e){
           if(e.target && e.target.classList.contains("del")){ deleteJob(j); return; }
@@ -1852,12 +1857,16 @@ function renderGenMode(){
   applyGenMode();
 }
 function applyGenMode(){
-  var ai=((ph().genMode||"standard")==="ai");
-  var area=el("bPhotoArea"); if(area) area.style.display=ai?"none":"";
+  var g=ph().genMode||"standard", ai=(g==="ai"), video=(g==="video");
+  // 사진 영역: 내 사진(필수)·영상(참조 선택)일 때 노출, 인포그래픽은 숨김
+  var area=el("bPhotoArea"); if(area) area.style.display=(ai)?"none":"";
   var note=el("bAiNote"); if(note) note.hidden=!ai;
-  // AI 모드: 카드 디자인을 AI가 통째로 만드므로 캔버스 디자인 옵션(템플릿·서체·정렬) 숨김
-  ["bTpl","bFont","bAlign"].forEach(function(id){ var c=el(id); if(c){ var f=c.closest&&c.closest(".bi-field"); if(f) f.style.display=ai?"none":""; } });
-  updatePhotoDependentOpts();
+  var vnote=el("bVideoNote"); if(vnote) vnote.hidden=!video;
+  var phHead=el("bPhotoHint"); if(phHead) phHead.textContent=video?"참조 사진(선택) — 올리면 그 사진을 바탕으로 영상을 만들어요":"외관·내부·약사님·상담공간 등 — 사진이 카드 배경이 됩니다";
+  // 캔버스 디자인 옵션(템플릿·서체·정렬·브랜드·비율)·AI엔진: 영상/AI 모드에선 불필요 → 숨김
+  ["bTpl","bFont","bAlign"].forEach(function(id){ var c=el(id); if(c){ var f=c.closest&&c.closest(".bi-field"); if(f) f.style.display=(ai||video)?"none":""; } });
+  var eng=el("bEngine"); if(eng){ var ef=eng.closest&&eng.closest(".bi-field"); if(ef) ef.style.display=video?"none":""; }   // 영상은 Gemini 고정
+  updatePhotoDependentOpts(); updateGenBtn();
 }
 // 사진 농도/자동 보정은 배경이 있을 때만 노출 — 무사진 standard 모드에선 숨김
 function updatePhotoDependentOpts(){
@@ -1987,11 +1996,11 @@ function movePhoto(i, delta){
 }
 function updateGenBtn(){
   var dis=(pharmUploading>0)||pharmBusy;
-  var b=el("bGenerate"); if(b){ b.disabled=dis; b.textContent=pharmUploading>0?"사진 올리는 중…":"✨ 카드뉴스 만들기"; }
+  var b=el("bGenerate"); if(b){ b.disabled=dis; b.textContent=pharmUploading>0?"사진 올리는 중…":((ph().genMode==="video")?"🎬 영상 만들기":"✨ 카드뉴스 만들기"); }
   var m=el("bMagic"); if(m){ m.disabled=dis||(connected===false); m.textContent=pharmUploading>0?"사진 올리는 중…":"🪄 한 번에 다 만들기"; }
 }
 /* 무엇을 만들까요? = 출력 형태(내 사진 / 인포그래픽). genMode 와 직결. */
-var PHARM_FORMATS=[ {k:"standard",l:"📷 내 사진"}, {k:"ai",l:"📊 인포그래픽"} ];
+var PHARM_FORMATS=[ {k:"standard",l:"📷 내 사진"}, {k:"ai",l:"📊 인포그래픽"}, {k:"video",l:"🎬 영상"} ];
 var FORMAT_UI={
   standard:{ title:"내 사진으로 카드뉴스 만들기", label:"무엇을 담을까요?",
     hint:"소개·인사·이벤트 등 주제를 적어 주세요. 올린 사진 위에 문구를 얹어 카드뉴스로 만들어요.",
@@ -2000,7 +2009,11 @@ var FORMAT_UI={
   ai:{ title:"AI 인포그래픽 카드뉴스 만들기", label:"어떤 정보를 담을까요?",
     hint:"주제만 적으면 약사 인포그래픽(번호·표·아이콘)으로 빽빽하게 정리해 드려요. (일반 건강 상식 · 진단·처방 대체 아님)",
     ph:"예) 마그네슘이 우리 몸에서 하는 일\n예) 증상별 감기약 고르는 법\n예) 영양제 섭취 시간 한눈에 보기",
-    examples:[ {l:"💊 영양소 기능",v:"마그네슘이 우리 몸에서 하는 일과 부족 증상"}, {l:"⏰ 영양제 섭취시간",v:"영양제 섭취 시간 한눈에 보기 (아침·점심·저녁)"}, {l:"🩹 감기약 고르기",v:"증상별 감기약 고르는 법"}, {l:"🗓️ 시기별 영양제",v:"환절기 챙기면 좋은 영양제 가이드"} ] }
+    examples:[ {l:"💊 영양소 기능",v:"마그네슘이 우리 몸에서 하는 일과 부족 증상"}, {l:"⏰ 영양제 섭취시간",v:"영양제 섭취 시간 한눈에 보기 (아침·점심·저녁)"}, {l:"🩹 감기약 고르기",v:"증상별 감기약 고르는 법"}, {l:"🗓️ 시기별 영양제",v:"환절기 챙기면 좋은 영양제 가이드"} ] },
+  video:{ title:"AI 영상 만들기 (Gemini Veo)", label:"어떤 영상을 만들까요?",
+    hint:"장면을 적으면 Gemini(Veo)가 짧은 세로 영상을 만들어요. 참조 사진을 올리면 그 사진을 바탕으로 만듭니다. (엔진은 Gemini 고정 · 1~2분 소요)",
+    ph:"예) 따뜻한 동네 약국 외관, 아침 햇살, 잔잔한 카메라 이동\n예) 약사가 환하게 인사하는 짧은 장면",
+    examples:[ {l:"🏪 약국 외관",v:"따뜻한 동네 약국 외관, 아침 햇살, 잔잔하게 다가가는 카메라"}, {l:"👋 인사 장면",v:"약사가 환하게 미소지으며 인사하는 짧고 따뜻한 장면"}, {l:"🌿 차분한 무드",v:"깔끔한 약국 내부, 식물과 부드러운 조명, 잔잔한 분위기"} ] }
 };
 function formatMeta(){ return FORMAT_UI[(ph().genMode)||"standard"]||FORMAT_UI.standard; }
 // 인포그래픽 컨셉(색·무드) — 빈 값은 자동(랜덤), 그 외는 AI_ART_DIRECTIONS 인덱스
@@ -2345,6 +2358,7 @@ function composeAndSave(card, i, replaceKey, idxStr){
 /* ---- 결과 그리드 + 카드별 편집 ---- */
 function renderPharmaCards(){
   var grid=el("bCards"); if(!grid) return; grid.innerHTML="";
+  var vr=el("bVideoResult"); if(vr) vr.hidden=true; grid.hidden=false;   // 카드 흐름 — 영상 결과 숨김
   var items=state.imageGen.items||[], cards=ph().cards||[];
   cards.forEach(function(card,i){
     var it=items[i]||{};
@@ -2439,9 +2453,87 @@ function saveCardEdit(){
 /* ---- 생성 파이프라인 ---- */
 function generatePharmacyCards(){ startPharmacyRun({}); }                       // 카드만
 function magicGenerate(){ startPharmacyRun({}); }  // (캡션·영상 기능 제거 — 카드 생성)
+/* ---- AI 영상(Gemini Veo) ---- */
+function buildVideoPrompt(text){
+  return "Short vertical 9:16 social media video for a warm neighborhood pharmacy. Scene: "+(text||"a cozy pharmacy, soft warm light, gentle camera motion")+". Friendly, clean, realistic, soft natural lighting, smooth gentle camera movement. No on-screen text, no watermark.";
+}
+function fetchAsDataUrl(url){
+  return fetch(url).then(function(r){ return r.blob(); }).then(function(b){
+    return new Promise(function(res,rej){ var fr=new FileReader(); fr.onload=function(){ res(fr.result); }; fr.onerror=function(){ rej(new Error("이미지 변환 실패")); }; fr.readAsDataURL(b); });
+  });
+}
+function renderVideoResult(){
+  var box=el("bVideoResult"); if(!box) return;
+  var cards=el("bCards"); if(cards) cards.hidden=true; box.hidden=false;
+  var url=ph().videoUrl;
+  if(!url){ box.innerHTML='<div class="vr-ph"><span class="spin"></span>영상을 만들고 있어요…</div>'; return; }
+  box.innerHTML='<video src="'+esc(mediaSrc(url))+'" controls playsinline autoplay loop muted></video>'+
+    '<a class="btn pri" href="'+esc(mediaSrc(url))+'" download="약국-영상.mp4">⬇ 영상 저장 (mp4)</a>';
+}
+function pollVideoOp(op, stale){
+  return new Promise(function(resolve, reject){
+    var tries=0, max=30;   // 약 5분(10초 간격)
+    function tick(){
+      if(stale()){ resolve(""); return; }
+      pharmacyFetch("/pharmacy/video-status",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ op:op, jobId:ensureJobId(), runId:ph().runId, idx:"1" }) })
+        .then(function(r){ return r.json(); }).then(function(d){
+          if(stale()){ resolve(""); return; }
+          if(!d||!d.ok) return reject(new Error((d&&d.error)||"영상 폴링 실패"));
+          if(d.done){ resolve(d.url); return; }
+          tries++; if(tries>=max) return reject(new Error("영상 생성이 너무 오래 걸려요(시간 초과)"));
+          setBStatus("② AI(Gemini Veo)가 영상을 만들고 있어요… ("+(tries*10)+"초)");
+          setTimeout(tick, 10000);
+        }).catch(function(e){ tries++; if(tries>=max) return reject(e); setTimeout(tick, 10000); });
+    }
+    setTimeout(tick, 8000);
+  });
+}
+function runVideoGen(){
+  if(pharmBusy) return;
+  if(pharmUploading>0){ bInputNote("사진 업로드가 끝난 뒤 눌러주세요."); return; }
+  var intro=(el("bIntro").value||"").trim();
+  if(!intro){ bInputNote("어떤 영상을 만들지 적어 주세요."); el("bIntro").focus(); return; }
+  if(connected===false){ refreshConnUI(); bInputNote("서버 연결을 확인하는 중이에요. 잠시 후 다시 시도해 주세요."); return; }
+  pharmBusy=true; pharmEditing=null;
+  ph().intro=intro; ph().videoUrl=""; state.platform=PHARM_PLATFORM; ensureJobId();
+  ph().runId="v"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,6);
+  var myRun=ph().runId; function stale(){ return ph().runId!==myRun; }
+  var refPhoto=(ph().photos||[]).filter(function(p){ return p&&p.url; })[0];
+  closeBuilderModal(); showBuilder(); el("bResult").hidden=false; bErr(null);
+  el("bTitle").textContent="AI 영상"; el("bBadge").textContent="만드는 중"; el("bBadge").className="studio-badge run";
+  el("bCards").innerHTML=""; el("bCards").hidden=true;
+  el("bVideoResult").hidden=false; el("bVideoResult").innerHTML='<div class="vr-ph"><span class="spin"></span>AI가 영상을 만들고 있어요…<small>1~2분 정도 걸려요. 창을 닫지 말아 주세요.</small></div>';
+  setBStatus("① 영상 준비 중…");
+  var refP = refPhoto ? fetchAsDataUrl(mediaSrc(refPhoto.url)).catch(function(){ return ""; }) : Promise.resolve("");
+  refP.then(function(refData){
+    if(stale()) return;
+    setBStatus("② AI(Gemini Veo)가 영상을 만들고 있어요… (1~2분)");
+    return pharmacyFetch("/pharmacy/video",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ prompt:buildVideoPrompt(intro), aspect:"9:16", image:refData||"", model:"veo-3.0-fast-generate-001", jobId:ensureJobId(), runId:ph().runId, idx:"1" }) })
+      .then(function(r){ return r.json(); }).then(function(d){
+        if(stale()) return;
+        if(!d||!d.ok||!d.op) throw new Error((d&&d.error)||"영상 시작 실패");
+        return pollVideoOp(d.op, stale);
+      });
+  }).then(function(url){
+    if(stale()) return;
+    if(!url){ pharmBusy=false; return; }
+    pharmBusy=false; ph().videoUrl=url;
+    el("bBadge").textContent="완성"; el("bBadge").className="studio-badge done";
+    setBStatus("🎉 영상 완성! 아래에서 재생·저장하세요.");
+    renderVideoResult(); saveLocal(); syncJob();
+  }).catch(function(e){
+    if(stale()) return;
+    pharmBusy=false; el("bBadge").textContent="중단됨"; el("bBadge").className="studio-badge err";
+    el("bVideoResult").innerHTML='<div class="vr-ph">⚠ 영상 생성 실패<br><small>'+esc(((e&&e.message)||e)+"").slice(0,120)+'</small></div>';
+    setBStatus("");
+  });
+}
 function startPharmacyRun(opts){
   opts=opts||{}; var magic=!!opts.magic;
   if(pharmBusy) return;
+  if((ph().genMode||"standard")==="video"){ runVideoGen(); return; }   // 영상 유형은 별도 흐름
   if(pharmUploading>0){ bInputNote("사진 업로드가 끝난 뒤 눌러주세요."); return; }
   var intro=(el("bIntro").value||"").trim();
   var photos=ph().photos.filter(function(p){ return p&&p.url; });
@@ -2458,6 +2550,7 @@ function startPharmacyRun(opts){
   closeBuilderModal(); showBuilder(); el("bResult").hidden=false; bErr(null);   // 입력 팝업 닫고 결과 화면으로
   el("bTitle").textContent=(ph().genMode==="ai")?"인포그래픽 카드뉴스":"내 사진 카드뉴스";
   el("bBadge").textContent="만드는 중"; el("bBadge").className="studio-badge run";
+  el("bVideoResult").hidden=true; el("bCards").hidden=false;
   setBStatus(pfx+"① 카드 문구를 만들고 있어요…"); el("bCards").innerHTML="";
   var eng=currentEngine();
   var pn=photos.length;
@@ -2558,12 +2651,17 @@ function openPharmacyJob(j){
   if(st.pharmacy&&typeof st.pharmacy==="object"){
     state.pharmacy={ intro:st.pharmacy.intro||"", contentType:st.pharmacy.contentType||"intro", infoKind:st.pharmacy.infoKind||"", genMode:st.pharmacy.genMode||"standard", aiConcept:st.pharmacy.aiConcept||"", tone:st.pharmacy.tone||"warm", templateId:st.pharmacy.templateId||"fullbleed", ratio:st.pharmacy.ratio||"4:5",
       palette:st.pharmacy.palette||"gold", align:st.pharmacy.align||"left", overlay:st.pharmacy.overlay||"med", font:st.pharmacy.font||"sans", photoFix:!!st.pharmacy.photoFix, aiArt:st.pharmacy.aiArt||"",
-      photos:Array.isArray(st.pharmacy.photos)?st.pharmacy.photos:[], cards:Array.isArray(st.pharmacy.cards)?st.pharmacy.cards:[], caption:st.pharmacy.caption||"", runId:st.pharmacy.runId||"" };
+      photos:Array.isArray(st.pharmacy.photos)?st.pharmacy.photos:[], cards:Array.isArray(st.pharmacy.cards)?st.pharmacy.cards:[], caption:st.pharmacy.caption||"", videoUrl:st.pharmacy.videoUrl||"", runId:st.pharmacy.runId||"" };
   }
   if(st.imageGen&&typeof st.imageGen==="object"){ state.imageGen.runId=st.imageGen.runId||""; state.imageGen.items=Array.isArray(st.imageGen.items)?st.imageGen.items:[]; }
   pharmBusy=false; pharmEditing=null; pharmUploading=0; bErr(null);
   el("bCaptionPanel").hidden=true; el("bVideoPanel").hidden=true; syncCaptionUI();
-  if((state.pharmacy.cards||[]).length>0){
+  if(ph().genMode==="video" && ph().videoUrl){   // 영상 작업
+    el("bBadge").textContent="완성"; el("bBadge").className="studio-badge done";
+    el("bTitle").textContent="AI 영상";
+    setBStatus("저장된 영상이에요. 재생·저장하거나 [입력 수정]에서 다시 만들 수 있어요.");
+    el("bResult").hidden=false; renderVideoResult(); showBuilder();
+  } else if((state.pharmacy.cards||[]).length>0){
     el("bBadge").textContent="완성"; el("bBadge").className="studio-badge done";
     el("bTitle").textContent=(ph().genMode==="ai")?"인포그래픽 카드뉴스":"내 사진 카드뉴스";
     setBStatus("저장된 카드뉴스예요. 카드별로 ✏️·🔄 로 수정하거나 [입력 수정]에서 다시 만들 수 있어요.");

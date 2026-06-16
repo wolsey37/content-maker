@@ -91,6 +91,8 @@ export function createCore(opts) {
     const ig = state.imageGen && Array.isArray(state.imageGen.items) ? state.imageGen.items : [];
     const vg = state.videoGen && Array.isArray(state.videoGen.items) ? state.videoGen.items : [];
     if (ig.some(Boolean) || vg.some(Boolean)) return true;
+    const pp = state.pharmacy && typeof state.pharmacy === "object" ? state.pharmacy : null;   // 약국 빌더(영상·카드·사진·주제)
+    if (pp && (String(pp.videoUrl || "").trim() || (Array.isArray(pp.cards) && pp.cards.length) || (Array.isArray(pp.photos) && pp.photos.length) || String(pp.intro || "").trim())) return true;
     return false;
   }
   function mergeMediaPlaceholders(next, prev) {
@@ -168,7 +170,7 @@ export function createCore(opts) {
     let image = null;
     const mm = /^data:([^;]+);base64,(.+)$/.exec(String(p.image || ""));
     if (mm) image = { mime: mm[1], b64: mm[2] };
-    return J(200, await provider.startVideo({ prompt, aspect, image }));
+    return J(200, await provider.startVideo({ prompt, aspect, image, model: String(p.model || "") }));
   }
   async function videoStatus(req, auth) {
     const p = parseBody(req); if (!p) return J(400, { ok: false, error: "잘못된 요청 본문(JSON 파싱 실패)" });

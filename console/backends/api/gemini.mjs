@@ -45,15 +45,16 @@ async function callText(key, model, prompt) {
 export function makeGeminiProvider(secrets, env) {
   env = env || process.env;
   const textModel = env.GEMINI_TEXT_MODEL || "gemini-2.5-flash";   // 최신 기본값
-  const videoModel = env.GEMINI_VIDEO_MODEL || "veo-3.0-fast-generate-preview";   // Veo(영상) 모델
+  const videoModel = env.GEMINI_VIDEO_MODEL || "veo-3.0-fast-generate-001";   // Veo(영상) 모델
   const VID_TIMEOUT_MS = Number(env.GEMINI_VIDEO_HTTP_TIMEOUT_MS) || 60000;
   // 영상 생성 시작 — Veo predictLongRunning(비동기). operation name 반환.
-  async function startVideo({ prompt, aspect, image }) {
+  async function startVideo({ prompt, aspect, image, model }) {
     try {
       const inst = { prompt: String(prompt || "") };
       if (image && image.b64) inst.image = { bytesBase64Encoded: image.b64, mimeType: image.mime || "image/jpeg" };
       const body = { instances: [inst], parameters: { aspectRatio: aspect || "9:16" } };
-      const resp = await fetch(BASE + "/models/" + encodeURIComponent(videoModel) + ":predictLongRunning?key=" + encodeURIComponent(secrets.GEMINI_API_KEY), {
+      const useModel = (model || "").trim() || videoModel;
+      const resp = await fetch(BASE + "/models/" + encodeURIComponent(useModel) + ":predictLongRunning?key=" + encodeURIComponent(secrets.GEMINI_API_KEY), {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(VID_TIMEOUT_MS),
       });
       const data = await resp.json().catch(() => null);
