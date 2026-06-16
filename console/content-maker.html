@@ -574,7 +574,6 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
               <input type="text" class="bk-name" id="bkName" maxlength="20" placeholder="약국명 (예: 행복한약국)" spellcheck="false">
               <div class="bk-row">
                 <button class="bk-logo" id="bkLogo" type="button" title="로고 올리기">＋<small>로고</small></button>
-                <div class="palette-row bk-colors" id="bkColors"></div>
               </div>
               <label class="bk-show"><input type="checkbox" id="bkShow"> 카드에 로고·약국명 표시</label>
               <input type="file" id="bkLogoFile" accept="image/*" hidden>
@@ -588,9 +587,9 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
               <span class="bi-label">AI 엔진</span>
               <select class="bi-select" id="bEngine" title="문구를 생성할 AI"></select>
             </div>
-            <button class="btn pri lg bi-go magic-go" id="bMagic" type="button">🪄 한 번에 다 만들기</button>
-            <label class="magic-opt"><input type="checkbox" id="bMagicVideo" checked> 캡션·영상까지 한 번에 만들기</label>
-            <button class="btn ghost bi-go2" id="bGenerate" type="button">카드만 만들기</button>
+            <button class="btn pri lg bi-go magic-go" id="bMagic" type="button" hidden>🪄 한 번에 다 만들기</button>
+            <label class="magic-opt" hidden><input type="checkbox" id="bMagicVideo" checked> 캡션·영상까지 한 번에 만들기</label>
+            <button class="btn pri lg bi-go" id="bGenerate" type="button">✨ 카드뉴스 만들기</button>
             <p class="bi-note" id="bInputNote"></p>
             <div class="conn-help" id="connHelp"></div>
           </aside>
@@ -649,8 +648,8 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
       <span class="br-status" id="bStatus"></span>
       <span class="sp"></span>
       <button class="btn ghost" id="bEditInputs" type="button">← 입력 수정</button>
-      <button class="btn ghost" id="bCaptionBtn" type="button">✍️ 캡션</button>
-      <button class="btn ghost" id="bVideoBtn" type="button">🎬 영상</button>
+      <button class="btn ghost" id="bCaptionBtn" type="button" hidden>✍️ 캡션</button>
+      <button class="btn ghost" id="bVideoBtn" type="button" hidden>🎬 영상</button>
       <button class="btn ghost" id="bDownloadAll" type="button">⬇ 전체 저장(ZIP)</button>
     </div>
     <div class="caption-bar" id="bCaptionPanel" hidden>
@@ -1847,6 +1846,12 @@ function updatePhotoDependentOpts(){
 /* AI 배경 생성(사진 스튜디오) — gpt-image-1로 약국 분위기 배경을 만들어 사진 슬롯에 추가 */
 var aiBgBusy=false;
 var AI_IMAGE_MODEL="gpt-image-2";   // AI 이미지 생성 모델
+function aiSizeForRatio(){   // 카드 비율에 맞는 gpt-image size(지정 가능) — 잘림 없이 생성
+  var r=(ph().ratio||"4:5");
+  if(r==="1:1") return "1024x1024";
+  if(r==="9:16") return "1024x1536";
+  return "1024x1280";   // 4:5
+}
 var AI_BG_VARIANTS=[   // 여러 장 생성 시 서로 다른 무드로 다양화
   "soft greenery and gentle natural light, airy and fresh",
   "warm neutral tones with minimal wooden shelves softly blurred",
@@ -1860,7 +1865,7 @@ function buildBgPrompt(text, vi){
 }
 function genAiBgInto(slot, vi){   // 슬롯 1개에 AI 배경 1장 생성(성공 true, 실패 {error})
   return pharmacyFetch("/pharmacy/image",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({ provider:"openai", imageModel:AI_IMAGE_MODEL, prompt:buildBgPrompt(ph().intro, vi), kind:"card", jobId:ensureJobId(), idx:"bg"+Date.now().toString(36)+vi }) })
+    body:JSON.stringify({ provider:"openai", imageModel:AI_IMAGE_MODEL, size:aiSizeForRatio(), prompt:buildBgPrompt(ph().intro, vi), kind:"card", jobId:ensureJobId(), idx:"bg"+Date.now().toString(36)+vi }) })
     .then(function(r){ if(r.status===404||r.status===401||r.status===403) throw new Error("AI 배경은 서버 업데이트(배포) 후 사용할 수 있어요."); return r.json(); })
     .then(function(d){
       if(!d||!d.ok||!d.url){ var em=(d&&d.error)||"AI 배경 생성 실패"; if(/인증/.test(em)) em="AI 배경은 서버 업데이트(배포) 후 사용할 수 있어요."; throw new Error(em); }
@@ -1908,7 +1913,7 @@ function buildCardAiTextPrompt(card, artDir){
 }
 function genCardAiBg(card, artDir){   // 카드 1장을 AI가 문구까지 디자인 → card.bgUrl + card.aiText (실패 시 빈 값=문구 합성 폴백)
   return pharmacyFetch("/pharmacy/image",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({ provider:"openai", imageModel:AI_IMAGE_MODEL, prompt:buildCardAiTextPrompt(card, artDir||ph().aiArt), kind:"card", jobId:ensureJobId(), idx:"cardbg-"+(card.id||"x")+"-"+Date.now().toString(36) }) })
+    body:JSON.stringify({ provider:"openai", imageModel:AI_IMAGE_MODEL, size:aiSizeForRatio(), prompt:buildCardAiTextPrompt(card, artDir||ph().aiArt), kind:"card", jobId:ensureJobId(), idx:"cardbg-"+(card.id||"x")+"-"+Date.now().toString(36) }) })
     .then(function(r){ if(r.status===404||r.status===401||r.status===403) throw new Error("AI 이미지는 서버 업데이트(배포) 후 사용할 수 있어요."); return r.json(); })
     .then(function(d){ if(d&&d.ok&&d.url){ card.bgUrl=d.url; card.aiText=true; return true; } throw new Error((d&&d.error)||"AI 이미지 생성 실패"); })
     .catch(function(e){ return { error:(e&&e.message)||String(e) }; });
@@ -1920,15 +1925,6 @@ function renderBrandKit(){
   if(lg){
     if(brandKit.logoData){ lg.classList.add("has"); lg.innerHTML='<img src="'+esc(brandKit.logoData)+'" alt="로고">'; }
     else { lg.classList.remove("has"); lg.innerHTML='＋<small>로고</small>'; }
-  }
-  var box=el("bkColors"); if(box){ box.innerHTML="";
-    BRAND_PRESETS.forEach(function(p){
-      var b=document.createElement("button"); b.type="button"; b.title=p.accent;
-      b.className=(brandKit.accent===p.accent?"on":"");
-      b.innerHTML='<span class="pc-dot" style="background:'+p.accent+'"></span>';
-      b.addEventListener("click", function(){ brandKit.accent=p.accent; saveBrandKit(); renderBrandKit(); });
-      box.appendChild(b);
-    });
   }
 }
 function onBrandLogoFile(files){
@@ -1963,7 +1959,7 @@ function movePhoto(i, delta){
 }
 function updateGenBtn(){
   var dis=(pharmUploading>0)||pharmBusy;
-  var b=el("bGenerate"); if(b){ b.disabled=dis; b.textContent=pharmUploading>0?"사진 올리는 중…":"카드만 만들기"; }
+  var b=el("bGenerate"); if(b){ b.disabled=dis; b.textContent=pharmUploading>0?"사진 올리는 중…":"✨ 카드뉴스 만들기"; }
   var m=el("bMagic"); if(m){ m.disabled=dis||(connected===false); m.textContent=pharmUploading>0?"사진 올리는 중…":"🪄 한 번에 다 만들기"; }
 }
 function renderTypeUI(){
@@ -2132,8 +2128,14 @@ function composeCard(card, img, tplId, logoImg){
   var fX=(card.focusX==null?0.5:card.focusX), fY=(card.focusY==null?0.5:card.focusY);
   var title=card.headline||"", body=card.body||"";
   var cards=ph().cards||[]; var idx=cards.indexOf(card); if(idx<0) idx=0; var total=cards.length||1;
-  // AI가 문구까지 그린 카드(card.aiText) — 합성 없이 이미지를 비율에 맞춰 그대로 사용
-  if(card.aiText && img){ drawCover(ctx,img,0,0,CARD_W,CARD_H,0.5,0.5); ctx.textAlign="left"; return cv; }
+  // AI가 문구까지 그린 카드(card.aiText) — 잘리지 않게 비율 안에 전체를 담고(contain), 빈 옆 여백은 같은 이미지 블러로 채움
+  if(card.aiText && img){
+    ctx.save(); if("filter" in ctx) ctx.filter="blur(26px) brightness(.7)"; drawCover(ctx,img,0,0,CARD_W,CARD_H,0.5,0.5); ctx.restore();   // 배경(블러 cover)
+    var ir=img.width/img.height, cr=CARD_W/CARD_H, dw, dh;
+    if(ir>cr){ dw=CARD_W; dh=Math.round(CARD_W/ir); } else { dh=CARD_H; dw=Math.round(CARD_H*ir); }   // contain(전체 표시)
+    ctx.drawImage(img, Math.round((CARD_W-dw)/2), Math.round((CARD_H-dh)/2), dw, dh);
+    ctx.textAlign="left"; return cv;
+  }
   ctx.fillStyle=IVORY; ctx.fillRect(0,0,CARD_W,CARD_H); ctx.textBaseline="top"; ctx.textAlign=align;
   function darkBg(x,y,w,h){ var g=ctx.createLinearGradient(0,0,w,h); g.addColorStop(0,DK1); g.addColorStop(1,DK2); ctx.fillStyle=g; ctx.fillRect(x,y,w,h); }
   function bar(x,y){ ctx.fillStyle=ACCENT; roundRectPath(ctx,x,y,56,7,3.5); ctx.fill(); }   // 둥근 액센트 바
@@ -2331,7 +2333,7 @@ function swapPhoto(i){
 
 /* ---- 생성 파이프라인 ---- */
 function generatePharmacyCards(){ startPharmacyRun({}); }                       // 카드만
-function magicGenerate(){ var v=el("bMagicVideo"); startPharmacyRun({ magic:true, withCaption:true, withVideo:!v||v.checked }); }  // 🪄 한 번에 다
+function magicGenerate(){ startPharmacyRun({}); }  // (캡션·영상 기능 제거 — 카드 생성)
 function startPharmacyRun(opts){
   opts=opts||{}; var magic=!!opts.magic;
   if(pharmBusy) return;

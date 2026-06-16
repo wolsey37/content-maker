@@ -42,6 +42,8 @@ function sizeForKind(kind, model) {
   if (!portrait) return "auto";
   return "1024x1536";
 }
+// 클라가 지정 가능한 size 허용 목록(임의 값 주입 방지). 모델이 실제로 거부하면 호출이 에러를 반환.
+const ALLOWED_SIZES = ["1024x1024", "1024x1280", "1024x1344", "1024x1536", "1280x1024", "1344x1024", "1536x1024", "auto"];
 // 콘솔에서 선택 가능한 이미지 모델(텍스트 모델과 별개)
 const IMAGE_MODELS = [
   { id: "gpt-image-1", name: "gpt-image-1", tag: "" },
@@ -90,7 +92,9 @@ export function makeOpenAIProvider(secrets, env) {
     runImage: (a) => {
       const sel = (a.imageModel || a.model || "").toString().trim();   // 클라가 고른 이미지 모델(별도 필드; model 은 구버전 호환)
       const im = IMAGE_MODEL_IDS.includes(sel) ? sel : imageModel;     // 허용 목록 검증(임의 모델 주입 방지) · 아니면 env 기본
-      return callImage(secrets.OPENAI_API_KEY, im, a.prompt, sizeForKind(a.kind, im));
+      const reqSize = String(a.size || "").trim();                      // 클라 지정 size(허용 목록만) · 아니면 kind 기본
+      const sz = ALLOWED_SIZES.includes(reqSize) ? reqSize : sizeForKind(a.kind, im);
+      return callImage(secrets.OPENAI_API_KEY, im, a.prompt, sz);
     },
   };
 }

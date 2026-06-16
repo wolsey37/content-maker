@@ -144,7 +144,8 @@ export function createCore(opts) {
     const jobId = san(p.jobId || "", 60);
     const base = jobId || ("_unsaved-" + runId);        // 콘텐츠(작업)별 폴더 — 저장 전이면 _unsaved
     const imageModel = String(p.imageModel || p.model || "").trim();   // 클라가 선택한 이미지 모델(별도 필드; 구버전 호환으로 model 도 수용)
-    const gen = await provider.runImage({ prompt, model: (p.model || "").toString().trim(), kind, imageModel });   // kind → 콘텐츠 종류별 size(비율) 강제, imageModel → 이미지 모델 선택
+    const size = String(p.size || "").trim();   // 클라가 지정한 이미지 size(WxH) — 허용 목록은 provider 가 검증, 미지정 시 kind 기본
+    const gen = await provider.runImage({ prompt, model: (p.model || "").toString().trim(), kind, imageModel, size });   // kind → 콘텐츠 종류별 size(비율) 기본, size → 클라 지정 우선, imageModel → 이미지 모델 선택
     if (!gen.ok) return J(200, gen);
     try {
       const saved = await storage.save(`${userPrefix(auth)}content/${base}/${kind}/${runId}/${idx}.${gen.ext}`, gen.buf, gen.mime);
