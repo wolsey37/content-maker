@@ -1141,7 +1141,7 @@ function loadJobs(){
         var thumb=j.thumbnailUrl?('<img crossorigin="anonymous" src="'+esc(mediaSrc(j.thumbnailUrl))+'" alt="" loading="lazy">'):"🌿";
         c.innerHTML='<div class="thumb">'+thumb+'</div>'+
           '<div class="meta"><div class="t">'+esc(j.title||"제목 없음")+'</div>'+
-          '<div class="d"><span class="badge">'+fmtBadge(j.platform)+'</span><span>'+fmtDate(j.updatedAt)+'</span></div></div>'+
+          '<div class="d"><span class="badge">'+(j.genMode==="ai"?"인포그래픽":"내 사진")+'</span><span>'+fmtDate(j.updatedAt)+'</span></div></div>'+
           '<button class="del" type="button" title="삭제" aria-label="삭제">✕</button>';
         c.addEventListener("click", function(e){
           if(e.target && e.target.classList.contains("del")){ deleteJob(j); return; }

@@ -59,6 +59,7 @@ export function createCore(opts) {
   // 작업의 '목록용 경량 메타'(presign 없이) — 인덱스 저장·목록 표시에 공용. 전체 state 를 안 담아 작고 빠르다.
   function metaOfRaw(j) {
     const meta = { id: j.id, title: j.title, platform: j.platform, createdAt: j.createdAt, updatedAt: j.updatedAt };
+    meta.genMode = (j.state && j.state.pharmacy && j.state.pharmacy.genMode) || "standard";   // 목록 배지(내 사진/인포그래픽)용
     const imgItems = j.state && j.state.imageGen && Array.isArray(j.state.imageGen.items) ? j.state.imageGen.items : [];
     const vidItems = j.state && j.state.videoGen && Array.isArray(j.state.videoGen.items) ? j.state.videoGen.items : [];
     const firstImg = imgItems.find((it) => it && (it.key || it.url));   // 실패/진행중 슬롯(key·url 없음)은 건너뛰고 완료분을 썸네일로
