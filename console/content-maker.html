@@ -2476,7 +2476,7 @@ function renderVideoResult(){
 }
 function pollVideoOp(op, stale){
   return new Promise(function(resolve, reject){
-    var tries=0, max=48;   // 약 8분(10초 간격) — 표준(중간급) 모델은 더 걸릴 수 있음
+    var tries=0, max=66;   // 약 11분(10초 간격) — 고품질(Veo 3.1 표준)은 생성이 더 걸릴 수 있음
     function tick(){
       if(stale()){ resolve(""); return; }
       pharmacyFetch("/pharmacy/video-status",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
@@ -2514,7 +2514,7 @@ function runVideoGen(){
     if(stale()) return;
     setBStatus("② AI(Gemini Veo)가 영상을 만들고 있어요… (1~2분)");
     return pharmacyFetch("/pharmacy/video",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({ prompt:buildVideoPrompt(intro), aspect:"9:16", image:refData||"", model:"veo-3.0-generate-001", jobId:ensureJobId(), runId:ph().runId, idx:"1" }) })
+      body:JSON.stringify({ prompt:buildVideoPrompt(intro), aspect:"9:16", image:refData||"", model:"veo-3.1-generate-preview", jobId:ensureJobId(), runId:ph().runId, idx:"1" }) })
       .then(function(r){ return r.json(); }).then(function(d){
         if(stale()) return;
         if(!d||!d.ok||!d.op) throw new Error((d&&d.error)||"영상 시작 실패");
