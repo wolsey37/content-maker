@@ -344,6 +344,12 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
 .cal-chip{ font-size:10px; font-weight:700; color:#fff; border:none; border-radius:5px; padding:3px 5px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.25; text-align:left; width:100%; box-sizing:border-box; }
 .cal-chip.done{ opacity:.5; }
 @media (max-width:560px){ .ci-brief{ display:none; } .cal-acts{ width:100%; } .cal-acts .btn.pri{ flex:1; } .cal-cell{ min-height:58px; padding:3px; } .cal-chip{ font-size:0; padding:5px 0; border-radius:3px; } .cal-cell .cd{ font-size:9.5px; } }
+/* 제작 방식(사진/AI) */
+.gm-label{ display:block; margin-bottom:8px; }
+.gen-mode{ margin-bottom:12px; }
+.gen-mode button{ flex:1 1 0; padding:10px 6px; font-size:12.5px; }
+.ai-note{ font-size:12.5px; color:var(--ink-2); line-height:1.55; background:var(--hover); border:1px solid var(--line); border-radius:var(--r1); padding:12px 14px; margin:0; }
+.ai-note small{ color:var(--muted); }
 /* 사진 스튜디오 도구 */
 .photo-tools{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:10px; }
 .pf-toggle{ display:flex; align-items:center; gap:7px; font-size:12.5px; font-weight:700; color:var(--ink-2); cursor:pointer; user-select:none; }
@@ -514,23 +520,28 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
             <textarea id="bIntro" rows="8" maxlength="2000" placeholder=""></textarea>
             <div class="bi-examples" id="bExamples"></div>
             <div class="bi-photos">
-              <div class="bi-photos-head">
-                <span class="bi-label">약국 사진 <span class="bi-opt">2~6장 권장</span></span>
-                <span class="bi-hint" id="bPhotoHint">외관·내부·약사님·상담공간 등 — 사진이 카드 배경이 됩니다</span>
+              <span class="bi-label gm-label">제작 방식</span>
+              <div class="opt-seg gen-mode" id="bGenMode"></div>
+              <div id="bPhotoArea">
+                <div class="bi-photos-head">
+                  <span class="bi-label">약국 사진 <span class="bi-opt">2~6장 권장</span></span>
+                  <span class="bi-hint" id="bPhotoHint">외관·내부·약사님·상담공간 등 — 사진이 카드 배경이 됩니다</span>
+                </div>
+                <div class="dropzone" id="bDrop">
+                  <input type="file" id="bFile" accept="image/*" multiple hidden>
+                  <div class="dz-inner"><span class="dz-ico">📷</span><span>사진을 끌어다 놓거나 <b>클릭해서 선택</b></span><span class="dz-sub">JPG·PNG · 자동으로 최적 크기로 줄여 올려요</span></div>
+                </div>
+                <div class="photo-tools">
+                  <label class="pf-toggle"><input type="checkbox" id="bPhotoFix"> ✨ 사진 자동 보정 <small>밝기·생생함</small></label>
+                  <span class="sp"></span>
+                  <select class="ai-count" id="bAiBgCount" title="AI 배경 생성 장수">
+                    <option value="1">1장</option><option value="2" selected>2장</option><option value="3">3장</option><option value="4">4장</option>
+                  </select>
+                  <button class="btn ghost sm" id="bAiBg" type="button">🎨 AI 배경 추가</button>
+                </div>
+                <div class="photo-strip" id="bPhotoStrip"></div>
               </div>
-              <div class="dropzone" id="bDrop">
-                <input type="file" id="bFile" accept="image/*" multiple hidden>
-                <div class="dz-inner"><span class="dz-ico">📷</span><span>사진을 끌어다 놓거나 <b>클릭해서 선택</b></span><span class="dz-sub">JPG·PNG · 자동으로 최적 크기로 줄여 올려요</span></div>
-              </div>
-              <div class="photo-tools">
-                <label class="pf-toggle"><input type="checkbox" id="bPhotoFix"> ✨ 사진 자동 보정 <small>밝기·생생함</small></label>
-                <span class="sp"></span>
-                <select class="ai-count" id="bAiBgCount" title="AI 배경 생성 장수">
-                  <option value="1">1장</option><option value="2" selected>2장</option><option value="3">3장</option><option value="4">4장</option>
-                </select>
-                <button class="btn ghost sm" id="bAiBg" type="button">🎨 AI 배경 추가</button>
-              </div>
-              <div class="photo-strip" id="bPhotoStrip"></div>
+              <p class="ai-note" id="bAiNote" hidden>🎨 카드마다 AI가 어울리는 배경 이미지를 만들어요. 사진 업로드 없이 완성됩니다. <small>카드 수만큼 AI 이미지 크레딧이 소모돼요.</small></p>
             </div>
           </div>
           <aside class="bi-side">
@@ -922,7 +933,7 @@ function freshState(){
     imageGen:{ prompts:"", runId:"", items:[], provider:"codex", imageModel:"", concurrency:2 },
     videoGen:{ cuts:"", runId:"", items:[], provider:"claude", engine:"higgsfield", videoModel:"seedance_1_5", concurrency:1 },
     // 약국 소개 카드뉴스 전용 — 자유 설명 + 업로드 사진 + 카드 정의(문구·배경사진·템플릿). 최종 PNG 는 imageGen.items 재사용.
-    pharmacy:{ intro:"", contentType:"intro", tone:"warm", templateId:"fullbleed", ratio:"4:5", palette:"gold", align:"left", overlay:"med", font:"serif", photoFix:false, photos:[], cards:[], caption:"", runId:"" } };
+    pharmacy:{ intro:"", contentType:"intro", genMode:"standard", tone:"warm", templateId:"fullbleed", ratio:"4:5", palette:"gold", align:"left", overlay:"med", font:"serif", photoFix:false, photos:[], cards:[], caption:"", runId:"" } };
 }
 function setSteps(platform){
   var prev=(state&&state.steps)||{};
@@ -1789,6 +1800,25 @@ function renderDesignOpts(){
   var pf=el("bPhotoFix"); if(pf) pf.checked=!!ph().photoFix;
   renderBrandKit();
   renderEngineSel();
+  renderGenMode();
+}
+var PHARM_GENMODES=[ {k:"standard",l:"📷 내 사진·브랜드"}, {k:"ai",l:"🎨 AI 이미지 전체 제작"} ];
+function renderGenMode(){
+  renderOptSeg("bGenMode", PHARM_GENMODES, function(){ return ph().genMode||"standard"; }, function(v){ ph().genMode=v; applyGenMode(); });
+  applyGenMode();
+}
+function applyGenMode(){
+  var ai=((ph().genMode||"standard")==="ai");
+  var area=el("bPhotoArea"); if(area) area.style.display=ai?"none":"";
+  var note=el("bAiNote"); if(note) note.hidden=!ai;
+  updatePhotoDependentOpts();
+}
+// 사진 농도/자동 보정은 배경이 있을 때만 노출 — 무사진 standard 모드에선 숨김
+function updatePhotoDependentOpts(){
+  var hasPhoto=(ph().photos||[]).some(function(p){ return p && (p.url || p.pending); });
+  var ai=((ph().genMode||"standard")==="ai");
+  var ov=el("bOverlay"); if(ov){ var f=ov.closest&&ov.closest(".bi-field"); if(f) f.style.display=(hasPhoto||ai)?"":"none"; }   // AI 배경도 농도 적용 대상
+  var pf=el("bPhotoFix"); if(pf){ var lbl=pf.closest&&pf.closest(".pf-toggle"); if(lbl) lbl.style.display=hasPhoto?"":"none"; }      // 자동 보정은 내 사진만
 }
 /* AI 배경 생성(사진 스튜디오) — gpt-image-1로 약국 분위기 배경을 만들어 사진 슬롯에 추가 */
 var aiBgBusy=false;
@@ -1834,6 +1864,18 @@ function addAiBackground(){
     }).then(function(){ aiBgBusy=false; var bb=el("bAiBg"); if(bb){ bb.disabled=false; bb.textContent="🎨 AI 배경 추가"; } renderPhotoStrip(); saveLocal(); });
   });
 }
+/* AI 이미지 전체 제작 — 카드마다 어울리는 AI 배경 생성(시리즈 일관 스타일) 후 그 위에 카드 문구를 합성 */
+function buildCardAiPrompt(card){
+  var subj=((card&&card.headline)||"").replace(/\s+/g," ").trim().slice(0,40);
+  return "Premium Instagram card-news background for a neighborhood pharmacy, part of a cohesive series with a consistent style: clean minimal composition, soft natural light, calm trustworthy wellness mood, gentle sage-green and warm neutral palette, generous empty space for a text overlay. Subtle visual motif related to: "+(subj||"healthy daily life")+". No text, no letters, no numbers, no logos, no watermark, no human faces in focus. Photographic, high quality, 4:5 portrait.";
+}
+function genCardAiBg(card){   // 카드 1장의 AI 배경 → card.bgUrl (실패 시 빈 값 유지=브랜드 배경 폴백)
+  return pharmacyFetch("/pharmacy/image",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({ provider:"openai", prompt:buildCardAiPrompt(card), kind:"card", jobId:ensureJobId(), idx:"cardbg-"+(card.id||"x")+"-"+Date.now().toString(36) }) })
+    .then(function(r){ if(r.status===404||r.status===401||r.status===403) throw new Error("AI 이미지는 서버 업데이트(배포) 후 사용할 수 있어요."); return r.json(); })
+    .then(function(d){ if(d&&d.ok&&d.url){ card.bgUrl=d.url; return true; } throw new Error((d&&d.error)||"AI 이미지 생성 실패"); })
+    .catch(function(e){ return { error:(e&&e.message)||String(e) }; });
+}
 function renderBrandKit(){
   var nm=el("bkName"); if(nm && document.activeElement!==nm) nm.value=brandKit.name||"";
   var sh=el("bkShow"); if(sh) sh.checked=!!brandKit.show;
@@ -1874,6 +1916,7 @@ function renderPhotoStrip(){
       '</div>';
     box.appendChild(d);
   });
+  updatePhotoDependentOpts();
 }
 function movePhoto(i, delta){
   var a=ph().photos, j=i+delta;
@@ -2154,7 +2197,8 @@ function composeCard(card, img, tplId, logoImg){
 }
 function composeAndSave(card, i, replaceKey, idxStr){
   var photo=(card.photoIdx>=0)?ph().photos[card.photoIdx]:null;
-  var imgP=(photo&&photo.url)?loadImage(mediaSrc(photo.url)).catch(function(){ return null; }):Promise.resolve(null);
+  var bgSrc=card.bgUrl?mediaSrc(card.bgUrl):((photo&&photo.url)?mediaSrc(photo.url):null);   // AI 배경(card.bgUrl) 우선, 없으면 사용자 사진
+  var imgP=bgSrc?loadImage(bgSrc).catch(function(){ return null; }):Promise.resolve(null);
   return Promise.all([imgP, loadBrandLogo()]).then(function(arr){
     var img=arr[0], logoImg=arr[1];
     var cv=composeCard(card, img, card.templateId||ph().templateId, logoImg);
@@ -2202,7 +2246,7 @@ function renderPharmaCards(){
       else inner='<div class="pc-ph"'+ar+'><span class="spin"></span>'+(i+1)+'번 만드는 중…</div>';
       d.innerHTML='<span class="pc-no">'+(i+1)+'</span>'+(card.role?'<span class="pc-role">'+esc(card.role)+'</span>':'')+inner+
         '<div class="pc-ops"><button class="btn ghost" type="button" data-pedit="'+i+'">✏️ 문구</button>'+
-        '<button class="btn ghost" type="button" data-pswap="'+i+'">🔄 사진</button>'+
+        '<button class="btn ghost" type="button" data-pswap="'+i+'">'+(((ph().genMode||"standard")==="ai"||card.bgUrl)?"🔄 AI 배경":"🔄 사진")+'</button>'+
         (it.url?'<a class="btn ghost" href="'+esc(mediaSrc(it.url))+'" download="약국소개-'+(i+1)+'.png">⬇</a>':'')+'</div>';
     }
     grid.appendChild(d);
@@ -2218,7 +2262,17 @@ function recomposeCard(i){
     .then(function(){ pharmBusy=false; saveLocal(); syncJob(); renderPharmaCards(); });
 }
 function swapPhoto(i){
-  var card=ph().cards[i]; if(!card) return;
+  var card=ph().cards[i]; if(!card || pharmBusy) return;
+  if((ph().genMode||"standard")==="ai" || card.bgUrl){   // AI 모드: 이 카드의 AI 배경을 새로 생성
+    pharmBusy=true; var old=state.imageGen.items[i]||{};
+    state.imageGen.items[i]={ pending:true }; renderPharmaCards();
+    genCardAiBg(card).then(function(){ return ensureFonts(); })
+      .then(function(){ return composeAndSave(card, i, old.key||"", (i+1)+"-r"+Math.random().toString(36).slice(2,5)); })
+      .then(function(item){ state.imageGen.items[i]=item; })
+      .catch(function(e){ state.imageGen.items[i]={ error:(e&&e.message)||String(e) }; })
+      .then(function(){ pharmBusy=false; saveLocal(); syncJob(); renderPharmaCards(); });
+    return;
+  }
   var n=(ph().photos||[]).length; if(!n){ bErr("올린 사진이 없어요. [입력 수정]에서 사진을 추가하세요."); return; }
   card.photoIdx = (card.photoIdx>=n-1) ? -1 : card.photoIdx+1;
   recomposeCard(i);
@@ -2262,8 +2316,18 @@ function startPharmacyRun(opts){
       ph().cards=cards; nCards=cards.length;
       state.imageGen.runId=ph().runId;
       state.imageGen.items=cards.map(function(){ return { pending:true }; });
-      renderPharmaCards(); setBStatus(pfx+"② 사진 위에 카드 디자인을 합성하고 있어요…");
+      renderPharmaCards();
+      var aiMode=((ph().genMode||"standard")==="ai");
       return ensureFonts().then(function(){
+        if(!aiMode) return;
+        setBStatus(pfx+"②a 카드마다 AI 이미지를 그리고 있어요… (최대 1분)");
+        var doneN=0;
+        return Promise.all(cards.map(function(card){
+          return genCardAiBg(card).then(function(){ if(stale()) return; doneN++; renderPharmaCards(); setBStatus(pfx+"②a AI 이미지 그리는 중… ("+doneN+"/"+cards.length+")"); });
+        }));
+      }).then(function(){
+        if(stale()) return 0;
+        setBStatus(pfx+(aiMode?"②b AI 이미지 위에 문구를 얹고 있어요…":"② 사진 위에 카드 디자인을 합성하고 있어요…"));
         var ok=0, chain=Promise.resolve();
         cards.forEach(function(card,i){
           chain=chain.then(function(){
@@ -2332,7 +2396,7 @@ function openPharmacyJob(j){
   state.jobId=j.id; state.platform=st.platform||PHARM_PLATFORM;
   if(typeof st.provider==="string"&&st.provider){ state.provider=st.provider; provSel=st.provider; renderProv(); }
   if(st.pharmacy&&typeof st.pharmacy==="object"){
-    state.pharmacy={ intro:st.pharmacy.intro||"", contentType:st.pharmacy.contentType||"intro", tone:st.pharmacy.tone||"warm", templateId:st.pharmacy.templateId||"fullbleed", ratio:st.pharmacy.ratio||"4:5",
+    state.pharmacy={ intro:st.pharmacy.intro||"", contentType:st.pharmacy.contentType||"intro", genMode:st.pharmacy.genMode||"standard", tone:st.pharmacy.tone||"warm", templateId:st.pharmacy.templateId||"fullbleed", ratio:st.pharmacy.ratio||"4:5",
       palette:st.pharmacy.palette||"gold", align:st.pharmacy.align||"left", overlay:st.pharmacy.overlay||"med", font:st.pharmacy.font||"serif", photoFix:!!st.pharmacy.photoFix,
       photos:Array.isArray(st.pharmacy.photos)?st.pharmacy.photos:[], cards:Array.isArray(st.pharmacy.cards)?st.pharmacy.cards:[], caption:st.pharmacy.caption||"", runId:st.pharmacy.runId||"" };
   }
