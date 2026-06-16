@@ -12,9 +12,10 @@
 import { loadSecrets } from "./secrets.mjs";
 import { makeOpenAIProvider } from "./openai.mjs";
 import { makeAnthropicProvider } from "./anthropic.mjs";
+import { makeGeminiProvider } from "./gemini.mjs";
 
 // 등록 순서 = 표시 우선순위. 새 provider 는 여기 한 줄.
-const REGISTRY = [makeOpenAIProvider, makeAnthropicProvider];
+const REGISTRY = [makeOpenAIProvider, makeAnthropicProvider, makeGeminiProvider];
 
 export async function makeApiBackend(env) {
   env = env || process.env;

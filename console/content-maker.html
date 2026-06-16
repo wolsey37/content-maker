@@ -1714,13 +1714,14 @@ var PHARM_ALIGNS=[ {k:"left",l:"왼쪽"}, {k:"center",l:"가운데"} ];
 var PHARM_OVERLAYS=[ {k:"soft",l:"밝게",a:0.55}, {k:"med",l:"보통",a:0.78}, {k:"strong",l:"진하게",a:0.9} ];
 var PHARM_FONTS=[ {k:"sans",l:"고딕(깔끔)"}, {k:"serif",l:"명조(고급)"} ];
 // AI 엔진 후보 — 람다 /health 활성 provider 로 필터해서 노출
+// AI 엔진 = provider만 선택(모델은 각 provider 최신 기본값 사용). 람다 활성 provider 로 필터.
 var PHARM_ENGINES=[
-  { k:"openai:",            provider:"openai",    model:"",            label:"기본 · GPT-5.5" },
-  { k:"openai:gpt-5.4-mini",provider:"openai",    model:"gpt-5.4-mini",label:"빠르게 · GPT-5.4 mini" },
-  { k:"anthropic:",         provider:"anthropic", model:"",            label:"Claude · Anthropic" }
+  { k:"openai",    provider:"openai",    model:"", label:"OpenAI · GPT" },
+  { k:"anthropic", provider:"anthropic", model:"", label:"Anthropic · Claude" },
+  { k:"google",    provider:"google",    model:"", label:"Google · Gemini" }
 ];
 var pharmServerProviders={};   // 람다 활성 provider (id->true)
-var pharmEngineSel=(function(){ try{ return localStorage.getItem("cp_pharm_engine")||"openai:"; }catch(e){ return "openai:"; } })();
+var pharmEngineSel=(function(){ try{ var v=localStorage.getItem("cp_pharm_engine")||"openai"; return v.replace(/:.*$/,"")||"openai"; }catch(e){ return "openai"; } })();   // 구버전 "openai:..." → provider 만
 function availEngines(){ var a=PHARM_ENGINES.filter(function(e){ return pharmServerProviders[e.provider]; }); return a.length?a:[PHARM_ENGINES[0]]; }
 function currentEngine(){ var a=availEngines(); return a.filter(function(e){ return e.k===pharmEngineSel; })[0]||a[0]; }
 /* ===== 브랜드 키트 — 약국명·로고·대표색을 1회 저장해 모든 카드/영상에 자동 적용(기기 전역, localStorage) ===== */
