@@ -1512,6 +1512,12 @@ var BUILDER_TEMPLATES=[
   { id:"card",      name:"플로팅 카드" },
   { id:"minimal",   name:"미니멀 (원형)" }
 ];
+// 카드마다 레이아웃을 다양하게 — 연속 중복은 피해 랜덤 배정(레퍼런스처럼 한 세트 안에서 변화)
+function pickTemplate(prev){
+  var ids=BUILDER_TEMPLATES.map(function(t){ return t.id; });
+  var c; do{ c=ids[Math.floor(Math.random()*ids.length)]; }while(ids.length>1 && c===prev);
+  return c;
+}
 var PHARM_TONES=[ {k:"warm",l:"따뜻한"}, {k:"pro",l:"전문적인"}, {k:"friendly",l:"친근한"} ];
 // 약사님이 막막하지 않게 — 클릭하면 '항목별'로 설명칸을 채우는 예시(○○ 부분만 우리 약국 정보로 바꾸면 됨)
 var PHARM_EXAMPLES=[
@@ -1820,6 +1826,7 @@ function renderDesignOpts(){
   renderOptSeg("bAlign", PHARM_ALIGNS, function(){ return ph().align||"left"; }, function(v){ ph().align=v; });
   renderOptSeg("bOverlay", PHARM_OVERLAYS, function(){ return ph().overlay||"med"; }, function(v){ ph().overlay=v; });
   var pf=el("bPhotoFix"); if(pf) pf.checked=!!ph().photoFix;
+  var tf=el("bTpl"); if(tf){ var tff=tf.closest&&tf.closest(".bi-field"); if(tff) tff.style.display="none"; }   // 템플릿은 카드마다 자동·랜덤 → 수동 선택 숨김
   renderBrandKit();
   renderEngineSel();
   renderGenMode();
@@ -1833,8 +1840,8 @@ function applyGenMode(){
   var ai=((ph().genMode||"standard")==="ai");
   var area=el("bPhotoArea"); if(area) area.style.display=ai?"none":"";
   var note=el("bAiNote"); if(note) note.hidden=!ai;
-  // AI 모드: 카드 디자인을 AI가 통째로 만드므로 캔버스 디자인 옵션(템플릿·서체·정렬) 숨김
-  ["bTpl","bFont","bAlign"].forEach(function(id){ var c=el(id); if(c){ var f=c.closest&&c.closest(".bi-field"); if(f) f.style.display=ai?"none":""; } });
+  // AI 모드: 캔버스 디자인 옵션(서체·정렬) 숨김 (템플릿은 항상 자동·랜덤이라 별도 숨김)
+  ["bFont","bAlign"].forEach(function(id){ var c=el(id); if(c){ var f=c.closest&&c.closest(".bi-field"); if(f) f.style.display=ai?"none":""; } });
   updatePhotoDependentOpts();
 }
 // 사진 농도/자동 보정은 배경이 있을 때만 노출 — 무사진 standard 모드에선 숨김
@@ -2396,7 +2403,7 @@ function startPharmacyRun(opts){
       if(!d||!d.ok||!(d.output||"").trim()) throw new Error((d&&d.error)||"문구 생성 실패");
       var cards=parseCardPlan(d.output).slice(0, targetCount);   // 목표 장수로 맞춤(AI가 더 줘도 컷)
       if(!cards.length) throw new Error("문구를 만들지 못했어요");
-      cards.forEach(function(c,i){ c.id="c"+i; c.photoIdx=(pn? (i<pn?i:-1) : -1); c.templateId=ph().templateId; });   // 1:1 배정
+      var _pt=""; cards.forEach(function(c,i){ c.id="c"+i; c.photoIdx=(pn? (i<pn?i:-1) : -1); c.templateId=pickTemplate(_pt); _pt=c.templateId; });   // 1:1 배정 + 카드별 랜덤 템플릿
       ph().cards=cards; nCards=cards.length;
       state.imageGen.runId=ph().runId;
       state.imageGen.items=cards.map(function(){ return { pending:true }; });
