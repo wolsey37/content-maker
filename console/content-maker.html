@@ -302,6 +302,17 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
 .palette-row button .pc-dot{ position:absolute; inset:0; border-radius:50%; }
 .palette-row button.on{ box-shadow:0 0 0 2px var(--panel), 0 0 0 4px var(--ink); }
 .palette-row button.on::after{ content:"✓"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:13px; font-weight:800; text-shadow:0 1px 2px rgba(0,0,0,.4); }
+/* 브랜드 키트 */
+.bk-name{ width:100%; box-sizing:border-box; border:1px solid var(--line); border-radius:11px; background:var(--input); color:var(--ink); font:inherit; font-size:13px; font-weight:600; padding:10px 12px; outline:none; }
+.bk-name:focus{ border-color:var(--brand-line); box-shadow:0 0 0 3px var(--brand-soft); }
+.bk-row{ display:flex; align-items:center; gap:12px; }
+.bk-logo{ flex:none; width:54px; height:54px; border-radius:12px; border:1.5px dashed var(--line-strong); background:var(--input); color:var(--muted); font-size:17px; font-weight:800; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; overflow:hidden; padding:0; }
+.bk-logo small{ font-size:8.5px; font-weight:700; letter-spacing:.02em; }
+.bk-logo.has{ border-style:solid; border-color:var(--line); background:#fff; }
+.bk-logo img{ width:100%; height:100%; object-fit:contain; }
+.bk-colors{ flex:1; }
+.bk-show{ display:flex; align-items:center; gap:7px; font-size:12px; color:var(--ink-2); cursor:pointer; user-select:none; }
+.bk-show input{ accent-color:var(--brand); width:14px; height:14px; cursor:pointer; }
 /* 셀렉트 — 커스텀 캐럿 */
 .bi-select{ -webkit-appearance:none; appearance:none; width:100%; border:1px solid var(--line); border-radius:11px; background:var(--input); color:var(--ink); font-family:inherit; font-size:13px; font-weight:600; padding:10px 34px 10px 12px; cursor:pointer; outline:none;
   background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%); background-position:calc(100% - 17px) 18px,calc(100% - 12px) 18px; background-size:5px 5px,5px 5px; background-repeat:no-repeat; }
@@ -465,6 +476,17 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
             <div class="bi-field">
               <span class="bi-label">사진 농도 <span class="bi-opt">풀블리드</span></span>
               <div class="opt-seg" id="bOverlay"></div>
+            </div>
+            <hr class="bi-divider">
+            <div class="bi-field">
+              <span class="bi-label">🎨 브랜드 키트 <span class="bi-opt">모든 카드 자동 적용</span></span>
+              <input type="text" class="bk-name" id="bkName" maxlength="20" placeholder="약국명 (예: 행복한약국)" spellcheck="false">
+              <div class="bk-row">
+                <button class="bk-logo" id="bkLogo" type="button" title="로고 올리기">＋<small>로고</small></button>
+                <div class="palette-row bk-colors" id="bkColors"></div>
+              </div>
+              <label class="bk-show"><input type="checkbox" id="bkShow"> 카드에 로고·약국명 표시</label>
+              <input type="file" id="bkLogoFile" accept="image/*" hidden>
             </div>
             <hr class="bi-divider">
             <div class="bi-field">
@@ -1436,7 +1458,27 @@ var pharmServerProviders={};   // 람다 활성 provider (id->true)
 var pharmEngineSel=(function(){ try{ return localStorage.getItem("cp_pharm_engine")||"openai:"; }catch(e){ return "openai:"; } })();
 function availEngines(){ var a=PHARM_ENGINES.filter(function(e){ return pharmServerProviders[e.provider]; }); return a.length?a:[PHARM_ENGINES[0]]; }
 function currentEngine(){ var a=availEngines(); return a.filter(function(e){ return e.k===pharmEngineSel; })[0]||a[0]; }
-function paletteAccent(){ return "#b08d4f"; }   // 골드 액센트 고정(컬러 테마 옵션 제거됨)
+/* ===== 브랜드 키트 — 약국명·로고·대표색을 1회 저장해 모든 카드/영상에 자동 적용(기기 전역, localStorage) ===== */
+var BRAND_PRESETS=[
+  { id:"gold",    accent:"#b08d4f" }, { id:"emerald", accent:"#2f7d57" }, { id:"navy", accent:"#3f6191" },
+  { id:"rose",    accent:"#b45e6e" }, { id:"teal",    accent:"#2b7a78" }, { id:"plum", accent:"#7d5ba6" },
+  { id:"charcoal",accent:"#3a3b40" }
+];
+function loadBrandKit(){
+  try{ var s=JSON.parse(localStorage.getItem("cm_brand_kit")||"{}");
+    return { name:s.name||"", accent:s.accent||"#b08d4f", logoData:s.logoData||"", show:(s.show!==false) }; }
+  catch(e){ return { name:"", accent:"#b08d4f", logoData:"", show:true }; }
+}
+var brandKit=loadBrandKit();
+function saveBrandKit(){ try{ localStorage.setItem("cm_brand_kit", JSON.stringify(brandKit)); }catch(e){} }
+function paletteAccent(){ return (brandKit&&brandKit.accent)||"#b08d4f"; }   // 브랜드 대표색(없으면 골드)
+var _brandLogoImg=null, _brandLogoSrc=null;
+function loadBrandLogo(){   // 카드 합성용 로고 이미지(데이터 URL 캐시). 미설정/숨김이면 null.
+  if(!(brandKit.show && brandKit.logoData)) return Promise.resolve(null);
+  if(_brandLogoSrc===brandKit.logoData) return Promise.resolve(_brandLogoImg);
+  return loadImage(brandKit.logoData).then(function(im){ _brandLogoImg=im; _brandLogoSrc=brandKit.logoData; return im; })
+    .catch(function(){ _brandLogoImg=null; _brandLogoSrc=brandKit.logoData; return null; });
+}
 function overlayAlpha(){ var o=PHARM_OVERLAYS.filter(function(x){ return x.k===(ph().overlay||"med"); })[0]||PHARM_OVERLAYS[1]; return o.a; }
 var pharmUploading=0, pharmBusy=false, pharmEditing=null;
 function ph(){ if(!state.pharmacy) state.pharmacy=freshState().pharmacy; return state.pharmacy; }
@@ -1522,7 +1564,33 @@ function renderDesignOpts(){
   renderOptSeg("bFont", PHARM_FONTS, function(){ return ph().font||"serif"; }, function(v){ ph().font=v; });
   renderOptSeg("bAlign", PHARM_ALIGNS, function(){ return ph().align||"left"; }, function(v){ ph().align=v; });
   renderOptSeg("bOverlay", PHARM_OVERLAYS, function(){ return ph().overlay||"med"; }, function(v){ ph().overlay=v; });
+  renderBrandKit();
   renderEngineSel();
+}
+function renderBrandKit(){
+  var nm=el("bkName"); if(nm && document.activeElement!==nm) nm.value=brandKit.name||"";
+  var sh=el("bkShow"); if(sh) sh.checked=!!brandKit.show;
+  var lg=el("bkLogo");
+  if(lg){
+    if(brandKit.logoData){ lg.classList.add("has"); lg.innerHTML='<img src="'+esc(brandKit.logoData)+'" alt="로고">'; }
+    else { lg.classList.remove("has"); lg.innerHTML='＋<small>로고</small>'; }
+  }
+  var box=el("bkColors"); if(box){ box.innerHTML="";
+    BRAND_PRESETS.forEach(function(p){
+      var b=document.createElement("button"); b.type="button"; b.title=p.accent;
+      b.className=(brandKit.accent===p.accent?"on":"");
+      b.innerHTML='<span class="pc-dot" style="background:'+p.accent+'"></span>';
+      b.addEventListener("click", function(){ brandKit.accent=p.accent; saveBrandKit(); renderBrandKit(); });
+      box.appendChild(b);
+    });
+  }
+}
+function onBrandLogoFile(files){
+  var f=[].slice.call(files||[]).filter(function(x){ return /^image\//.test(x.type); })[0];
+  if(!f){ return; }
+  downscaleImage(f, 400, 0.92).then(function(dataUrl){
+    brandKit.logoData=dataUrl; brandKit.show=true; _brandLogoSrc=null; saveBrandKit(); renderBrandKit();
+  }).catch(function(e){ bInputNote("로고를 불러오지 못했어요: "+((e&&e.message)||e)); });
 }
 function renderPhotoStrip(){
   var box=el("bPhotoStrip"); if(!box) return; box.innerHTML="";
@@ -1657,7 +1725,7 @@ function wrapLines(ctx,text,maxW,maxLines){
 }
 // 분류 라벨(표지·강점 등)은 결과 그리드의 UI 배지로만 — 발행 카드 이미지에는 박지 않는다(인쇄되면 어색).
 // 디자인 옵션: 컬러 테마(accent)·글자 정렬·사진 농도·제목 서체·이미지 위치(focusX/Y).
-function composeCard(card, img, tplId){
+function composeCard(card, img, tplId, logoImg){
   var CARD_H=ratioDef().h;   // 선택 비율의 높이로 캔버스·레이아웃 적응(너비 1080 고정). 아래 모든 CARD_H 는 이 지역값.
   var cv=document.createElement("canvas"); cv.width=CARD_W; cv.height=CARD_H;
   var ctx=cv.getContext("2d");
@@ -1757,14 +1825,39 @@ function composeCard(card, img, tplId){
     ctx.restore();
     dots(CARD_H-72, "#ffffff", "rgba(255,255,255,.4)");
   }
+  // ===== 브랜드 마크(우상단 칩) — 로고+약국명. 어떤 배경에서도 읽히도록 반투명 칩 위에 흰 글씨 =====
+  (function brandMark(){
+    if(!brandKit || !brandKit.show) return;
+    var name=(brandKit.name||"").trim();
+    var hasLogo=!!logoImg;
+    if(!name && !hasLogo) return;
+    ctx.save();
+    ctx.textAlign="left"; ctx.textBaseline="middle";
+    var margin=42, padX=22, gap=14, logoS=hasLogo?58:0, fs=30;
+    ctx.font='800 '+fs+'px '+SANS;
+    var tw=name?ctx.measureText(name).width:0;
+    var innerGap=(hasLogo&&name)?gap:0;
+    var chipW=padX*2+logoS+innerGap+tw, chipH=Math.max(logoS+18, fs+30);
+    var x=CARD_W-margin-chipW, y=margin;
+    ctx.save(); ctx.shadowColor="rgba(0,0,0,.28)"; ctx.shadowBlur=16; ctx.shadowOffsetY=4;
+    ctx.fillStyle="rgba(13,14,17,.66)"; roundRectPath(ctx,x,y,chipW,chipH,chipH/2); ctx.fill(); ctx.restore();
+    var cy=y+chipH/2, cur=x+padX;
+    if(hasLogo){
+      var ir=logoImg.width/logoImg.height, dw=logoS, dh=logoS; if(ir>1){ dh=logoS/ir; } else { dw=logoS*ir; }
+      ctx.drawImage(logoImg, cur+(logoS-dw)/2, cy-dh/2, dw, dh); cur+=logoS+innerGap;
+    }
+    if(name){ ctx.fillStyle="#ffffff"; ctx.fillText(name, cur, cy+1); }
+    ctx.restore();
+  })();
   ctx.textAlign="left";
   return cv;
 }
 function composeAndSave(card, i, replaceKey, idxStr){
   var photo=(card.photoIdx>=0)?ph().photos[card.photoIdx]:null;
   var imgP=(photo&&photo.url)?loadImage(mediaSrc(photo.url)).catch(function(){ return null; }):Promise.resolve(null);
-  return imgP.then(function(img){
-    var cv=composeCard(card, img, card.templateId||ph().templateId);
+  return Promise.all([imgP, loadBrandLogo()]).then(function(arr){
+    var img=arr[0], logoImg=arr[1];
+    var cv=composeCard(card, img, card.templateId||ph().templateId, logoImg);
     var dataUrl=cv.toDataURL("image/png");
     return pharmacyFetch("/pharmacy/upload",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
       body:JSON.stringify({ data:dataUrl, slot:"card", jobId:ensureJobId(), runId:ph().runId, idx:idxStr||String(i+1), replaceKey:replaceKey||"" }) })
@@ -2207,6 +2300,10 @@ function init(){
   el("bDownloadAll").addEventListener("click", downloadAllPharma);
   el("bIntro").addEventListener("input", function(){ ph().intro=el("bIntro").value; });
   el("bEngine").addEventListener("change", function(){ pharmEngineSel=this.value; try{ localStorage.setItem("cp_pharm_engine",pharmEngineSel); }catch(e){} });
+  el("bkName").addEventListener("input", function(){ brandKit.name=this.value; saveBrandKit(); });
+  el("bkShow").addEventListener("change", function(){ brandKit.show=this.checked; _brandLogoSrc=null; saveBrandKit(); });
+  el("bkLogo").addEventListener("click", function(){ el("bkLogoFile").click(); });
+  el("bkLogoFile").addEventListener("change", function(){ onBrandLogoFile(this.files); this.value=""; });
   el("bExamples").addEventListener("click", function(e){
     var b=e.target.closest&&e.target.closest("button[data-ex]"); if(!b) return;
     var ex=PHARM_EXAMPLES[parseInt(b.getAttribute("data-ex"),10)]; if(!ex) return;
