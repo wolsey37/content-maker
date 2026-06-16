@@ -157,6 +157,37 @@ export function createCore(opts) {
     } catch (e) { return J(200, { ok: false, error: "이미지 저장 실패: " + (e && e.message || e) }); }
   }
 
+  // AI 영상(Gemini Veo) — 비동기. start: operation 반환 / status: 폴링 후 완료 시 S3 저장.
+  async function videoStart(req) {
+    const p = parseBody(req); if (!p) return J(400, { ok: false, error: "잘못된 요청 본문(JSON 파싱 실패)" });
+    const provider = backend.providers.google;
+    if (!provider || !provider.startVideo) return J(200, { ok: false, error: "영상 생성(Gemini Veo)을 사용할 수 없습니다(provider 미설정)." });
+    const prompt = String(p.prompt || "");
+    if (!prompt.trim()) return J(400, { ok: false, error: "영상 프롬프트가 비어 있습니다." });
+    const aspect = String(p.aspect || "9:16");
+    let image = null;
+    const mm = /^data:([^;]+);base64,(.+)$/.exec(String(p.image || ""));
+    if (mm) image = { mime: mm[1], b64: mm[2] };
+    return J(200, await provider.startVideo({ prompt, aspect, image }));
+  }
+  async function videoStatus(req, auth) {
+    const p = parseBody(req); if (!p) return J(400, { ok: false, error: "잘못된 요청 본문(JSON 파싱 실패)" });
+    const provider = backend.providers.google;
+    if (!provider || !provider.pollVideo) return J(200, { ok: false, error: "영상 생성(Gemini Veo)을 사용할 수 없습니다." });
+    const op = String(p.op || ""); if (!op) return J(400, { ok: false, error: "operation 이 비어 있습니다." });
+    const r = await provider.pollVideo({ op });
+    if (!r.ok) return J(200, r);
+    if (!r.done) return J(200, { ok: true, done: false });
+    try {
+      const runId = san(p.runId || "v", 40) || "v";
+      const idx = san(p.idx != null ? p.idx : 0, 16) || "0";
+      const jobId = san(p.jobId || "", 60);
+      const base = jobId || ("_unsaved-" + runId);
+      const saved = await storage.save(`${userPrefix(auth)}content/${base}/video/${runId}/${idx}.${r.ext || "mp4"}`, r.buf, r.mime || "video/mp4");
+      return J(200, { ok: true, done: true, url: saved.url, key: saved.key, bytes: r.buf.length });
+    } catch (e) { return J(200, { ok: false, error: "영상 저장 실패: " + (e && e.message || e) }); }
+  }
+
   // 사용자 사진 업로드 + 브라우저에서 합성한 최종 카드(PNG) 저장 — AI 생성 없이 바이트만 검증·저장.
   //   slot="uploads" → content/<job>/uploads/<idx>.<ext> (원본 사진)
   //   slot="card"    → content/<job>/card/<runId>/<idx>.<ext> (합성 결과 — 라이브러리 썸네일·갤러리 파이프라인 재사용)
@@ -360,6 +391,8 @@ export function createCore(opts) {
     const PHARM_AUTH = { ok: true, pharmacy: true, clientId: cid };
     if (req.method === "POST" && req.path === "/pharmacy/run") return run(req);
     if (req.method === "POST" && req.path === "/pharmacy/image") return image(req, PHARM_AUTH);   // AI 배경 생성(사진 스튜디오)
+    if (req.method === "POST" && req.path === "/pharmacy/video") return videoStart(req);          // Veo 영상 생성 시작(비동기)
+    if (req.method === "POST" && req.path === "/pharmacy/video-status") return videoStatus(req, PHARM_AUTH);   // 진행 폴링 → 완료 시 S3 저장
     if (req.method === "POST" && req.path === "/pharmacy/upload") return upload(req, PHARM_AUTH);
     if (req.path === "/pharmacy/jobs" || req.path.startsWith("/pharmacy/jobs/")) {
       return jobs({ ...req, path: req.path.replace(/^\/pharmacy/, "") }, PHARM_AUTH);
