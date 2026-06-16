@@ -305,12 +305,13 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
 /* 콘텐츠 캘린더 */
 .cal{ max-width:920px; margin:0 auto 30px; background:var(--panel); border:1px solid var(--line); border-radius:var(--r3); padding:20px 22px; }
 .cal-head{ display:flex; align-items:flex-start; gap:14px; flex-wrap:wrap; }
-.cal-collapse{ flex:none; width:30px; height:30px; border:1px solid var(--line); background:var(--bg); color:var(--ink-2); border-radius:8px; font-size:13px; cursor:pointer; transition:transform .15s; align-self:center; }
+.cal-h-top{ display:flex; align-items:center; gap:10px; }
+.cal-collapse{ flex:none; width:30px; height:30px; border:1px solid var(--line); background:var(--bg); color:var(--ink-2); border-radius:8px; font-size:13px; line-height:1; cursor:pointer; transition:transform .15s; }
 .cal-collapse:hover{ border-color:var(--line-strong); color:var(--ink); }
 .cal.collapsed .cal-collapse{ transform:rotate(-90deg); }
 .cal.collapsed .cal-sub,.cal.collapsed .cal-view,.cal.collapsed .cal-status,.cal.collapsed .cal-list{ display:none; }
 .cal.collapsed{ padding-bottom:16px; }
-.cal-h-l{ flex:1; min-width:200px; }
+.cal-h-l{ flex:1; min-width:200px; cursor:pointer; user-select:none; }
 .cal-title{ font-family:var(--serif); font-size:19px; margin:0 0 4px; color:var(--ink); }
 .cal-sub{ font-size:12.5px; color:var(--muted); margin:0; line-height:1.5; }
 .cal-acts{ display:flex; gap:8px; align-items:center; }
@@ -490,9 +491,11 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
 
   <section class="cal" id="calSection">
     <div class="cal-head">
-      <button class="cal-collapse" id="calCollapse" type="button" title="접기/펴기" aria-label="접기/펴기">▾</button>
       <div class="cal-h-l">
-        <h2 class="cal-title">📅 콘텐츠 캘린더</h2>
+        <div class="cal-h-top">
+          <button class="cal-collapse" id="calCollapse" type="button" title="접기/펴기" aria-label="접기/펴기">▾</button>
+          <h2 class="cal-title">📅 콘텐츠 캘린더</h2>
+        </div>
         <p class="cal-sub">한 달 게시 계획을 AI가 짜드려요. 항목을 누르면 그 주제로 바로 만들 수 있어요.</p>
       </div>
       <div class="cal-view" id="calViewBox"></div>
@@ -2749,7 +2752,8 @@ function init(){
   document.addEventListener("keydown", function(e){ if(e.key==="Escape" && el("builderModal").style.display==="flex"){ activeCalItem=""; closeBuilderModal(); } });
   el("calGen").addEventListener("click", generateCalendar);
   el("calClear").addEventListener("click", clearCalendar);
-  el("calCollapse").addEventListener("click", function(){ calCollapsed=!calCollapsed; try{ localStorage.setItem("cm_cal_collapsed", calCollapsed?"1":"0"); }catch(e){} applyCalCollapsed(); });
+  function toggleCalCollapse(){ calCollapsed=!calCollapsed; try{ localStorage.setItem("cm_cal_collapsed", calCollapsed?"1":"0"); }catch(e){} applyCalCollapsed(); }
+  var calHL=document.querySelector(".cal-h-l"); if(calHL) calHL.addEventListener("click", toggleCalCollapse);   // 제목 영역 전체(화살표 포함) 클릭으로 접기/펴기
   el("calList").addEventListener("click", function(e){
     var nav=e.target.closest&&e.target.closest("[data-calnav]");
     if(nav){ var ym=curCalYM(), nm=ym.m+parseInt(nav.getAttribute("data-calnav"),10), ny=ym.y; if(nm<0){nm=11;ny--;} if(nm>11){nm=0;ny++;} calYM={y:ny,m:nm}; renderCalendar(); return; }
