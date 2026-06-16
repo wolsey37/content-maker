@@ -357,6 +357,7 @@ export function createCore(opts) {
     const cid = san(req.headers["x-client-id"] || "", 40) || "anon";
     const PHARM_AUTH = { ok: true, pharmacy: true, clientId: cid };
     if (req.method === "POST" && req.path === "/pharmacy/run") return run(req);
+    if (req.method === "POST" && req.path === "/pharmacy/image") return image(req, PHARM_AUTH);   // AI 배경 생성(사진 스튜디오)
     if (req.method === "POST" && req.path === "/pharmacy/upload") return upload(req, PHARM_AUTH);
     if (req.path === "/pharmacy/jobs" || req.path.startsWith("/pharmacy/jobs/")) {
       return jobs({ ...req, path: req.path.replace(/^\/pharmacy/, "") }, PHARM_AUTH);
