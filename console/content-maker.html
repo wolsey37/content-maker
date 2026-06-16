@@ -1846,6 +1846,7 @@ function updatePhotoDependentOpts(){
 }
 /* AI 배경 생성(사진 스튜디오) — gpt-image-1로 약국 분위기 배경을 만들어 사진 슬롯에 추가 */
 var aiBgBusy=false;
+var AI_IMAGE_MODEL="gpt-image-2";   // AI 이미지 생성 모델
 var AI_BG_VARIANTS=[   // 여러 장 생성 시 서로 다른 무드로 다양화
   "soft greenery and gentle natural light, airy and fresh",
   "warm neutral tones with minimal wooden shelves softly blurred",
@@ -1859,7 +1860,7 @@ function buildBgPrompt(text, vi){
 }
 function genAiBgInto(slot, vi){   // 슬롯 1개에 AI 배경 1장 생성(성공 true, 실패 {error})
   return pharmacyFetch("/pharmacy/image",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({ provider:"openai", prompt:buildBgPrompt(ph().intro, vi), kind:"card", jobId:ensureJobId(), idx:"bg"+Date.now().toString(36)+vi }) })
+    body:JSON.stringify({ provider:"openai", imageModel:AI_IMAGE_MODEL, prompt:buildBgPrompt(ph().intro, vi), kind:"card", jobId:ensureJobId(), idx:"bg"+Date.now().toString(36)+vi }) })
     .then(function(r){ if(r.status===404||r.status===401||r.status===403) throw new Error("AI 배경은 서버 업데이트(배포) 후 사용할 수 있어요."); return r.json(); })
     .then(function(d){
       if(!d||!d.ok||!d.url){ var em=(d&&d.error)||"AI 배경 생성 실패"; if(/인증/.test(em)) em="AI 배경은 서버 업데이트(배포) 후 사용할 수 있어요."; throw new Error(em); }
@@ -1907,7 +1908,7 @@ function buildCardAiTextPrompt(card, artDir){
 }
 function genCardAiBg(card, artDir){   // 카드 1장을 AI가 문구까지 디자인 → card.bgUrl + card.aiText (실패 시 빈 값=문구 합성 폴백)
   return pharmacyFetch("/pharmacy/image",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({ provider:"openai", prompt:buildCardAiTextPrompt(card, artDir||ph().aiArt), kind:"card", jobId:ensureJobId(), idx:"cardbg-"+(card.id||"x")+"-"+Date.now().toString(36) }) })
+    body:JSON.stringify({ provider:"openai", imageModel:AI_IMAGE_MODEL, prompt:buildCardAiTextPrompt(card, artDir||ph().aiArt), kind:"card", jobId:ensureJobId(), idx:"cardbg-"+(card.id||"x")+"-"+Date.now().toString(36) }) })
     .then(function(r){ if(r.status===404||r.status===401||r.status===403) throw new Error("AI 이미지는 서버 업데이트(배포) 후 사용할 수 있어요."); return r.json(); })
     .then(function(d){ if(d&&d.ok&&d.url){ card.bgUrl=d.url; card.aiText=true; return true; } throw new Error((d&&d.error)||"AI 이미지 생성 실패"); })
     .catch(function(e){ return { error:(e&&e.message)||String(e) }; });
