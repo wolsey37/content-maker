@@ -46,7 +46,7 @@ export function makeGeminiProvider(secrets, env) {
   env = env || process.env;
   const textModel = env.GEMINI_TEXT_MODEL || "gemini-2.5-flash";   // 최신 기본값
   const imageModel = env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";   // 나노바나나(이미지 생성·편집)
-  const videoModel = env.GEMINI_VIDEO_MODEL || "veo-3.1-generate-preview";   // Veo(영상) 3.1 표준 — 고품질
+  const videoModel = env.GEMINI_VIDEO_MODEL || "veo-3.1-fast-generate-preview";   // Veo(영상) 3.1 Fast
   const VID_TIMEOUT_MS = Number(env.GEMINI_VIDEO_HTTP_TIMEOUT_MS) || 60000;
   const IMG_TIMEOUT_MS = Number(env.GEMINI_IMAGE_HTTP_TIMEOUT_MS) || 280000;
   // 이미지 생성(나노바나나) — generateContent, inlineData 이미지 반환. 참조 이미지(image) 옵션.
