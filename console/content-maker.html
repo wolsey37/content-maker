@@ -302,6 +302,12 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
 .palette-row button .pc-dot{ position:absolute; inset:0; border-radius:50%; }
 .palette-row button.on{ box-shadow:0 0 0 2px var(--panel), 0 0 0 4px var(--ink); }
 .palette-row button.on::after{ content:"✓"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:13px; font-weight:800; text-shadow:0 1px 2px rgba(0,0,0,.4); }
+/* 콘텐츠 타입 선택 */
+.bi-types{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:-2px 0 4px; }
+.bi-types button{ border:1px solid var(--line); background:var(--input); color:var(--ink-2); border-radius:11px; padding:11px 6px; font-size:12.5px; font-weight:700; cursor:pointer; transition:all .12s; line-height:1.3; }
+.bi-types button:hover{ border-color:var(--line-strong); color:var(--ink); }
+.bi-types button.on{ border-color:var(--ink); background:var(--brand-soft); color:var(--ink); font-weight:800; box-shadow:0 1px 5px rgba(0,0,0,.12); }
+@media (max-width:560px){ .bi-types{ grid-template-columns:repeat(2,1fr); } }
 /* 브랜드 키트 */
 .bk-name{ width:100%; box-sizing:border-box; border:1px solid var(--line); border-radius:11px; background:var(--input); color:var(--ink); font:inherit; font-size:13px; font-weight:600; padding:10px 12px; outline:none; }
 .bk-name:focus{ border-color:var(--brand-line); box-shadow:0 0 0 3px var(--brand-soft); }
@@ -427,23 +433,19 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
 <div class="overlay builder-overlay" id="builderModal">
   <div class="builder-modal-card">
     <div class="bm-head">
-      <h2>약국 소개 카드뉴스 만들기</h2>
+      <h2 id="bmTitle">약국 소개 카드뉴스 만들기</h2>
       <button class="icon-b" id="bmClose" type="button" title="닫기" aria-label="닫기">✕</button>
     </div>
     <div class="bm-body">
       <section class="builder-input" id="bInput">
         <div class="bi-grid">
           <div class="bi-main">
-            <label class="bi-label" for="bIntro">우리 약국을 소개해 주세요</label>
-            <p class="bi-hint">위치·운영시간·강점·인사말 등 편하게 적어 주세요. AI가 카드별 문구로 정리해 드려요.</p>
-            <textarea id="bIntro" rows="8" maxlength="2000" placeholder="아래처럼 항목별로 적으면 더 정확해요. 잘 모르겠으면 아래 [예시로 시작하기]를 누르세요.&#10;&#10;약국 이름: &#10;위치: &#10;운영시간: &#10;강점: &#10;편의: &#10;인사말: "></textarea>
-            <div class="bi-examples" id="bExamples">
-              <span class="bx-label">예시로 시작하기</span>
-              <button type="button" data-ex="0">🏠 동네 친근한 약국</button>
-              <button type="button" data-ex="1">💊 상담 전문 약국</button>
-              <button type="button" data-ex="2">✨ 새로 문 연 약국</button>
-              <button type="button" data-ex="3">👵 어르신 많은 동네 약국</button>
-            </div>
+            <span class="bi-label">무엇을 만들까요?</span>
+            <div class="bi-types" id="bType"></div>
+            <label class="bi-label" id="bIntroLabel" for="bIntro">우리 약국을 소개해 주세요</label>
+            <p class="bi-hint" id="bIntroHint">위치·운영시간·강점·인사말 등 편하게 적어 주세요. AI가 카드별 문구로 정리해 드려요.</p>
+            <textarea id="bIntro" rows="8" maxlength="2000" placeholder=""></textarea>
+            <div class="bi-examples" id="bExamples"></div>
             <div class="bi-photos">
               <div class="bi-photos-head">
                 <span class="bi-label">약국 사진 <span class="bi-opt">2~6장 권장</span></span>
@@ -845,7 +847,7 @@ function freshState(){
     imageGen:{ prompts:"", runId:"", items:[], provider:"codex", imageModel:"", concurrency:2 },
     videoGen:{ cuts:"", runId:"", items:[], provider:"claude", engine:"higgsfield", videoModel:"seedance_1_5", concurrency:1 },
     // 약국 소개 카드뉴스 전용 — 자유 설명 + 업로드 사진 + 카드 정의(문구·배경사진·템플릿). 최종 PNG 는 imageGen.items 재사용.
-    pharmacy:{ intro:"", tone:"warm", templateId:"fullbleed", ratio:"4:5", palette:"gold", align:"left", overlay:"med", font:"serif", photos:[], cards:[], caption:"", runId:"" } };
+    pharmacy:{ intro:"", contentType:"intro", tone:"warm", templateId:"fullbleed", ratio:"4:5", palette:"gold", align:"left", overlay:"med", font:"serif", photos:[], cards:[], caption:"", runId:"" } };
 }
 function setSteps(platform){
   var prev=(state&&state.steps)||{};
@@ -1437,6 +1439,28 @@ var PHARM_CAPTION_EXAMPLES=[
   "환절기, 감기 조심하세요 🍂\n일교차가 클 땐 따뜻한 물 자주 드시고 손 자주 씻는 게 기본이에요.\n상비약이 필요하거나 증상이 헷갈리면 약국에서 편하게 물어보세요.\n○○약국이 우리 동네 건강을 함께 챙기겠습니다.\n\n#○○약국 #환절기건강 #감기조심 #건강정보 #동네약국 #복약상담 #면역력 #건강관리팁 #약사추천 #○○동"
 ];
 var PHARM_TONE_DESC={ warm:"따뜻하고 정감 있는", pro:"전문적이고 신뢰감 있는", friendly:"밝고 친근한" };
+/* ===== 콘텐츠 타입 — 약국 소개를 넘어 건강정보·이벤트·일상까지(약국 SNS 운영 엔진) ===== */
+var PHARM_CTYPES=[ {k:"intro",l:"🏠 약국 소개"}, {k:"health",l:"🩺 건강 정보"}, {k:"event",l:"📣 이벤트·공지"}, {k:"daily",l:"📅 일상·소식"} ];
+var CTYPE_UI={
+  intro:{ title:"약국 소개 카드뉴스 만들기", label:"우리 약국을 소개해 주세요",
+    hint:"위치·운영시간·강점·인사말 등 편하게 적어 주세요. AI가 카드별 문구로 정리해 드려요.",
+    ph:"아래처럼 항목별로 적으면 더 정확해요. 잘 모르겠으면 아래 [예시]를 누르세요.\n\n약국 이름: \n위치: \n운영시간: \n강점: \n편의: \n인사말: ",
+    examples:[ {l:"🏠 동네 친근",v:PHARM_EXAMPLES[0]}, {l:"💊 상담 전문",v:PHARM_EXAMPLES[1]}, {l:"✨ 신규 오픈",v:PHARM_EXAMPLES[2]}, {l:"👵 어르신 동네",v:PHARM_EXAMPLES[3]} ] },
+  health:{ title:"건강 정보 카드뉴스 만들기", label:"어떤 건강 정보를 다룰까요?",
+    hint:"주제만 적으면 약사 시선의 건강정보 카드뉴스로 정리해 드려요. (일반 건강 상식 · 진단·처방을 대신하지 않아요)",
+    ph:"예) 환절기 감기·독감 예방법\n다루고 싶은 핵심 포인트나 대상(어르신·직장인·아이 등)을 적으면 더 좋아요.",
+    examples:[ {l:"🤧 환절기 감기 예방",v:"환절기 감기·독감 예방법 — 생활 속 수칙 중심으로"}, {l:"💊 영양제 고르는 법",v:"영양제 똑똑하게 고르는 법 — 종류·복용 시 주의점"}, {l:"⏰ 올바른 약 복용법",v:"올바른 약 복용 시간과 방법 — 흔한 실수와 주의점"}, {l:"🩺 만성질환 관리",v:"혈압·당뇨 등 만성질환 복약 관리 요령"}, {l:"🌸 알레르기 비염",v:"환절기 코·알레르기 비염 생활 관리법"}, {l:"☀️ 여름 건강",v:"여름철 수분 보충·냉방병 예방 건강관리"} ] },
+  event:{ title:"이벤트·공지 카드뉴스 만들기", label:"무엇을 알릴까요?",
+    hint:"이벤트·할인·휴무·신규 서비스 등 알릴 내용을 적어 주세요.",
+    ph:"예) 이번 주 영양제 20% 할인 (기간·대상·방법)\n예) 추석 연휴 휴무 안내 (날짜)",
+    examples:[ {l:"🏷️ 할인 이벤트",v:"이번 주 영양제 할인 이벤트 — 기간·대상·할인율을 알려주세요"}, {l:"🗓️ 휴무 안내",v:"연휴 휴무 안내 — 휴무 날짜와 정상영업일"}, {l:"💉 예방접종 안내",v:"독감 예방접종 안내 — 기간·대상·준비물"}, {l:"🆕 새 서비스",v:"새로운 복약 상담 서비스 시작 안내"} ] },
+  daily:{ title:"일상·소식 카드뉴스 만들기", label:"어떤 소식·인사를 전할까요?",
+    hint:"약국의 일상, 감사 인사, 이달의 건강 한마디 등 따뜻한 소식을 적어 주세요.",
+    ph:"예) 단골 손님께 전하는 감사 인사\n예) 이번 달 건강 한마디 / 새해 인사",
+    examples:[ {l:"🙏 감사 인사",v:"단골 손님께 전하는 따뜻한 감사 인사"}, {l:"📸 약국 일상",v:"우리 약국의 하루 — 일상 한 컷 소개"}, {l:"🌱 이달의 한마디",v:"이번 달 건강 한마디 — 가볍게 챙기는 건강 습관"}, {l:"🎉 새해 인사",v:"새해 인사 — 올 한 해 건강을 기원하며"} ] }
+};
+function ctypeMeta(){ return CTYPE_UI[(ph().contentType)||"intro"]||CTYPE_UI.intro; }
+var curExamples=CTYPE_UI.intro.examples;
 // 디자인 옵션(상업용 카드 툴 참고) — 컬러 테마·글자 정렬·사진 농도·제목 서체
 var PHARM_PALETTES=[
   { id:"gold",    name:"골드",    accent:"#b08d4f" },
@@ -1619,7 +1643,27 @@ function updateGenBtn(){
   var b=el("bGenerate"); if(b){ b.disabled=dis; b.textContent=pharmUploading>0?"사진 올리는 중…":"카드만 만들기"; }
   var m=el("bMagic"); if(m){ m.disabled=dis||(connected===false); m.textContent=pharmUploading>0?"사진 올리는 중…":"🪄 한 번에 다 만들기"; }
 }
-function renderBuilderInput(){ el("bIntro").value=ph().intro||""; renderTplPick(); renderToneSeg(); renderDesignOpts(); renderPhotoStrip(); updateGenBtn(); }
+function renderTypeUI(){
+  var t=ph().contentType||"intro", meta=ctypeMeta();
+  var seg=el("bType");
+  if(seg){ seg.innerHTML="";
+    PHARM_CTYPES.forEach(function(c){
+      var b=document.createElement("button"); b.type="button"; b.className=(t===c.k?"on":""); b.textContent=c.l;
+      b.addEventListener("click", function(){ if((ph().contentType||"intro")===c.k) return; ph().contentType=c.k; renderTypeUI(); });
+      seg.appendChild(b);
+    });
+  }
+  var lab=el("bIntroLabel"); if(lab) lab.textContent=meta.label;
+  var hint=el("bIntroHint"); if(hint) hint.textContent=meta.hint;
+  var ta=el("bIntro"); if(ta) ta.placeholder=meta.ph;
+  var h2=el("bmTitle"); if(h2) h2.textContent=meta.title;
+  curExamples=meta.examples||[];
+  var ex=el("bExamples");
+  if(ex){ ex.innerHTML='<span class="bx-label">예시</span>';
+    curExamples.forEach(function(e,i){ var b=document.createElement("button"); b.type="button"; b.setAttribute("data-ex",String(i)); b.textContent=e.l; ex.appendChild(b); });
+  }
+}
+function renderBuilderInput(){ el("bIntro").value=ph().intro||""; renderTypeUI(); renderTplPick(); renderToneSeg(); renderDesignOpts(); renderPhotoStrip(); updateGenBtn(); }
 
 /* ---- 사진 업로드(클라 다운스케일 후 /upload) ---- */
 function downscaleImage(file, maxDim, quality){
@@ -1658,14 +1702,25 @@ function onPhotoFiles(files){
 }
 
 /* ---- AI 문구 ---- */
-function buildCopyPrompt(intro, nPhotos, tone, count){
+function buildTypePrompt(type, text, nPhotos, tone, count){
   var toneD=PHARM_TONE_DESC[tone]||"따뜻하고 친근한";
   var n=count||6;
   var photoLine=nPhotos>0
-    ? "약사님이 올린 실제 약국 사진 "+nPhotos+"장이 카드 1장당 1장씩 배경으로 깔립니다. 그래서 카드도 정확히 "+n+"장 만드세요. 사진 위에 얹을 짧고 또렷한 문구를 써주세요."
+    ? "약사님이 올린 실제 사진 "+nPhotos+"장이 카드 1장당 1장씩 배경으로 깔립니다. 그래서 카드도 정확히 "+n+"장 만드세요. 사진 위에 얹을 짧고 또렷한 문구를 써주세요."
     : "사진 없이 브랜드 배경으로 만듭니다. 카드는 "+n+"장 만드세요.";
-  return "당신은 약국 소개용 인스타그램 카드뉴스 카피라이터입니다. 아래 약사님이 적은 약국 설명을 바탕으로, 약국을 소개하는 카드뉴스 "+n+"장의 문구를 작성하세요.\n\n[약국 설명]\n"+(intro||"(설명이 비어 있음 — 일반적인 동네 약국 소개로 자연스럽게 작성)")+"\n\n[배경 사진]\n"+photoLine+"\n\n[톤]\n"+toneD+" 말투\n\n[카드 구성]\n- 정확히 "+n+"장. 첫 장은 표지(약국 이름/한 줄 소개), 마지막 장은 마무리 인사(방문 환영·연락).\n- 가운데 장들은 인사말·강점·취급/서비스·위치·운영시간 중에서 "+n+"장에 맞게 골라 자연스럽게 구성하세요.\n\n[작성 규칙]\n- 각 카드: 제목(16자 이내, 사진 위 큰 글씨) + 본문(2줄·45자 이내)\n- 약국 설명에 있는 사실만 사용하고 지어내지 마세요. 정보가 없으면 일반적인 약국 인사로 자연스럽게 채우세요.\n- 의약품 광고 심의에 어긋나는 효능 단정·과장 표현을 쓰지 마세요.\n- 이모지·해시태그·따옴표 없이 문구만.\n\n[출력 형식] 정확히 아래 형식으로 "+n+"개만 반복. 다른 설명/머리말 없이 카드만 출력:\n@@@CARD\nROLE: 표지\nTITLE: (제목)\nBODY: (본문)\n";
+  var fmt="\n\n[톤]\n"+toneD+" 말투\n\n[작성 규칙]\n- 각 카드: 제목(16자 이내, 큰 글씨) + 본문(2줄·45자 이내)\n- 적힌 사실만 사용하고 지어내지 마세요. 정보가 없으면 일반적인 내용으로 자연스럽게 채우세요.\n- 의약품 광고 심의에 어긋나는 효능 단정·과장, 특정 제품 단정 추천을 하지 마세요.\n- 이모지·해시태그·따옴표 없이 문구만.\n\n[출력 형식] 정확히 아래 형식으로 "+n+"개만 반복. 다른 설명/머리말 없이 카드만 출력:\n@@@CARD\nROLE: (역할)\nTITLE: (제목)\nBODY: (본문)\n";
+  if(type==="health"){
+    return "당신은 약국 인스타그램을 운영하는 약사의 건강정보 카드뉴스 카피라이터입니다. 아래 주제로 일반인이 이해하기 쉬운 건강정보 카드뉴스 "+n+"장을 작성하세요.\n\n[주제]\n"+(text||"(주제가 비어 있음 — 환절기 건강관리로 자연스럽게 작성)")+"\n\n[배경 사진]\n"+photoLine+"\n\n[카드 구성]\n- 정확히 "+n+"장. 첫 장은 표지(주제를 한눈에), 마지막 장은 마무리(증상이 지속되면 가까운 약국·의사와 상담을 권유).\n- 가운데 장들은 핵심 포인트를 하나씩 쉽게 설명(원인·증상·생활수칙·주의점 등).\n- 일반적인 건강 상식 범위로만 작성하고, 의학적 진단·처방을 대신하지 않습니다."+fmt;
+  }
+  if(type==="event"){
+    return "당신은 약국 인스타그램 카피라이터입니다. 아래 내용으로 약국 이벤트·공지 카드뉴스 "+n+"장을 작성하세요.\n\n[알릴 내용]\n"+(text||"(내용이 비어 있음 — 일반적인 약국 안내로 자연스럽게 작성)")+"\n\n[배경 사진]\n"+photoLine+"\n\n[카드 구성]\n- 정확히 "+n+"장. 첫 장은 표지(무엇을 알리는지 한눈에), 마지막 장은 방문·문의 유도(CTA).\n- 가운데 장들은 기간·대상·방법·유의사항 등 꼭 필요한 정보를 또렷하게 전달하세요."+fmt;
+  }
+  if(type==="daily"){
+    return "당신은 약국 인스타그램 카피라이터입니다. 아래 내용으로 약국의 일상·소식·인사 카드뉴스 "+n+"장을 진정성 있게 작성하세요.\n\n[소식/인사 내용]\n"+(text||"(내용이 비어 있음 — 동네 약국의 따뜻한 인사로 자연스럽게 작성)")+"\n\n[배경 사진]\n"+photoLine+"\n\n[카드 구성]\n- 정확히 "+n+"장. 첫 장은 표지, 마지막 장은 감사·방문 인사.\n- 가운데 장들은 한 가지 메시지씩 따뜻하게 담으세요."+fmt;
+  }
+  return "당신은 약국 소개용 인스타그램 카드뉴스 카피라이터입니다. 아래 약사님이 적은 약국 설명을 바탕으로, 약국을 소개하는 카드뉴스 "+n+"장의 문구를 작성하세요.\n\n[약국 설명]\n"+(text||"(설명이 비어 있음 — 일반적인 동네 약국 소개로 자연스럽게 작성)")+"\n\n[배경 사진]\n"+photoLine+"\n\n[카드 구성]\n- 정확히 "+n+"장. 첫 장은 표지(약국 이름/한 줄 소개), 마지막 장은 마무리 인사(방문 환영·연락).\n- 가운데 장들은 인사말·강점·취급/서비스·위치·운영시간 중에서 "+n+"장에 맞게 골라 자연스럽게 구성하세요."+fmt;
 }
+function buildCopyPrompt(intro, nPhotos, tone, count){ return buildTypePrompt("intro", intro, nPhotos, tone, count); }   // 하위호환
 function cleanField(s){ return String(s||"").replace(/^["'“”\s]+|["'“”\s]+$/g,"").replace(/\s*\n\s*/g," ").trim(); }
 function parseCardPlan(text){
   var raw=String(text||"");
@@ -1951,7 +2006,7 @@ function startPharmacyRun(opts){
   var targetCount=pn>0 ? Math.min(8,pn) : 6;   // 사진이 있으면 사진 수 = 카드 수(1:1), 없으면 기본 6장
   var nCards=0;
   pharmacyFetch("/pharmacy/run",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({ provider:eng.provider, model:eng.model, prompt:buildCopyPrompt(intro, pn, ph().tone, targetCount) }) })
+    body:JSON.stringify({ provider:eng.provider, model:eng.model, prompt:buildTypePrompt(ph().contentType||"intro", intro, pn, ph().tone, targetCount) }) })
     .then(function(r){ return r.json(); })
     .then(function(d){
       if(stale()) return 0;
@@ -2027,7 +2082,7 @@ function openPharmacyJob(j){
   state.jobId=j.id; state.platform=st.platform||PHARM_PLATFORM;
   if(typeof st.provider==="string"&&st.provider){ state.provider=st.provider; provSel=st.provider; renderProv(); }
   if(st.pharmacy&&typeof st.pharmacy==="object"){
-    state.pharmacy={ intro:st.pharmacy.intro||"", tone:st.pharmacy.tone||"warm", templateId:st.pharmacy.templateId||"fullbleed", ratio:st.pharmacy.ratio||"4:5",
+    state.pharmacy={ intro:st.pharmacy.intro||"", contentType:st.pharmacy.contentType||"intro", tone:st.pharmacy.tone||"warm", templateId:st.pharmacy.templateId||"fullbleed", ratio:st.pharmacy.ratio||"4:5",
       palette:st.pharmacy.palette||"gold", align:st.pharmacy.align||"left", overlay:st.pharmacy.overlay||"med", font:st.pharmacy.font||"serif",
       photos:Array.isArray(st.pharmacy.photos)?st.pharmacy.photos:[], cards:Array.isArray(st.pharmacy.cards)?st.pharmacy.cards:[], caption:st.pharmacy.caption||"", runId:st.pharmacy.runId||"" };
   }
@@ -2064,11 +2119,15 @@ function makeZip(files){
 }
 /* ====== 인스타그램 캡션·해시태그 생성 ====== */
 var capBusy=false;
-function buildCaptionPrompt(intro, tone, cards){
+function buildCaptionPrompt(intro, tone, cards, type){
   var toneD=PHARM_TONE_DESC[tone]||"따뜻하고 친근한";
   var heads=(cards||[]).map(function(c){ return c.headline; }).filter(Boolean).slice(0,8);
   var cardLine=heads.length ? "\n\n[카드뉴스 장면(참고)]\n- "+heads.join("\n- ") : "";
-  return "당신은 약국 인스타그램 운영을 돕는 카피라이터입니다. 아래 약국 설명으로 인스타그램 게시물에 바로 붙여 넣을 캡션과 해시태그를 작성하세요.\n\n[약국 설명]\n"+(intro||"(설명이 비어 있음 — 일반적인 동네 약국 소개로 자연스럽게 작성)")+cardLine+"\n\n[톤]\n"+toneD+" 말투\n\n[작성 규칙]\n- 캡션: 첫 줄은 시선을 끄는 후킹 한 문장, 이어서 2~4줄로 약국을 소개하고, 마지막 줄은 방문·문의를 부드럽게 유도(CTA).\n- 자연스럽고 읽기 쉬운 구어체. 이모지는 1~4개만 적절히 사용.\n- 약국 설명에 있는 사실만 사용하고 지어내지 마세요. 의약품 광고 심의에 어긋나는 효능 단정·과장 표현 금지.\n- 해시태그: 약국·지역·건강·생활 관련 10~14개를 한 줄에 공백으로 구분해 작성(각 태그 앞에 #).\n\n[출력 형식] 다른 머리말/설명 없이 아래만 출력:\n(캡션 본문)\n\n(빈 줄)\n(해시태그 한 줄)";
+  var kindMap={ intro:"약국 소개", health:"건강 정보", event:"이벤트·공지", daily:"일상·소식" };
+  var kind=kindMap[type||"intro"]||"약국 소개";
+  var ctaMap={ intro:"방문·문의를 부드럽게 유도", health:"증상이 지속되면 약국·전문가 상담을 권유", event:"참여·방문·문의를 유도", daily:"감사·방문 인사로 마무리" };
+  var cta=ctaMap[type||"intro"]||"방문·문의를 부드럽게 유도";
+  return "당신은 약국 인스타그램 운영을 돕는 카피라이터입니다. 아래는 '"+kind+"' 카드뉴스 내용입니다. 인스타그램 게시물에 바로 붙여 넣을 캡션과 해시태그를 작성하세요.\n\n[내용]\n"+(intro||"(비어 있음 — 자연스럽게 작성)")+cardLine+"\n\n[톤]\n"+toneD+" 말투\n\n[작성 규칙]\n- 캡션: 첫 줄은 시선을 끄는 후킹 한 문장, 이어서 2~4줄로 핵심을 전하고, 마지막 줄은 "+cta+"(CTA).\n- 자연스럽고 읽기 쉬운 구어체. 이모지는 1~4개만 적절히 사용.\n- 적힌 사실만 사용하고 지어내지 마세요. 의약품 광고 심의에 어긋나는 효능 단정·과장 표현 금지.\n- 해시태그: 약국·지역·건강·생활 관련 10~14개를 한 줄에 공백으로 구분해 작성(각 태그 앞에 #).\n\n[출력 형식] 다른 머리말/설명 없이 아래만 출력:\n(캡션 본문)\n\n(빈 줄)\n(해시태그 한 줄)";
 }
 function capStatus(m){ var s=el("capStatus"); if(s) s.textContent=m||""; }
 function syncCaptionUI(){ var t=el("capText"); if(t) t.value=ph().caption||""; }
@@ -2077,7 +2136,7 @@ function generateCaptionCore(){
   if(!intro && !cards.length) return Promise.reject(new Error("내용이 없어요."));
   var eng=currentEngine();
   return pharmacyFetch("/pharmacy/run",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({ provider:eng.provider, model:eng.model, prompt:buildCaptionPrompt(intro, ph().tone, cards) }) })
+    body:JSON.stringify({ provider:eng.provider, model:eng.model, prompt:buildCaptionPrompt(intro, ph().tone, cards, ph().contentType||"intro") }) })
     .then(function(r){ return r.json(); })
     .then(function(d){
       if(!d||!d.ok||!(d.output||"").trim()) throw new Error((d&&d.error)||"캡션 생성 실패");
@@ -2306,8 +2365,8 @@ function init(){
   el("bkLogoFile").addEventListener("change", function(){ onBrandLogoFile(this.files); this.value=""; });
   el("bExamples").addEventListener("click", function(e){
     var b=e.target.closest&&e.target.closest("button[data-ex]"); if(!b) return;
-    var ex=PHARM_EXAMPLES[parseInt(b.getAttribute("data-ex"),10)]; if(!ex) return;
-    var ta=el("bIntro"); ta.value=ex; ph().intro=ex; ta.focus(); bInputNote("예시를 채웠어요. 약국 정보에 맞게 자유롭게 고쳐 주세요.");
+    var item=curExamples[parseInt(b.getAttribute("data-ex"),10)]; if(!item) return;
+    var ex=item.v||""; var ta=el("bIntro"); ta.value=ex; ph().intro=ex; ta.focus(); bInputNote("예시를 채웠어요. 내용에 맞게 자유롭게 고쳐 주세요.");
   });
   var dz=el("bDrop"), fi=el("bFile");
   dz.addEventListener("click", function(){ fi.click(); });
