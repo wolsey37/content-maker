@@ -365,6 +365,8 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
 .bi-types button:hover{ border-color:var(--line-strong); color:var(--ink); }
 .bi-types button.on{ border-color:var(--ink); background:var(--brand-soft); color:var(--ink); font-weight:800; box-shadow:0 1px 5px rgba(0,0,0,.12); }
 @media (max-width:560px){ .bi-types{ grid-template-columns:repeat(2,1fr); } }
+.bi-info-kinds{ margin-top:2px; margin-bottom:2px; }
+.bi-info-kinds button.on{ border-color:var(--ink); background:var(--brand-soft); color:var(--ink); font-weight:700; }
 /* 브랜드 키트 */
 .bk-name{ width:100%; box-sizing:border-box; border:1px solid var(--line); border-radius:11px; background:var(--input); color:var(--ink); font:inherit; font-size:13px; font-weight:600; padding:10px 12px; outline:none; }
 .bk-name:focus{ border-color:var(--brand-line); box-shadow:0 0 0 3px var(--brand-soft); }
@@ -515,6 +517,7 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
           <div class="bi-main">
             <span class="bi-label">무엇을 만들까요?</span>
             <div class="bi-types" id="bType"></div>
+            <div class="bi-examples bi-info-kinds" id="bInfoKind" style="display:none;"></div>
             <label class="bi-label" id="bIntroLabel" for="bIntro">우리 약국을 소개해 주세요</label>
             <p class="bi-hint" id="bIntroHint">위치·운영시간·강점·인사말 등 편하게 적어 주세요. AI가 카드별 문구로 정리해 드려요.</p>
             <textarea id="bIntro" rows="8" maxlength="2000" placeholder=""></textarea>
@@ -933,7 +936,7 @@ function freshState(){
     imageGen:{ prompts:"", runId:"", items:[], provider:"codex", imageModel:"", concurrency:2 },
     videoGen:{ cuts:"", runId:"", items:[], provider:"claude", engine:"higgsfield", videoModel:"seedance_1_5", concurrency:1 },
     // 약국 소개 카드뉴스 전용 — 자유 설명 + 업로드 사진 + 카드 정의(문구·배경사진·템플릿). 최종 PNG 는 imageGen.items 재사용.
-    pharmacy:{ intro:"", contentType:"intro", genMode:"standard", tone:"warm", templateId:"fullbleed", ratio:"4:5", palette:"gold", align:"left", overlay:"med", font:"sans", photoFix:false, aiArt:"", photos:[], cards:[], caption:"", runId:"" } };
+    pharmacy:{ intro:"", contentType:"intro", infoKind:"", genMode:"standard", tone:"warm", templateId:"fullbleed", ratio:"4:5", palette:"gold", align:"left", overlay:"med", font:"sans", photoFix:false, aiArt:"", photos:[], cards:[], caption:"", runId:"" } };
 }
 function setSteps(platform){
   var prev=(state&&state.steps)||{};
@@ -1547,6 +1550,26 @@ var CTYPE_UI={
 };
 function ctypeMeta(){ return CTYPE_UI[(ph().contentType)||"intro"]||CTYPE_UI.intro; }
 var curExamples=CTYPE_UI.intro.examples;
+/* 정보성 카드뉴스 종류(건강 정보 하위) — 약국 콘텐츠 레퍼런스 기반 */
+var PHARM_INFO_KINDS=[
+  { k:"", l:"🩺 일반 건강정보" },
+  { k:"nutrient", l:"💊 영양소 기능·섭취법",
+    guide:"특정 영양소(비타민·미네랄·오메가3 등)의 역할과 도움이 되는 상황, 하루 권장 섭취·복용 시점·함께 먹으면 좋은/피할 조합 등 올바른 섭취 방법을 일반 상식 수준으로 정리",
+    ex:["비타민D 기능과 올바른 섭취법","마그네슘이 우리 몸에서 하는 일","오메가3 제대로 고르고 먹는 법","아연·비타민C 면역 영양소 안내"] },
+  { k:"seasonal", l:"🗓️ 시기별 영양제 가이드",
+    guide:"지금 계절·환절기·생활 패턴에 맞춰 챙기면 좋은 영양소/영양제 종류와 그 이유, 생활 관리 팁을 안내(특정 제품 단정 추천 금지)",
+    ex:["환절기 면역력 챙기는 영양제","여름철 수분·미네랄 보충","겨울철 비타민D와 면역","피로가 잦을 때 챙기는 영양소"] },
+  { k:"otc", l:"🩹 일반의약품 안내",
+    guide:"증상별로 약국에서 살 수 있는 일반의약품(OTC)의 종류와 올바른 사용법, 복용 시 주의·상호작용·보관을 안내. 오남용 주의와 증상이 지속되면 전문가 상담을 강조",
+    ex:["감기 증상별 일반약 고르기","두통·진통제 바로 알고 쓰기","속쓰림·소화불량 약 사용법","상처·연고 올바른 사용법"] },
+  { k:"deficiency", l:"⚠️ 성분 부족 증상",
+    guide:"특정 영양소가 부족할 때 나타날 수 있는 일반적인 신호와 생활 속 보충 방법을 안내. 자가진단 단정은 피하고 증상이 지속되면 상담을 권유",
+    ex:["철분 부족하면 나타나는 신호","비타민D 부족 사인 체크","마그네슘 부족 증상","단백질 부족 신호와 보충법"] },
+  { k:"body", l:"🫀 신체·장기 건강",
+    guide:"특정 신체 부위·장기(눈·간·장·관절·혈관 등)의 건강을 돕는 생활 습관과 도움이 되는 영양소를 쉽게 설명",
+    ex:["눈 건강 지키는 습관과 영양소","장 건강과 유산균 이야기","간 건강을 위한 생활 수칙","관절 건강 챙기는 법"] }
+];
+function infoKindMeta(){ var ik=ph().infoKind||""; for(var i=0;i<PHARM_INFO_KINDS.length;i++){ if(PHARM_INFO_KINDS[i].k===ik) return PHARM_INFO_KINDS[i]; } return PHARM_INFO_KINDS[0]; }
 
 /* ===== 콘텐츠 캘린더 — AI가 한 달 게시 계획을 짜고, 항목→원클릭 제작(약국 SNS 운영) ===== */
 function loadCalendar(){ try{ var c=JSON.parse(localStorage.getItem("cm_calendar")||"null"); if(c&&Array.isArray(c.items)) return c; }catch(e){} return { generatedAt:"", items:[] }; }
@@ -1947,11 +1970,20 @@ function renderTypeUI(){
       seg.appendChild(b);
     });
   }
+  // 정보 종류(건강 정보 하위) 칩 — 건강 정보 타입일 때만 노출
+  var ik=el("bInfoKind");
+  if(ik){
+    if(t==="health"){
+      ik.style.display=""; ik.innerHTML='<span class="bx-label">정보 종류</span>';
+      PHARM_INFO_KINDS.forEach(function(k){ var b=document.createElement("button"); b.type="button"; b.className=((ph().infoKind||"")===k.k?"on":""); b.setAttribute("data-ik",k.k); b.textContent=k.l; ik.appendChild(b); });
+    } else { ik.style.display="none"; ik.innerHTML=""; }
+  }
+  var kind=(t==="health" && ph().infoKind) ? infoKindMeta() : null;   // 선택된 정보 종류
   var lab=el("bIntroLabel"); if(lab) lab.textContent=meta.label;
-  var hint=el("bIntroHint"); if(hint) hint.textContent=meta.hint;
-  var ta=el("bIntro"); if(ta) ta.placeholder=meta.ph;
+  var hint=el("bIntroHint"); if(hint) hint.textContent = kind ? (kind.l.replace(/^[^\s]+\s/,"")+" — 주제만 적으면 약사 시선으로 정리해 드려요.") : meta.hint;
+  var ta=el("bIntro"); if(ta) ta.placeholder = kind ? ("예) "+((kind.ex&&kind.ex[0])||"")+"\n대상(어르신·직장인·아이 등)이나 강조점을 덧붙이면 더 좋아요.") : meta.ph;
   var h2=el("bmTitle"); if(h2) h2.textContent=meta.title;
-  curExamples=meta.examples||[];
+  curExamples = kind ? (kind.ex||[]).map(function(s){ return { l:s, v:s }; }) : (meta.examples||[]);
   var ex=el("bExamples");
   if(ex){ ex.innerHTML='<span class="bx-label">예시</span>';
     curExamples.forEach(function(e,i){ var b=document.createElement("button"); b.type="button"; b.setAttribute("data-ex",String(i)); b.textContent=e.l; ex.appendChild(b); });
@@ -2004,7 +2036,10 @@ function buildTypePrompt(type, text, nPhotos, tone, count){
     : "사진 없이 브랜드 배경으로 만듭니다. 카드는 "+n+"장 만드세요.";
   var fmt="\n\n[톤]\n"+toneD+" 말투\n\n[작성 규칙]\n- 각 카드: 제목(16자 이내, 큰 글씨) + 본문(2줄·45자 이내)\n- 적힌 사실만 사용하고 지어내지 마세요. 정보가 없으면 일반적인 내용으로 자연스럽게 채우세요.\n- 의약품 광고 심의에 어긋나는 효능 단정·과장, 특정 제품 단정 추천을 하지 마세요.\n- 이모지·해시태그·따옴표 없이 문구만.\n\n[출력 형식] 정확히 아래 형식으로 "+n+"개만 반복. 다른 설명/머리말 없이 카드만 출력:\n@@@CARD\nROLE: (역할)\nTITLE: (제목)\nBODY: (본문)\n";
   if(type==="health"){
-    return "당신은 약국 인스타그램을 운영하는 약사의 건강정보 카드뉴스 카피라이터입니다. 아래 주제로 일반인이 이해하기 쉬운 건강정보 카드뉴스 "+n+"장을 작성하세요.\n\n[주제]\n"+(text||"(주제가 비어 있음 — 환절기 건강관리로 자연스럽게 작성)")+"\n\n[배경 사진]\n"+photoLine+"\n\n[카드 구성]\n- 정확히 "+n+"장. 첫 장은 표지(주제를 한눈에), 마지막 장은 마무리(증상이 지속되면 가까운 약국·의사와 상담을 권유).\n- 가운데 장들은 핵심 포인트를 하나씩 쉽게 설명(원인·증상·생활수칙·주의점 등).\n- 일반적인 건강 상식 범위로만 작성하고, 의학적 진단·처방을 대신하지 않습니다."+fmt;
+    var ik=ph().infoKind||"", kindGuide="";
+    for(var ki=0;ki<PHARM_INFO_KINDS.length;ki++){ if(PHARM_INFO_KINDS[ki].k===ik){ kindGuide=PHARM_INFO_KINDS[ki].guide||""; break; } }
+    var infoLine = kindGuide ? ("\n\n[정보 유형]\n"+kindGuide) : "";
+    return "당신은 약국 인스타그램을 운영하는 약사의 건강정보 카드뉴스 카피라이터입니다. 아래 주제로 일반인이 이해하기 쉬운 건강정보 카드뉴스 "+n+"장을 작성하세요.\n\n[주제]\n"+(text||"(주제가 비어 있음 — 환절기 건강관리로 자연스럽게 작성)")+infoLine+"\n\n[배경 사진]\n"+photoLine+"\n\n[카드 구성]\n- 정확히 "+n+"장. 첫 장은 표지(주제를 한눈에), 마지막 장은 마무리(증상이 지속되면 가까운 약국·의사와 상담을 권유).\n- 가운데 장들은 핵심 포인트를 하나씩 쉽게 설명(원인·증상·생활수칙·주의점 등).\n- 일반적인 건강 상식 범위로만 작성하고, 의학적 진단·처방을 대신하지 않습니다."+fmt;
   }
   if(type==="event"){
     return "당신은 약국 인스타그램 카피라이터입니다. 아래 내용으로 약국 이벤트·공지 카드뉴스 "+n+"장을 작성하세요.\n\n[알릴 내용]\n"+(text||"(내용이 비어 있음 — 일반적인 약국 안내로 자연스럽게 작성)")+"\n\n[배경 사진]\n"+photoLine+"\n\n[카드 구성]\n- 정확히 "+n+"장. 첫 장은 표지(무엇을 알리는지 한눈에), 마지막 장은 방문·문의 유도(CTA).\n- 가운데 장들은 기간·대상·방법·유의사항 등 꼭 필요한 정보를 또렷하게 전달하세요."+fmt;
@@ -2405,7 +2440,7 @@ function openPharmacyJob(j){
   state.jobId=j.id; state.platform=st.platform||PHARM_PLATFORM;
   if(typeof st.provider==="string"&&st.provider){ state.provider=st.provider; provSel=st.provider; renderProv(); }
   if(st.pharmacy&&typeof st.pharmacy==="object"){
-    state.pharmacy={ intro:st.pharmacy.intro||"", contentType:st.pharmacy.contentType||"intro", genMode:st.pharmacy.genMode||"standard", tone:st.pharmacy.tone||"warm", templateId:st.pharmacy.templateId||"fullbleed", ratio:st.pharmacy.ratio||"4:5",
+    state.pharmacy={ intro:st.pharmacy.intro||"", contentType:st.pharmacy.contentType||"intro", infoKind:st.pharmacy.infoKind||"", genMode:st.pharmacy.genMode||"standard", tone:st.pharmacy.tone||"warm", templateId:st.pharmacy.templateId||"fullbleed", ratio:st.pharmacy.ratio||"4:5",
       palette:st.pharmacy.palette||"gold", align:st.pharmacy.align||"left", overlay:st.pharmacy.overlay||"med", font:st.pharmacy.font||"sans", photoFix:!!st.pharmacy.photoFix, aiArt:st.pharmacy.aiArt||"",
       photos:Array.isArray(st.pharmacy.photos)?st.pharmacy.photos:[], cards:Array.isArray(st.pharmacy.cards)?st.pharmacy.cards:[], caption:st.pharmacy.caption||"", runId:st.pharmacy.runId||"" };
   }
@@ -2699,6 +2734,10 @@ function init(){
   el("bkLogoFile").addEventListener("change", function(){ onBrandLogoFile(this.files); this.value=""; });
   el("bPhotoFix").addEventListener("change", function(){ ph().photoFix=this.checked; saveLocal(); });
   el("bAiBg").addEventListener("click", addAiBackground);
+  el("bInfoKind").addEventListener("click", function(e){
+    var b=e.target.closest&&e.target.closest("button[data-ik]"); if(!b) return;
+    ph().infoKind=b.getAttribute("data-ik"); renderTypeUI();
+  });
   el("bExamples").addEventListener("click", function(e){
     var b=e.target.closest&&e.target.closest("button[data-ex]"); if(!b) return;
     var item=curExamples[parseInt(b.getAttribute("data-ex"),10)]; if(!item) return;
