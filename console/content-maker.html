@@ -544,7 +544,7 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
                 </div>
                 <div class="photo-strip" id="bPhotoStrip"></div>
               </div>
-              <p class="ai-note" id="bAiNote" hidden>🎨 카드마다 AI가 어울리는 배경 이미지를 만들어요. 사진 업로드 없이 완성됩니다. <small>카드 수만큼 AI 이미지 크레딧이 소모돼요.</small></p>
+              <p class="ai-note" id="bAiNote" hidden>🎨 AI가 카드마다 <b>문구까지 이미지에 직접</b> 디자인해요(합성 없음). 사진 업로드 없이 완성됩니다. <small>4:5 비율 권장 · 카드 수만큼 AI 이미지 크레딧 소모 · 한글이 또렷하지 않으면 다시 시도해 주세요.</small></p>
             </div>
           </div>
           <aside class="bi-side">
@@ -1834,13 +1834,14 @@ function applyGenMode(){
   var ai=((ph().genMode||"standard")==="ai");
   var area=el("bPhotoArea"); if(area) area.style.display=ai?"none":"";
   var note=el("bAiNote"); if(note) note.hidden=!ai;
+  // AI 모드: 카드 디자인을 AI가 통째로 만드므로 캔버스 디자인 옵션(템플릿·서체·정렬) 숨김
+  ["bTpl","bFont","bAlign"].forEach(function(id){ var c=el(id); if(c){ var f=c.closest&&c.closest(".bi-field"); if(f) f.style.display=ai?"none":""; } });
   updatePhotoDependentOpts();
 }
 // 사진 농도/자동 보정은 배경이 있을 때만 노출 — 무사진 standard 모드에선 숨김
 function updatePhotoDependentOpts(){
   var hasPhoto=(ph().photos||[]).some(function(p){ return p && (p.url || p.pending); });
-  var ai=((ph().genMode||"standard")==="ai");
-  var ov=el("bOverlay"); if(ov){ var f=ov.closest&&ov.closest(".bi-field"); if(f) f.style.display=(hasPhoto||ai)?"":"none"; }   // AI 배경도 농도 적용 대상
+  var ov=el("bOverlay"); if(ov){ var f=ov.closest&&ov.closest(".bi-field"); if(f) f.style.display=hasPhoto?"":"none"; }   // 사진 농도: 내 사진 있을 때만(AI 카드는 합성 안 함)
   var pf=el("bPhotoFix"); if(pf){ var lbl=pf.closest&&pf.closest(".pf-toggle"); if(lbl) lbl.style.display=hasPhoto?"":"none"; }      // 자동 보정은 내 사진만
 }
 /* AI 배경 생성(사진 스튜디오) — gpt-image-1로 약국 분위기 배경을 만들어 사진 슬롯에 추가 */
@@ -1895,16 +1896,20 @@ var AI_ART_DIRECTIONS=[
   "Editorial photo series of the SAME serene clinic-style pharmacy, identical art direction across every slide: soft blue-grey and white palette, clean diffused light, minimal shelves, calm trustworthy mood, consistent cool color grade"
 ];
 function pickArtDir(){ return AI_ART_DIRECTIONS[Math.floor(Math.random()*AI_ART_DIRECTIONS.length)]; }
-function buildCardAiPrompt(card, artDir){
-  var subj=((card&&card.headline)||"").replace(/\s+/g," ").trim().slice(0,40);
-  var art=artDir||AI_ART_DIRECTIONS[0];
-  return art+". This frame's gentle focus: "+(subj||"healthy daily life")+" — but keep the EXACT same place, camera style, lighting, palette and color grade as the rest of the series so all slides look connected. Generous empty space (especially the lower third) for a text overlay. No text, no letters, no numbers, no logos, no watermark, no human faces in focus. Photographic, high quality, 4:5 portrait, consistent cohesive series look.";
+// AI 모드: 문구까지 이미지에 직접 렌더링(합성 없이 AI 모델이 카드 전체를 디자인). 시리즈 일관 스타일 유지.
+function buildCardAiTextPrompt(card, artDir){
+  var art=artDir||ph().aiArt||AI_ART_DIRECTIONS[0];
+  var title=((card&&card.headline)||"").replace(/\s+/g," ").trim();
+  var body=((card&&card.body)||"").replace(/\s+/g," ").trim();
+  var brand=(brandKit&&brandKit.name||"").trim();
+  var brandLine=brand?(" Include the pharmacy name \""+brand+"\" small in a corner as a subtle brand mark."):"";
+  return "Design ONE polished Instagram card-news slide (4:5 portrait) for a neighborhood pharmacy, part of a cohesive series. Series art direction: "+art+". On the image, render this KOREAN text with clean modern legible typography, spelled EXACTLY and correctly: a large bold headline \""+(title||" ")+"\", and a smaller subtext line \""+(body||" ")+"\"."+brandLine+" Put a soft gradient or translucent panel behind the text so it stays easy to read. IMPORTANT: place ALL text — headline, subtext and the brand name — within the central 70% of the frame, leaving the top 15% and bottom 18% completely free of text (safe margins), so nothing gets cut off. Tasteful editorial layout, professional. The Korean must be accurate and natural — no fake, broken or random characters, no English gibberish, no watermark.";
 }
-function genCardAiBg(card, artDir){   // 카드 1장의 AI 배경 → card.bgUrl (실패 시 빈 값 유지=브랜드 배경 폴백)
+function genCardAiBg(card, artDir){   // 카드 1장을 AI가 문구까지 디자인 → card.bgUrl + card.aiText (실패 시 빈 값=문구 합성 폴백)
   return pharmacyFetch("/pharmacy/image",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({ provider:"openai", prompt:buildCardAiPrompt(card, artDir||ph().aiArt), kind:"card", jobId:ensureJobId(), idx:"cardbg-"+(card.id||"x")+"-"+Date.now().toString(36) }) })
+    body:JSON.stringify({ provider:"openai", prompt:buildCardAiTextPrompt(card, artDir||ph().aiArt), kind:"card", jobId:ensureJobId(), idx:"cardbg-"+(card.id||"x")+"-"+Date.now().toString(36) }) })
     .then(function(r){ if(r.status===404||r.status===401||r.status===403) throw new Error("AI 이미지는 서버 업데이트(배포) 후 사용할 수 있어요."); return r.json(); })
-    .then(function(d){ if(d&&d.ok&&d.url){ card.bgUrl=d.url; return true; } throw new Error((d&&d.error)||"AI 이미지 생성 실패"); })
+    .then(function(d){ if(d&&d.ok&&d.url){ card.bgUrl=d.url; card.aiText=true; return true; } throw new Error((d&&d.error)||"AI 이미지 생성 실패"); })
     .catch(function(e){ return { error:(e&&e.message)||String(e) }; });
 }
 function renderBrandKit(){
@@ -2126,6 +2131,8 @@ function composeCard(card, img, tplId, logoImg){
   var fX=(card.focusX==null?0.5:card.focusX), fY=(card.focusY==null?0.5:card.focusY);
   var title=card.headline||"", body=card.body||"";
   var cards=ph().cards||[]; var idx=cards.indexOf(card); if(idx<0) idx=0; var total=cards.length||1;
+  // AI가 문구까지 그린 카드(card.aiText) — 합성 없이 이미지를 비율에 맞춰 그대로 사용
+  if(card.aiText && img){ drawCover(ctx,img,0,0,CARD_W,CARD_H,0.5,0.5); ctx.textAlign="left"; return cv; }
   ctx.fillStyle=IVORY; ctx.fillRect(0,0,CARD_W,CARD_H); ctx.textBaseline="top"; ctx.textAlign=align;
   function darkBg(x,y,w,h){ var g=ctx.createLinearGradient(0,0,w,h); g.addColorStop(0,DK1); g.addColorStop(1,DK2); ctx.fillStyle=g; ctx.fillRect(x,y,w,h); }
   function bar(x,y){ ctx.fillStyle=ACCENT; roundRectPath(ctx,x,y,56,7,3.5); ctx.fill(); }   // 둥근 액센트 바
@@ -2371,7 +2378,7 @@ function startPharmacyRun(opts){
         }));
       }).then(function(){
         if(stale()) return 0;
-        setBStatus(pfx+(aiMode?"②b AI 이미지 위에 문구를 얹고 있어요…":"② 사진 위에 카드 디자인을 합성하고 있어요…"));
+        setBStatus(pfx+(aiMode?"②b 카드를 정리하고 있어요…":"② 사진 위에 카드 디자인을 합성하고 있어요…"));
         var ok=0, chain=Promise.resolve();
         cards.forEach(function(card,i){
           chain=chain.then(function(){
