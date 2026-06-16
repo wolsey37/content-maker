@@ -523,8 +523,8 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
             <textarea id="bIntro" rows="8" maxlength="2000" placeholder=""></textarea>
             <div class="bi-examples" id="bExamples"></div>
             <div class="bi-photos">
-              <span class="bi-label gm-label">제작 방식</span>
-              <div class="opt-seg gen-mode" id="bGenMode"></div>
+              <span class="bi-label gm-label" hidden>제작 방식</span>
+              <div class="opt-seg gen-mode" id="bGenMode" hidden></div>
               <div id="bPhotoArea">
                 <div class="bi-photos-head">
                   <span class="bi-label">약국 사진 <span class="bi-opt">2~6장 권장</span></span>
@@ -1822,7 +1822,7 @@ function renderDesignOpts(){
   var pf=el("bPhotoFix"); if(pf) pf.checked=!!ph().photoFix;
   renderBrandKit();
   renderEngineSel();
-  renderGenMode();
+  applyGenMode();
 }
 var PHARM_GENMODES=[ {k:"standard",l:"📷 내 사진·브랜드"}, {k:"ai",l:"🎨 AI 이미지 전체 제작"} ];
 function renderGenMode(){
@@ -1968,34 +1968,40 @@ function updateGenBtn(){
   var b=el("bGenerate"); if(b){ b.disabled=dis; b.textContent=pharmUploading>0?"사진 올리는 중…":"✨ 카드뉴스 만들기"; }
   var m=el("bMagic"); if(m){ m.disabled=dis||(connected===false); m.textContent=pharmUploading>0?"사진 올리는 중…":"🪄 한 번에 다 만들기"; }
 }
+/* 무엇을 만들까요? = 출력 형태(내 사진 / 인포그래픽). genMode 와 직결. */
+var PHARM_FORMATS=[ {k:"standard",l:"📷 내 사진"}, {k:"ai",l:"📊 인포그래픽"} ];
+var FORMAT_UI={
+  standard:{ title:"내 사진으로 카드뉴스 만들기", label:"무엇을 담을까요?",
+    hint:"소개·인사·이벤트 등 주제를 적어 주세요. 올린 사진 위에 문구를 얹어 카드뉴스로 만들어요.",
+    ph:"예) 우리 약국 소개 (위치·운영시간·강점·인사말)\n예) 이번 주 영양제 할인 안내\n예) 단골 손님께 감사 인사",
+    examples:[ {l:"🏠 약국 소개",v:PHARM_EXAMPLES[0]}, {l:"📣 이벤트 안내",v:"이번 주 영양제 할인 이벤트 — 기간·대상·할인율을 알려주세요"}, {l:"🙏 감사 인사",v:"단골 손님께 전하는 따뜻한 감사 인사"}, {l:"📅 일상 소식",v:"우리 약국의 하루 — 일상 한 컷 소개"} ] },
+  ai:{ title:"AI 인포그래픽 카드뉴스 만들기", label:"어떤 정보를 담을까요?",
+    hint:"주제만 적으면 약사 인포그래픽(번호·표·아이콘)으로 빽빽하게 정리해 드려요. (일반 건강 상식 · 진단·처방 대체 아님)",
+    ph:"예) 마그네슘이 우리 몸에서 하는 일\n예) 증상별 감기약 고르는 법\n예) 영양제 섭취 시간 한눈에 보기",
+    examples:[ {l:"💊 영양소 기능",v:"마그네슘이 우리 몸에서 하는 일과 부족 증상"}, {l:"⏰ 영양제 섭취시간",v:"영양제 섭취 시간 한눈에 보기 (아침·점심·저녁)"}, {l:"🩹 감기약 고르기",v:"증상별 감기약 고르는 법"}, {l:"🗓️ 시기별 영양제",v:"환절기 챙기면 좋은 영양제 가이드"} ] }
+};
+function formatMeta(){ return FORMAT_UI[(ph().genMode)||"standard"]||FORMAT_UI.standard; }
 function renderTypeUI(){
-  var t=ph().contentType||"intro", meta=ctypeMeta();
+  var g=ph().genMode||"standard", meta=formatMeta();
   var seg=el("bType");
   if(seg){ seg.innerHTML="";
-    PHARM_CTYPES.forEach(function(c){
-      var b=document.createElement("button"); b.type="button"; b.className=(t===c.k?"on":""); b.textContent=c.l;
-      b.addEventListener("click", function(){ if((ph().contentType||"intro")===c.k) return; ph().contentType=c.k; renderTypeUI(); });
+    PHARM_FORMATS.forEach(function(c){
+      var b=document.createElement("button"); b.type="button"; b.className=(g===c.k?"on":""); b.textContent=c.l;
+      b.addEventListener("click", function(){ if((ph().genMode||"standard")===c.k) return; ph().genMode=c.k; renderTypeUI(); applyGenMode(); });
       seg.appendChild(b);
     });
   }
-  // 정보 종류(건강 정보 하위) 칩 — 건강 정보 타입일 때만 노출
-  var ik=el("bInfoKind");
-  if(ik){
-    if(t==="health"){
-      ik.style.display=""; ik.innerHTML='<span class="bx-label">정보 종류</span>';
-      PHARM_INFO_KINDS.forEach(function(k){ var b=document.createElement("button"); b.type="button"; b.className=((ph().infoKind||"")===k.k?"on":""); b.setAttribute("data-ik",k.k); b.textContent=k.l; ik.appendChild(b); });
-    } else { ik.style.display="none"; ik.innerHTML=""; }
-  }
-  var kind=(t==="health" && ph().infoKind) ? infoKindMeta() : null;   // 선택된 정보 종류
+  var ik=el("bInfoKind"); if(ik){ ik.style.display="none"; ik.innerHTML=""; }   // 정보 종류 미사용(주제 자유 입력)
   var lab=el("bIntroLabel"); if(lab) lab.textContent=meta.label;
-  var hint=el("bIntroHint"); if(hint) hint.textContent = kind ? (kind.l.replace(/^[^\s]+\s/,"")+" — 주제만 적으면 약사 시선으로 정리해 드려요.") : meta.hint;
-  var ta=el("bIntro"); if(ta) ta.placeholder = kind ? ("예) "+((kind.ex&&kind.ex[0])||"")+"\n대상(어르신·직장인·아이 등)이나 강조점을 덧붙이면 더 좋아요.") : meta.ph;
+  var hint=el("bIntroHint"); if(hint) hint.textContent=meta.hint;
+  var ta=el("bIntro"); if(ta) ta.placeholder=meta.ph;
   var h2=el("bmTitle"); if(h2) h2.textContent=meta.title;
-  curExamples = kind ? (kind.ex||[]).map(function(s){ return { l:s, v:s }; }) : (meta.examples||[]);
+  curExamples=meta.examples||[];
   var ex=el("bExamples");
   if(ex){ ex.innerHTML='<span class="bx-label">예시</span>';
     curExamples.forEach(function(e,i){ var b=document.createElement("button"); b.type="button"; b.setAttribute("data-ex",String(i)); b.textContent=e.l; ex.appendChild(b); });
   }
+  applyGenMode();
 }
 function renderBuilderInput(){ el("bIntro").value=ph().intro||""; renderTypeUI(); renderTplPick(); renderToneSeg(); renderDesignOpts(); renderPhotoStrip(); updateGenBtn(); }
 
@@ -2060,6 +2066,14 @@ function buildTypePrompt(type, text, nPhotos, tone, count){
   return "당신은 약국 소개용 인스타그램 카드뉴스 카피라이터입니다. 아래 약사님이 적은 약국 설명을 바탕으로, 약국을 소개하는 카드뉴스 "+n+"장의 문구를 작성하세요.\n\n[약국 설명]\n"+(text||"(설명이 비어 있음 — 일반적인 동네 약국 소개로 자연스럽게 작성)")+"\n\n[배경 사진]\n"+photoLine+"\n\n[카드 구성]\n- 정확히 "+n+"장. 첫 장은 표지(약국 이름/한 줄 소개), 마지막 장은 마무리 인사(방문 환영·연락).\n- 가운데 장들은 인사말·강점·취급/서비스·위치·운영시간 중에서 "+n+"장에 맞게 골라 자연스럽게 구성하세요."+fmt;
 }
 function buildCopyPrompt(intro, nPhotos, tone, count){ return buildTypePrompt("intro", intro, nPhotos, tone, count); }   // 하위호환
+// 내 사진(표준) 모드 — 주제 자유, 사진 위 짧은 문구
+function buildPhotoCopyPrompt(text, nPhotos, tone, count){
+  var toneD=PHARM_TONE_DESC[tone]||"따뜻하고 친근한", n=count||6;
+  var photoLine=nPhotos>0
+    ? "약사님이 올린 사진 "+nPhotos+"장이 카드 1장당 1장씩 배경으로 깔립니다. 그래서 카드도 정확히 "+n+"장. 사진 위에 얹을 짧고 또렷한 문구를 써주세요."
+    : "사진 없이 브랜드 배경으로 만듭니다. 카드는 "+n+"장.";
+  return "당신은 약국 인스타그램 카드뉴스 카피라이터입니다. 아래 주제로 약국 카드뉴스 "+n+"장의 문구를 작성하세요.\n\n[주제]\n"+(text||"(주제가 비어 있음 — 동네 약국의 따뜻한 소개로 자연스럽게)")+"\n\n[배경 사진]\n"+photoLine+"\n\n[카드 구성]\n- 정확히 "+n+"장. 첫 장은 표지(주제를 한눈에), 마지막 장은 마무리(방문 환영·문의).\n- 가운데 장들은 핵심을 한 장에 하나씩 자연스럽게 담으세요.\n\n[작성 규칙]\n- 각 카드: 제목(16자 이내, 큰 글씨) + 본문(2줄·45자 이내)\n- 적힌 사실만 사용하고 지어내지 마세요. 의약품 효능 단정·과장, 특정 제품 단정 추천 금지.\n- 이모지·해시태그·따옴표 없이 문구만.\n\n[출력 형식] 정확히 아래 형식으로 "+n+"개만 반복. 다른 머리말 없이:\n@@@CARD\nROLE: (역할)\nTITLE: (제목)\nBODY: (본문)\n";
+}
 function cleanField(s){ return String(s||"").replace(/^["'“”\s]+|["'“”\s]+$/g,"").replace(/\s*\n\s*/g," ").trim(); }
 function parseCardPlan(text){
   var raw=String(text||"");
@@ -2390,7 +2404,7 @@ function startPharmacyRun(opts){
   var targetCount=pn>0 ? Math.min(8,pn) : 6;   // 사진이 있으면 사진 수 = 카드 수(1:1), 없으면 기본 6장
   var nCards=0;
   pharmacyFetch("/pharmacy/run",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({ provider:eng.provider, model:eng.model, prompt:buildTypePrompt(ph().contentType||"intro", intro, pn, ph().tone, targetCount) }) })
+    body:JSON.stringify({ provider:eng.provider, model:eng.model, prompt:((ph().genMode==="ai") ? buildTypePrompt("health", intro, pn, ph().tone, targetCount) : buildPhotoCopyPrompt(intro, pn, ph().tone, targetCount)) }) })
     .then(function(r){ return r.json(); })
     .then(function(d){
       if(stale()) return 0;
