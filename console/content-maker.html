@@ -1863,16 +1863,20 @@ function applyGenMode(){
   var note=el("bAiNote"); if(note) note.hidden=!ai;
   var vnote=el("bVideoNote"); if(vnote) vnote.hidden=!video;
   var phHead=el("bPhotoHint"); if(phHead) phHead.textContent=video?"참조 사진(선택) — 올리면 그 사진을 바탕으로 영상을 만들어요":"외관·내부·약사님·상담공간 등 — 사진이 카드 배경이 됩니다";
-  // 캔버스 디자인 옵션(템플릿·서체·정렬·브랜드·비율)·AI엔진: 영상/AI 모드에선 불필요 → 숨김
-  ["bTpl","bFont","bAlign"].forEach(function(id){ var c=el(id); if(c){ var f=c.closest&&c.closest(".bi-field"); if(f) f.style.display=(ai||video)?"none":""; } });
+  var standard=(g==="standard");
+  // 캔버스 디자인 옵션(템플릿·서체·정렬)·브랜드 키트: 내 사진(캔버스 합성)에만 적용 → AI/영상에선 숨김
+  ["bTpl","bFont","bAlign"].forEach(function(id){ var c=el(id); if(c){ var f=c.closest&&c.closest(".bi-field"); if(f) f.style.display=standard?"":"none"; } });
+  var bk=el("bkName"); if(bk){ var bkf=bk.closest&&bk.closest(".bi-field"); if(bkf) bkf.style.display=standard?"":"none"; }   // 브랜드 키트(로고·약국명 칩)는 내 사진만
+  var rt=el("bRatio"); if(rt){ var rf=rt.closest&&rt.closest(".bi-field"); if(rf) rf.style.display=video?"none":""; }       // 영상은 9:16 고정 → 비율 숨김
   var eng=el("bEngine"); if(eng){ var ef=eng.closest&&eng.closest(".bi-field"); if(ef) ef.style.display=video?"none":""; }   // 영상은 Gemini 고정
   updatePhotoDependentOpts(); updateGenBtn();
 }
 // 사진 농도/자동 보정은 배경이 있을 때만 노출 — 무사진 standard 모드에선 숨김
 function updatePhotoDependentOpts(){
-  var hasPhoto=(ph().photos||[]).some(function(p){ return p && (p.url || p.pending); });
-  var ov=el("bOverlay"); if(ov){ var f=ov.closest&&ov.closest(".bi-field"); if(f) f.style.display=hasPhoto?"":"none"; }   // 사진 농도: 내 사진 있을 때만(AI 카드는 합성 안 함)
-  var pf=el("bPhotoFix"); if(pf){ var lbl=pf.closest&&pf.closest(".pf-toggle"); if(lbl) lbl.style.display=hasPhoto?"":"none"; }      // 자동 보정은 내 사진만
+  var standard=((ph().genMode||"standard")==="standard");   // 사진 농도·자동 보정은 내 사진 캔버스에만 적용
+  var hasPhoto=standard && (ph().photos||[]).some(function(p){ return p && (p.url || p.pending); });
+  var ov=el("bOverlay"); if(ov){ var f=ov.closest&&ov.closest(".bi-field"); if(f) f.style.display=hasPhoto?"":"none"; }
+  var pf=el("bPhotoFix"); if(pf){ var lbl=pf.closest&&pf.closest(".pf-toggle"); if(lbl) lbl.style.display=hasPhoto?"":"none"; }
 }
 /* AI 배경 생성(사진 스튜디오) — gpt-image-1로 약국 분위기 배경을 만들어 사진 슬롯에 추가 */
 var aiBgBusy=false;
