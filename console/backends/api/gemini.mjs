@@ -76,16 +76,18 @@ export function makeGeminiProvider(secrets, env) {
   async function startVideo({ prompt, aspect, image, images, model }) {
     try {
       const inst = { prompt: String(prompt || "") };
-      // 참조 이미지: 2장 이상이면 Veo 3.1 referenceImages(asset, 최대 3장), 1장이면 첫 프레임(image-to-video).
+      let useModel = (model || "").trim() || videoModel;
+      // 참조 이미지: 2장 이상이면 Veo 3.1 referenceImages(asset, 최대 3장, inlineData 포맷), 1장이면 첫 프레임(image-to-video).
       const refs = (Array.isArray(images) ? images : []).filter((im) => im && im.b64).slice(0, 3);
       if (refs.length >= 2) {
+        // referenceImages 는 Fast 미지원 → 표준(veo-3.1-generate-preview)으로 전환.
+        if (/fast/i.test(useModel)) useModel = "veo-3.1-generate-preview";
         inst.referenceImages = refs.map((im) => ({ image: { bytesBase64Encoded: im.b64, mimeType: im.mime || "image/jpeg" }, referenceType: "asset" }));
       } else {
         const one = refs[0] || (image && image.b64 ? image : null);
         if (one && one.b64) inst.image = { bytesBase64Encoded: one.b64, mimeType: one.mime || "image/jpeg" };
       }
       const body = { instances: [inst], parameters: { aspectRatio: aspect || "9:16" } };
-      const useModel = (model || "").trim() || videoModel;
       const resp = await fetch(BASE + "/models/" + encodeURIComponent(useModel) + ":predictLongRunning?key=" + encodeURIComponent(secrets.GEMINI_API_KEY), {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(VID_TIMEOUT_MS),
       });
