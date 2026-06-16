@@ -310,6 +310,12 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
 /* 옵션 그룹 구분선 */
 .bi-divider{ height:1px; background:var(--line-soft); margin:2px 0; border:0; }
 .bi-go{ width:100%; margin-top:2px; }
+.magic-go{ background:linear-gradient(135deg,#caa15c,#9c7536); border:none; color:#1a1206; font-weight:800; box-shadow:0 6px 20px rgba(176,141,79,.35); }
+.magic-go:hover:not(:disabled){ filter:brightness(1.05); }
+.magic-go:disabled{ opacity:.5; }
+.magic-opt{ display:flex; align-items:center; justify-content:center; gap:7px; font-size:12.5px; color:var(--ink-2); margin-top:2px; cursor:pointer; user-select:none; }
+.magic-opt input{ accent-color:#b08d4f; width:15px; height:15px; cursor:pointer; }
+.bi-go2{ width:100%; }
 .bi-note{ font-size:12px; color:var(--muted); text-align:center; margin:0; min-height:14px; }
 
 /* ---- 홈: 리스트 중심 히어로 ---- */
@@ -343,6 +349,13 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
 .video-bar .vb-act{ display:flex; align-items:center; gap:12px; margin-top:2px; }
 .video-bar .vb-status{ font-size:12.5px; color:var(--muted); }
 @media (max-width:560px){ .video-bar .vb-row{ flex-direction:column; align-items:stretch; gap:6px; } .video-bar .vb-l{ width:auto; } }
+.caption-bar{ background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:16px 18px; margin-bottom:18px; display:flex; flex-direction:column; gap:11px; }
+.caption-bar .cap-head{ display:flex; align-items:center; gap:10px; }
+.caption-bar .cap-t{ font-size:13px; font-weight:800; color:var(--ink); }
+.caption-bar .cap-status{ font-size:12px; color:var(--muted); margin-left:auto; }
+.caption-bar textarea{ width:100%; box-sizing:border-box; resize:vertical; min-height:148px; border:1px solid var(--line); border-radius:var(--r1); background:var(--bg); color:var(--ink); padding:13px 15px; font:inherit; font-size:14px; line-height:1.62; }
+.caption-bar textarea:focus{ outline:none; border-color:#b08d4f; }
+.caption-bar .cap-act{ display:flex; align-items:center; gap:10px; }
 .br-bar .br-status{ font-size:13px; color:var(--ink-2); }
 .br-bar .sp{ flex:1; }
 .cards-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:18px; }
@@ -462,7 +475,9 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
               <span class="bi-label">AI 엔진</span>
               <select class="bi-select" id="bEngine" title="문구를 생성할 AI"></select>
             </div>
-            <button class="btn pri lg bi-go" id="bGenerate" type="button">✨ 카드뉴스 만들기</button>
+            <button class="btn pri lg bi-go magic-go" id="bMagic" type="button">🪄 한 번에 다 만들기</button>
+            <label class="magic-opt"><input type="checkbox" id="bMagicVideo" checked> 캡션·영상까지 한 번에 만들기</label>
+            <button class="btn ghost bi-go2" id="bGenerate" type="button">카드만 만들기</button>
             <p class="bi-note" id="bInputNote"></p>
             <div class="conn-help" id="connHelp"></div>
           </aside>
@@ -521,8 +536,21 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
       <span class="br-status" id="bStatus"></span>
       <span class="sp"></span>
       <button class="btn ghost" id="bEditInputs" type="button">← 입력 수정</button>
+      <button class="btn ghost" id="bCaptionBtn" type="button">✍️ 캡션</button>
       <button class="btn ghost" id="bVideoBtn" type="button">🎬 영상</button>
       <button class="btn ghost" id="bDownloadAll" type="button">⬇ 전체 저장(ZIP)</button>
+    </div>
+    <div class="caption-bar" id="bCaptionPanel" hidden>
+      <div class="cap-head"><span class="cap-t">✍️ 인스타그램 캡션 · 해시태그</span><span class="cap-status" id="capStatus"></span></div>
+      <div class="bi-examples" id="capExamples">
+        <span class="bx-label">예시</span>
+        <button type="button" data-cex="0">🏠 동네 친근</button>
+        <button type="button" data-cex="1">💊 상담 전문</button>
+        <button type="button" data-cex="2">✨ 신규 오픈</button>
+        <button type="button" data-cex="3">🍂 환절기 정보</button>
+      </div>
+      <textarea id="capText" rows="8" spellcheck="false" placeholder="‘✨ 만들기’로 자동 생성하거나, 위 [예시]를 눌러 시작해 보세요. 내용은 직접 고칠 수 있어요.&#10;(○○ 부분을 약국 이름·지역으로 바꿔주세요)"></textarea>
+      <div class="cap-act"><button class="btn pri" id="capMake" type="button">✨ 만들기</button><button class="btn ghost" id="capCopy" type="button">📋 복사</button></div>
     </div>
     <div class="video-bar" id="bVideoPanel" hidden>
       <div class="vb-row"><span class="vb-l">전환 효과</span><div class="opt-seg" id="vTrans"></div></div>
@@ -795,7 +823,7 @@ function freshState(){
     imageGen:{ prompts:"", runId:"", items:[], provider:"codex", imageModel:"", concurrency:2 },
     videoGen:{ cuts:"", runId:"", items:[], provider:"claude", engine:"higgsfield", videoModel:"seedance_1_5", concurrency:1 },
     // 약국 소개 카드뉴스 전용 — 자유 설명 + 업로드 사진 + 카드 정의(문구·배경사진·템플릿). 최종 PNG 는 imageGen.items 재사용.
-    pharmacy:{ intro:"", tone:"warm", templateId:"fullbleed", ratio:"4:5", palette:"gold", align:"left", overlay:"med", font:"serif", photos:[], cards:[], runId:"" } };
+    pharmacy:{ intro:"", tone:"warm", templateId:"fullbleed", ratio:"4:5", palette:"gold", align:"left", overlay:"med", font:"serif", photos:[], cards:[], caption:"", runId:"" } };
 }
 function setSteps(platform){
   var prev=(state&&state.steps)||{};
@@ -855,6 +883,7 @@ function refreshConnUI(){
   pill.className="pill"+(connected===true?" ok":connected===false?" bad":"");
   txt.textContent=connected===true?"준비됨":connected===false?"연결 안 됨":"확인 중…";
   var gb=el("bGenerate"); if(gb) gb.disabled=(connected===false)||pharmBusy||(pharmUploading>0);
+  var mg=el("bMagic"); if(mg) mg.disabled=(connected===false)||pharmBusy||(pharmUploading>0);
   if(help){
     if(connected===false){ help.classList.add("show"); help.innerHTML="⚠ 카드뉴스 서버에 연결할 수 없어요. 잠시 후 상단 <b>연결 상태</b>를 눌러 다시 시도해 주세요."; }
     else help.classList.remove("show");
@@ -1379,6 +1408,12 @@ var PHARM_EXAMPLES=[
   "약국 이름: ○○약국 (이번 달 신규 오픈)\n위치: ○○동 ○○아파트 상가\n운영시간: 평일 09:00~21:00 · 토요일 09:00~18:00\n강점: 넓고 깨끗한 매장, 처방조제·건강기능식품·의약외품 다양하게 구비\n편의: 주차 가능 · 편안한 대기공간\n인사말: 새로 문을 연 깔끔한 약국에서 편안하게 상담받으세요. 가까이 들러 주세요.",
   "약국 이름: ○○약국\n위치: ○○동 재래시장 입구\n운영시간: 평일 09:00~19:30 · 토요일 09:00~14:00\n강점: 복용 시간 큰 글씨 안내, 어르신 눈높이 설명, 혈압·당뇨 만성질환 복약 관리\n편의: 정기 복약 관리 · 가까운 거리 상담\n인사말: 어르신도 약을 헷갈리지 않게 천천히, 가족처럼 챙겨드립니다."
 ];
+var PHARM_CAPTION_EXAMPLES=[
+  "우리 동네 ○○약국, 오늘도 문 열었어요 🌿\n감기약부터 영양제까지, 필요한 건 편하게 물어보세요.\n약 드시는 방법도 꼼꼼히 알려드릴게요.\n오며 가며 부담 없이 들러 주세요 :)\n\n#○○약국 #동네약국 #우리동네약국 #복약상담 #건강관리 #약사추천 #영양제상담 #○○동약국 #친절한약국 #건강한하루",
+  "약, 그냥 드시지 말고 한 번 물어보세요 💊\n여러 약을 함께 드실 때 생기는 궁금증, 약사가 하나하나 확인해 드려요.\n혈압·당뇨 같은 만성질환 복약 관리도 도와드립니다.\n안전한 복용, ○○약국이 끝까지 챙길게요.\n\n#○○약국 #복약상담 #약사상담 #만성질환관리 #혈압 #당뇨 #영양제궁합 #건강상담 #처방조제 #믿을수있는약국",
+  "✨ ○○약국이 새로 문을 열었습니다!\n넓고 깨끗한 공간에서 편안하게 상담받으세요.\n처방조제부터 건강기능식품까지 다양하게 준비했어요.\n가까이 계신 분들, 오며 가며 많이 들러 주세요 🙌\n\n#○○약국 #신규오픈 #오픈 #동네약국 #○○동약국 #처방조제 #건강기능식품 #약국추천 #그랜드오픈 #방문환영",
+  "환절기, 감기 조심하세요 🍂\n일교차가 클 땐 따뜻한 물 자주 드시고 손 자주 씻는 게 기본이에요.\n상비약이 필요하거나 증상이 헷갈리면 약국에서 편하게 물어보세요.\n○○약국이 우리 동네 건강을 함께 챙기겠습니다.\n\n#○○약국 #환절기건강 #감기조심 #건강정보 #동네약국 #복약상담 #면역력 #건강관리팁 #약사추천 #○○동"
+];
 var PHARM_TONE_DESC={ warm:"따뜻하고 정감 있는", pro:"전문적이고 신뢰감 있는", friendly:"밝고 친근한" };
 // 디자인 옵션(상업용 카드 툴 참고) — 컬러 테마·글자 정렬·사진 농도·제목 서체
 var PHARM_PALETTES=[
@@ -1511,7 +1546,11 @@ function movePhoto(i, delta){
   var t=a[i]; a[i]=a[j]; a[j]=t;
   renderPhotoStrip(); saveLocal();
 }
-function updateGenBtn(){ var b=el("bGenerate"); if(!b) return; b.disabled=(pharmUploading>0)||pharmBusy; b.textContent=pharmUploading>0?"사진 올리는 중…":"✨ 카드뉴스 만들기"; }
+function updateGenBtn(){
+  var dis=(pharmUploading>0)||pharmBusy;
+  var b=el("bGenerate"); if(b){ b.disabled=dis; b.textContent=pharmUploading>0?"사진 올리는 중…":"카드만 만들기"; }
+  var m=el("bMagic"); if(m){ m.disabled=dis||(connected===false); m.textContent=pharmUploading>0?"사진 올리는 중…":"🪄 한 번에 다 만들기"; }
+}
 function renderBuilderInput(){ el("bIntro").value=ph().intro||""; renderTplPick(); renderToneSeg(); renderDesignOpts(); renderPhotoStrip(); updateGenBtn(); }
 
 /* ---- 사진 업로드(클라 다운스케일 후 /upload) ---- */
@@ -1793,7 +1832,10 @@ function swapPhoto(i){
 }
 
 /* ---- 생성 파이프라인 ---- */
-function generatePharmacyCards(){
+function generatePharmacyCards(){ startPharmacyRun({}); }                       // 카드만
+function magicGenerate(){ var v=el("bMagicVideo"); startPharmacyRun({ magic:true, withCaption:true, withVideo:!v||v.checked }); }  // 🪄 한 번에 다
+function startPharmacyRun(opts){
+  opts=opts||{}; var magic=!!opts.magic;
   if(pharmBusy) return;
   if(pharmUploading>0){ bInputNote("사진 업로드가 끝난 뒤 눌러주세요."); return; }
   var intro=(el("bIntro").value||"").trim();
@@ -1802,29 +1844,32 @@ function generatePharmacyCards(){
   if(connected===false){ refreshConnUI(); bInputNote("서버 연결을 확인하는 중이에요. 잠시 후 다시 시도해 주세요."); return; }
   pharmBusy=true; pharmEditing=null;
   ph().intro=intro; ph().tone=ph().tone||"warm"; ph().templateId=ph().templateId||"fullbleed";
+  ph().caption=""; el("bCaptionPanel").hidden=true; syncCaptionUI();   // 새 생성 — 이전 캡션은 폐기
   state.platform=PHARM_PLATFORM; ensureJobId();
   ph().runId="p"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,6);
   var myRun=ph().runId;   // 이 실행의 토큰 — 도중에 새 생성/다른 작업으로 바뀌면 stale 콜백은 무시(교차 덮어쓰기 방지)
   function stale(){ return ph().runId!==myRun; }
+  var pfx=magic?"🪄 매직 — ":"";
   closeBuilderModal(); showBuilder(); el("bResult").hidden=false; bErr(null);   // 입력 팝업 닫고 결과 화면으로
   el("bBadge").textContent="만드는 중"; el("bBadge").className="studio-badge run";
-  setBStatus("① 약국 소개 문구를 만들고 있어요…"); el("bCards").innerHTML="";
+  setBStatus(pfx+"① 약국 소개 문구를 만들고 있어요…"); el("bCards").innerHTML="";
   var eng=currentEngine();
   var pn=photos.length;
   var targetCount=pn>0 ? Math.min(8,pn) : 6;   // 사진이 있으면 사진 수 = 카드 수(1:1), 없으면 기본 6장
+  var nCards=0;
   pharmacyFetch("/pharmacy/run",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
     body:JSON.stringify({ provider:eng.provider, model:eng.model, prompt:buildCopyPrompt(intro, pn, ph().tone, targetCount) }) })
     .then(function(r){ return r.json(); })
     .then(function(d){
-      if(stale()) return;
+      if(stale()) return 0;
       if(!d||!d.ok||!(d.output||"").trim()) throw new Error((d&&d.error)||"문구 생성 실패");
       var cards=parseCardPlan(d.output).slice(0, targetCount);   // 목표 장수로 맞춤(AI가 더 줘도 컷)
       if(!cards.length) throw new Error("문구를 만들지 못했어요");
       cards.forEach(function(c,i){ c.id="c"+i; c.photoIdx=(pn? (i<pn?i:-1) : -1); c.templateId=ph().templateId; });   // 1:1 배정
-      ph().cards=cards;
+      ph().cards=cards; nCards=cards.length;
       state.imageGen.runId=ph().runId;
       state.imageGen.items=cards.map(function(){ return { pending:true }; });
-      renderPharmaCards(); setBStatus("② 사진 위에 카드 디자인을 합성하고 있어요…");
+      renderPharmaCards(); setBStatus(pfx+"② 사진 위에 카드 디자인을 합성하고 있어요…");
       return ensureFonts().then(function(){
         var ok=0, chain=Promise.resolve();
         cards.forEach(function(card,i){
@@ -1832,17 +1877,40 @@ function generatePharmacyCards(){
             if(stale()) return;
             return composeAndSave(card, i, "").then(function(item){ if(stale()) return; state.imageGen.items[i]=item; ok++; })
               .catch(function(e){ if(stale()) return; state.imageGen.items[i]={ error:(e&&e.message)||String(e) }; })
-              .then(function(){ if(stale()) return; renderPharmaCards(); setBStatus("② 카드 합성 중… ("+(i+1)+"/"+cards.length+")"); });
+              .then(function(){ if(stale()) return; renderPharmaCards(); setBStatus(pfx+"② 카드 합성 중… ("+(i+1)+"/"+cards.length+")"); });
           });
         });
         return chain.then(function(){ return ok; });
       });
     })
+    .then(function(ok){   // ③ 캡션(매직)
+      if(stale()||!ok) return ok;
+      if(opts.withCaption){
+        setBStatus(pfx+"③ 게시용 캡션·해시태그를 쓰고 있어요…");
+        return generateCaptionCore().catch(function(){}).then(function(){ return ok; });
+      }
+      return ok;
+    })
+    .then(function(ok){   // ④ 영상(매직)
+      if(stale()||!ok) return ok;
+      if(opts.withVideo && videoSupported()){
+        setBStatus(pfx+"④ 슬라이드 영상을 만들고 있어요… 잠시만요(영상은 자동 저장돼요)");
+        return runVideoExport().catch(function(){}).then(function(){ return ok; });
+      }
+      return ok;
+    })
     .then(function(ok){
       if(stale()) return;
       pharmBusy=false;
       el("bBadge").textContent= ok>0?"완성":"실패"; el("bBadge").className="studio-badge "+(ok>0?"done":"err");
-      setBStatus(ok===(ph().cards||[]).length ? "✓ 카드뉴스 "+ok+"장 완성! 카드별로 ✏️ 문구·🔄 사진을 고칠 수 있어요." : (ok+"/"+(ph().cards||[]).length+"장 완성 · 일부는 카드의 ✏️/🔄 로 다시 시도하세요."));
+      var done=(ok===nCards);
+      if(magic && ok>0){
+        var extra=[]; if(opts.withCaption&&ph().caption) extra.push("캡션"); if(opts.withVideo&&videoSupported()) extra.push("영상");
+        setBStatus("🎉 완성! 카드 "+ok+"장"+(extra.length?" + "+extra.join("·"):"")+" 준비됐어요. ✍️ 캡션 복사 / 카드별 ✏️·🔄 수정도 가능해요.");
+        if(opts.withCaption&&ph().caption){ el("bCaptionPanel").hidden=false; syncCaptionUI(); }   // 캡션 바로 펼쳐 보여주기
+      } else {
+        setBStatus(done ? "✓ 카드뉴스 "+ok+"장 완성! 카드별로 ✏️ 문구·🔄 사진을 고칠 수 있어요." : (ok+"/"+nCards+"장 완성 · 일부는 카드의 ✏️/🔄 로 다시 시도하세요."));
+      }
       saveLocal(); syncJob(); renderPharmaCards();
     })
     .catch(function(e){
@@ -1868,10 +1936,11 @@ function openPharmacyJob(j){
   if(st.pharmacy&&typeof st.pharmacy==="object"){
     state.pharmacy={ intro:st.pharmacy.intro||"", tone:st.pharmacy.tone||"warm", templateId:st.pharmacy.templateId||"fullbleed", ratio:st.pharmacy.ratio||"4:5",
       palette:st.pharmacy.palette||"gold", align:st.pharmacy.align||"left", overlay:st.pharmacy.overlay||"med", font:st.pharmacy.font||"serif",
-      photos:Array.isArray(st.pharmacy.photos)?st.pharmacy.photos:[], cards:Array.isArray(st.pharmacy.cards)?st.pharmacy.cards:[], runId:st.pharmacy.runId||"" };
+      photos:Array.isArray(st.pharmacy.photos)?st.pharmacy.photos:[], cards:Array.isArray(st.pharmacy.cards)?st.pharmacy.cards:[], caption:st.pharmacy.caption||"", runId:st.pharmacy.runId||"" };
   }
   if(st.imageGen&&typeof st.imageGen==="object"){ state.imageGen.runId=st.imageGen.runId||""; state.imageGen.items=Array.isArray(st.imageGen.items)?st.imageGen.items:[]; }
   pharmBusy=false; pharmEditing=null; pharmUploading=0; bErr(null);
+  el("bCaptionPanel").hidden=true; el("bVideoPanel").hidden=true; syncCaptionUI();
   if((state.pharmacy.cards||[]).length>0){
     el("bBadge").textContent="완성"; el("bBadge").className="studio-badge done";
     setBStatus("저장된 카드뉴스예요. 카드별로 ✏️·🔄 로 수정하거나 [입력 수정]에서 다시 만들 수 있어요.");
@@ -1900,6 +1969,47 @@ function makeZip(files){
   var end=[].concat(u32(0x06054b50),u16(0),u16(0),u16(files.length),u16(files.length),u32(cenSize),u32(offset),u16(0));
   return new Blob(chunks.concat(central,[new Uint8Array(end)]),{ type:"application/zip" });
 }
+/* ====== 인스타그램 캡션·해시태그 생성 ====== */
+var capBusy=false;
+function buildCaptionPrompt(intro, tone, cards){
+  var toneD=PHARM_TONE_DESC[tone]||"따뜻하고 친근한";
+  var heads=(cards||[]).map(function(c){ return c.headline; }).filter(Boolean).slice(0,8);
+  var cardLine=heads.length ? "\n\n[카드뉴스 장면(참고)]\n- "+heads.join("\n- ") : "";
+  return "당신은 약국 인스타그램 운영을 돕는 카피라이터입니다. 아래 약국 설명으로 인스타그램 게시물에 바로 붙여 넣을 캡션과 해시태그를 작성하세요.\n\n[약국 설명]\n"+(intro||"(설명이 비어 있음 — 일반적인 동네 약국 소개로 자연스럽게 작성)")+cardLine+"\n\n[톤]\n"+toneD+" 말투\n\n[작성 규칙]\n- 캡션: 첫 줄은 시선을 끄는 후킹 한 문장, 이어서 2~4줄로 약국을 소개하고, 마지막 줄은 방문·문의를 부드럽게 유도(CTA).\n- 자연스럽고 읽기 쉬운 구어체. 이모지는 1~4개만 적절히 사용.\n- 약국 설명에 있는 사실만 사용하고 지어내지 마세요. 의약품 광고 심의에 어긋나는 효능 단정·과장 표현 금지.\n- 해시태그: 약국·지역·건강·생활 관련 10~14개를 한 줄에 공백으로 구분해 작성(각 태그 앞에 #).\n\n[출력 형식] 다른 머리말/설명 없이 아래만 출력:\n(캡션 본문)\n\n(빈 줄)\n(해시태그 한 줄)";
+}
+function capStatus(m){ var s=el("capStatus"); if(s) s.textContent=m||""; }
+function syncCaptionUI(){ var t=el("capText"); if(t) t.value=ph().caption||""; }
+function generateCaptionCore(){
+  var intro=(ph().intro||"").trim(), cards=ph().cards||[];
+  if(!intro && !cards.length) return Promise.reject(new Error("내용이 없어요."));
+  var eng=currentEngine();
+  return pharmacyFetch("/pharmacy/run",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({ provider:eng.provider, model:eng.model, prompt:buildCaptionPrompt(intro, ph().tone, cards) }) })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(!d||!d.ok||!(d.output||"").trim()) throw new Error((d&&d.error)||"캡션 생성 실패");
+      ph().caption=String(d.output).trim(); syncCaptionUI(); saveLocal(); syncJob();
+    });
+}
+function generateCaption(){
+  if(capBusy) return;
+  var intro=(ph().intro||"").trim(), cards=ph().cards||[];
+  if(!intro && !cards.length){ capStatus("먼저 카드뉴스를 만들어 주세요."); return; }
+  if(connected===false){ refreshConnUI(); capStatus("서버 연결을 확인하는 중이에요. 잠시 후 다시 시도해 주세요."); return; }
+  capBusy=true; var mk=el("capMake"); if(mk){ mk.disabled=true; mk.textContent="만드는 중…"; }
+  capStatus("캡션을 쓰고 있어요…");
+  generateCaptionCore()
+    .then(function(){ capStatus("✓ 완성! 필요하면 직접 고친 뒤 복사하세요."); })
+    .catch(function(e){ capStatus("실패: "+((e&&e.message)||e)); })
+    .then(function(){ capBusy=false; var b=el("capMake"); if(b){ b.disabled=false; b.textContent=(ph().caption?"↻ 다시 만들기":"✨ 만들기"); } });
+}
+function copyCaption(){
+  var t=el("capText"); var v=t?(t.value||""):""; if(!v.trim()){ capStatus("복사할 내용이 없어요. 먼저 만들어 주세요."); return; }
+  function done(){ capStatus("📋 복사됐어요 — 인스타그램에 붙여넣으세요."); }
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(v).then(done).catch(fallback); }
+  else fallback();
+  function fallback(){ try{ t.focus(); t.select(); document.execCommand("copy"); done(); }catch(e){ capStatus("복사를 못 했어요. 길게 눌러 직접 복사해 주세요."); } }
+}
 function downloadBlob(name, blob){ var u=URL.createObjectURL(blob); var a=document.createElement("a"); a.href=u; a.download=name; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(function(){ URL.revokeObjectURL(u); },1000); }
 function downloadAllPharma(){
   var items=(state.imageGen.items||[]).filter(function(it){ return it&&it.url; });
@@ -1910,7 +2020,11 @@ function downloadAllPharma(){
     chain=chain.then(function(){ return fetch(mediaSrc(it.url)); }).then(function(r){ return r.arrayBuffer(); })
       .then(function(buf){ files.push({ name:"약국소개-"+String(i+1).padStart(2,"0")+".png", data:new Uint8Array(buf) }); });
   });
-  chain.then(function(){ downloadBlob("약국소개-카드뉴스.zip", makeZip(files)); })
+  chain.then(function(){
+    var cap=(ph().caption||"").trim();
+    if(cap){ files.push({ name:"캡션-해시태그.txt", data:new TextEncoder().encode(cap) }); }
+    downloadBlob("약국소개-카드뉴스.zip", makeZip(files));
+  })
     .catch(function(e){ bErr("전체 저장 실패: "+((e&&e.message)||e)); })
     .then(function(){ if(btn){ btn.disabled=false; btn.textContent="⬇ 전체 저장(ZIP)"; } });
 }
@@ -1957,14 +2071,13 @@ function drawCoverRect(ctx,img,dx,dy,dw,dh){   // cover-fit(중앙) — 캔버�
   else { sw=img.width; sh=sw/dr; sx=0; sy=(img.height-sh)/2; }
   ctx.drawImage(img,sx,sy,sw,sh,dx,dy,dw,dh);
 }
-function exportVideo(){
-  if(vidBusy) return;
+function videoSupported(){ return typeof MediaRecorder!=="undefined" && !!HTMLCanvasElement.prototype.captureStream; }
+function runVideoExport(){
   var items=(state.imageGen.items||[]).filter(function(it){ return it&&it.url; });
-  if(!items.length){ vStatus("저장할 카드가 없어요."); return; }
-  if(typeof MediaRecorder==="undefined" || !HTMLCanvasElement.prototype.captureStream){ vStatus("이 브라우저는 영상 저장을 지원하지 않아요(크롬 권장)."); return; }
-  vidBusy=true; var mk=el("vMake"); if(mk){ mk.disabled=true; mk.textContent="만드는 중…"; }
+  if(!items.length) return Promise.reject(new Error("저장할 카드가 없어요."));
+  if(!videoSupported()) return Promise.reject(new Error("이 브라우저는 영상 저장을 지원하지 않아요(크롬 권장)."));
   vStatus("이미지 불러오는 중…");
-  Promise.all(items.map(function(it){ return loadImage(mediaSrc(it.url)); })).then(function(imgs){
+  return Promise.all(items.map(function(it){ return loadImage(mediaSrc(it.url)); })).then(function(imgs){
     var R=ratioDef(), W=R.w, H=R.h;
     var cv=document.createElement("canvas"); cv.width=W; cv.height=H; var ctx=cv.getContext("2d");
     var stream=cv.captureStream(30);
@@ -1978,7 +2091,7 @@ function exportVideo(){
       ctx.save(); ctx.globalAlpha=alpha; drawCoverRect(ctx,imgs[i],ox,oy,dw,dh); ctx.restore();
     }
     rec.start();
-    new Promise(function(resolve){
+    return new Promise(function(resolve){
       var start=null;
       function frame(ts){
         if(start===null) start=ts;
@@ -2000,11 +2113,16 @@ function exportVideo(){
     }).then(function(blob){
       downloadBlob("약국소개-영상.webm", blob);
       vStatus("✓ 저장 완료 — "+imgs.length+"장 · 약 "+Math.round(total/1000)+"초 (webm)");
-      vidBusy=false; var b=el("vMake"); if(b){ b.disabled=false; b.textContent="🎬 영상 저장"; }
+      return { count:imgs.length, secs:Math.round(total/1000) };
     });
-  }).catch(function(e){
-    vStatus("영상 저장 실패: "+((e&&e.message)||e)); vidBusy=false; var b=el("vMake"); if(b){ b.disabled=false; b.textContent="🎬 영상 저장"; }
   });
+}
+function exportVideo(){
+  if(vidBusy) return;
+  vidBusy=true; var mk=el("vMake"); if(mk){ mk.disabled=true; mk.textContent="만드는 중…"; }
+  runVideoExport()
+    .catch(function(e){ vStatus("영상 저장 실패: "+((e&&e.message)||e)); })
+    .then(function(){ vidBusy=false; var b=el("vMake"); if(b){ b.disabled=false; b.textContent="🎬 영상 저장"; } });
 }
 
 /* ====== 초기화 ====== */
@@ -2067,9 +2185,25 @@ function init(){
     else showHome();
   });
   el("bEditInputs").addEventListener("click", function(){ if(pharmBusy) return; openBuilderModal(); });
-  el("bVideoBtn").addEventListener("click", function(){ var p=el("bVideoPanel"); var show=p.hidden; p.hidden=!show; if(show) renderVideoOpts(); });
+  el("bCaptionBtn").addEventListener("click", function(){
+    var p=el("bCaptionPanel"); var show=p.hidden; p.hidden=!show;
+    if(show){ el("bVideoPanel").hidden=true; syncCaptionUI(); var b=el("capMake"); if(b) b.textContent=(ph().caption?"↻ 다시 만들기":"✨ 만들기"); el("capText").focus(); }
+  });
+  el("capMake").addEventListener("click", generateCaption);
+  el("capExamples").addEventListener("click", function(e){
+    var b=e.target.closest&&e.target.closest("button[data-cex]"); if(!b) return;
+    var ex=PHARM_CAPTION_EXAMPLES[parseInt(b.getAttribute("data-cex"),10)]; if(ex==null) return;
+    ph().caption=ex; syncCaptionUI(); saveLocal(); syncJob();
+    var m=el("capMake"); if(m) m.textContent="✨ 만들기";
+    capStatus("예시를 채웠어요. ○○를 약국 이름·지역으로 바꾼 뒤 복사하세요.");
+    var t=el("capText"); if(t) t.focus();
+  });
+  el("capCopy").addEventListener("click", copyCaption);
+  el("capText").addEventListener("change", function(){ ph().caption=el("capText").value; saveLocal(); syncJob(); });
+  el("bVideoBtn").addEventListener("click", function(){ var p=el("bVideoPanel"); var show=p.hidden; p.hidden=!show; if(show){ el("bCaptionPanel").hidden=true; renderVideoOpts(); } });
   el("vMake").addEventListener("click", exportVideo);
   el("bGenerate").addEventListener("click", generatePharmacyCards);
+  el("bMagic").addEventListener("click", magicGenerate);
   el("bDownloadAll").addEventListener("click", downloadAllPharma);
   el("bIntro").addEventListener("input", function(){ ph().intro=el("bIntro").value; });
   el("bEngine").addEventListener("change", function(){ pharmEngineSel=this.value; try{ localStorage.setItem("cp_pharm_engine",pharmEngineSel); }catch(e){} });
