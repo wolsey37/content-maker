@@ -933,7 +933,7 @@ function freshState(){
     imageGen:{ prompts:"", runId:"", items:[], provider:"codex", imageModel:"", concurrency:2 },
     videoGen:{ cuts:"", runId:"", items:[], provider:"claude", engine:"higgsfield", videoModel:"seedance_1_5", concurrency:1 },
     // 약국 소개 카드뉴스 전용 — 자유 설명 + 업로드 사진 + 카드 정의(문구·배경사진·템플릿). 최종 PNG 는 imageGen.items 재사용.
-    pharmacy:{ intro:"", contentType:"intro", genMode:"standard", tone:"warm", templateId:"fullbleed", ratio:"4:5", palette:"gold", align:"left", overlay:"med", font:"serif", photoFix:false, photos:[], cards:[], caption:"", runId:"" } };
+    pharmacy:{ intro:"", contentType:"intro", genMode:"standard", tone:"warm", templateId:"fullbleed", ratio:"4:5", palette:"gold", align:"left", overlay:"med", font:"sans", photoFix:false, photos:[], cards:[], caption:"", runId:"" } };
 }
 function setSteps(platform){
   var prev=(state&&state.steps)||{};
@@ -1680,7 +1680,7 @@ var PHARM_PALETTES=[
 ];
 var PHARM_ALIGNS=[ {k:"left",l:"왼쪽"}, {k:"center",l:"가운데"} ];
 var PHARM_OVERLAYS=[ {k:"soft",l:"밝게",a:0.55}, {k:"med",l:"보통",a:0.78}, {k:"strong",l:"진하게",a:0.9} ];
-var PHARM_FONTS=[ {k:"serif",l:"명조(고급)"}, {k:"sans",l:"고딕(깔끔)"} ];
+var PHARM_FONTS=[ {k:"sans",l:"고딕(깔끔)"}, {k:"serif",l:"명조(고급)"} ];
 // AI 엔진 후보 — 람다 /health 활성 provider 로 필터해서 노출
 var PHARM_ENGINES=[
   { k:"openai:",            provider:"openai",    model:"",            label:"기본 · GPT-5.5" },
@@ -1794,7 +1794,7 @@ function renderEngineSel(){
 }
 function renderDesignOpts(){
   renderOptSeg("bRatio", PHARM_RATIOS, function(){ return ph().ratio||"4:5"; }, function(v){ ph().ratio=v; });
-  renderOptSeg("bFont", PHARM_FONTS, function(){ return ph().font||"serif"; }, function(v){ ph().font=v; });
+  renderOptSeg("bFont", PHARM_FONTS, function(){ return ph().font||"sans"; }, function(v){ ph().font=v; });
   renderOptSeg("bAlign", PHARM_ALIGNS, function(){ return ph().align||"left"; }, function(v){ ph().align=v; });
   renderOptSeg("bOverlay", PHARM_OVERLAYS, function(){ return ph().overlay||"med"; }, function(v){ ph().overlay=v; });
   var pf=el("bPhotoFix"); if(pf) pf.checked=!!ph().photoFix;
@@ -2075,7 +2075,7 @@ function composeCard(card, img, tplId, logoImg){
   var SERIF='"Noto Serif KR",serif', SANS='-apple-system,"Apple SD Gothic Neo",sans-serif';
   var DK1="#26272c", DK2="#0c0c0e", IVORY="#f4f4f3", INK="#16171a", SUB="#43454a", WHITE="#ffffff";
   var ACCENT=paletteAccent();
-  var titleFont=(ph().font==="sans")?SANS:SERIF;
+  var titleFont=(ph().font==="serif")?SERIF:SANS;   // 기본 고딕(sans), 명조는 명시 선택 시
   var align=(ph().align==="center")?"center":"left";
   var PAD=100, CW=CARD_W-PAD*2;
   var tx=(align==="center")?CARD_W/2:PAD;          // 텍스트 기준 x
@@ -2397,7 +2397,7 @@ function openPharmacyJob(j){
   if(typeof st.provider==="string"&&st.provider){ state.provider=st.provider; provSel=st.provider; renderProv(); }
   if(st.pharmacy&&typeof st.pharmacy==="object"){
     state.pharmacy={ intro:st.pharmacy.intro||"", contentType:st.pharmacy.contentType||"intro", genMode:st.pharmacy.genMode||"standard", tone:st.pharmacy.tone||"warm", templateId:st.pharmacy.templateId||"fullbleed", ratio:st.pharmacy.ratio||"4:5",
-      palette:st.pharmacy.palette||"gold", align:st.pharmacy.align||"left", overlay:st.pharmacy.overlay||"med", font:st.pharmacy.font||"serif", photoFix:!!st.pharmacy.photoFix,
+      palette:st.pharmacy.palette||"gold", align:st.pharmacy.align||"left", overlay:st.pharmacy.overlay||"med", font:st.pharmacy.font||"sans", photoFix:!!st.pharmacy.photoFix,
       photos:Array.isArray(st.pharmacy.photos)?st.pharmacy.photos:[], cards:Array.isArray(st.pharmacy.cards)?st.pharmacy.cards:[], caption:st.pharmacy.caption||"", runId:st.pharmacy.runId||"" };
   }
   if(st.imageGen&&typeof st.imageGen==="object"){ state.imageGen.runId=st.imageGen.runId||""; state.imageGen.items=Array.isArray(st.imageGen.items)?st.imageGen.items:[]; }
