@@ -394,7 +394,6 @@ export function createCore(opts) {
     if (req.method === "POST" && req.path === "/pharmacy/run") return run(req);
     if (req.method === "POST" && req.path === "/pharmacy/image") return image(req, PHARM_AUTH);   // AI 배경 생성(사진 스튜디오)
     if (req.method === "POST" && req.path === "/pharmacy/video") return videoStart(req);          // Veo 영상 생성 시작(비동기)
-    if (req.method === "GET" && req.path === "/pharmacy/genmodels") { const g = backend.providers.google; return g && g.listRawModels ? g.listRawModels().then((r) => J(200, r)) : J(200, { ok: false, error: "google provider 없음" }); }
     if (req.method === "POST" && req.path === "/pharmacy/video-status") return videoStatus(req, PHARM_AUTH);   // 진행 폴링 → 완료 시 S3 저장
     if (req.method === "POST" && req.path === "/pharmacy/upload") return upload(req, PHARM_AUTH);
     if (req.path === "/pharmacy/jobs" || req.path.startsWith("/pharmacy/jobs/")) {
