@@ -302,6 +302,28 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
 .palette-row button .pc-dot{ position:absolute; inset:0; border-radius:50%; }
 .palette-row button.on{ box-shadow:0 0 0 2px var(--panel), 0 0 0 4px var(--ink); }
 .palette-row button.on::after{ content:"✓"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:13px; font-weight:800; text-shadow:0 1px 2px rgba(0,0,0,.4); }
+/* 콘텐츠 캘린더 */
+.cal{ max-width:920px; margin:0 auto 30px; background:var(--panel); border:1px solid var(--line); border-radius:var(--r3); padding:20px 22px; }
+.cal-head{ display:flex; align-items:flex-start; gap:14px; flex-wrap:wrap; }
+.cal-h-l{ flex:1; min-width:200px; }
+.cal-title{ font-family:var(--serif); font-size:19px; margin:0 0 4px; color:var(--ink); }
+.cal-sub{ font-size:12.5px; color:var(--muted); margin:0; line-height:1.5; }
+.cal-acts{ display:flex; gap:8px; align-items:center; }
+.cal-status{ font-size:12.5px; color:var(--muted); min-height:0; margin-top:8px; }
+.cal-status:empty{ display:none; }
+.cal-list{ display:flex; flex-direction:column; gap:8px; margin-top:14px; }
+.cal-list:empty{ margin-top:0; }
+.cal-item{ display:flex; align-items:center; gap:12px; padding:11px 13px; border:1px solid var(--line); border-radius:var(--r2); background:var(--bg); transition:border-color .12s; }
+.cal-item.tw{ border-color:var(--ink); box-shadow:0 1px 6px rgba(0,0,0,.08); }
+.cal-item.done{ opacity:.6; }
+.ci-date{ flex:none; width:62px; font-size:12px; font-weight:800; color:var(--ink-2); text-align:center; }
+.ci-badge{ flex:none; color:#fff; font-size:10.5px; font-weight:800; padding:3px 9px; border-radius:999px; letter-spacing:.02em; }
+.ci-main{ flex:1; min-width:0; }
+.ci-title{ font-size:13.5px; font-weight:700; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ci-brief{ font-size:11.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:1px; }
+.ci-done{ flex:none; font-size:12px; font-weight:800; color:var(--ok,#2f7d57); }
+.btn.sm{ padding:6px 13px; font-size:12px; }
+@media (max-width:560px){ .ci-brief{ display:none; } .cal-acts{ width:100%; } .cal-acts .btn.pri{ flex:1; } }
 /* 콘텐츠 타입 선택 */
 .bi-types{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:-2px 0 4px; }
 .bi-types button{ border:1px solid var(--line); background:var(--input); color:var(--ink-2); border-radius:11px; padding:11px 6px; font-size:12.5px; font-weight:700; cursor:pointer; transition:all .12s; line-height:1.3; }
@@ -415,6 +437,21 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
     <h1>내 약국 카드뉴스</h1>
     <p class="sub">약국 소개 카드뉴스를 만들고 한곳에서 관리하세요.</p>
     <button class="btn pri lg" id="newCardBtn" type="button">+ 새 카드뉴스 만들기</button>
+  </section>
+
+  <section class="cal" id="calSection">
+    <div class="cal-head">
+      <div class="cal-h-l">
+        <h2 class="cal-title">📅 콘텐츠 캘린더</h2>
+        <p class="cal-sub">한 달 게시 계획을 AI가 짜드려요. 항목을 누르면 그 주제로 바로 만들 수 있어요.</p>
+      </div>
+      <div class="cal-acts">
+        <button class="btn ghost" id="calClear" type="button" hidden>비우기</button>
+        <button class="btn pri" id="calGen" type="button">✨ 한 달 계획 짜기</button>
+      </div>
+    </div>
+    <div class="cal-status" id="calStatus"></div>
+    <div class="cal-list" id="calList"></div>
   </section>
 
   <section class="recent">
@@ -1461,6 +1498,92 @@ var CTYPE_UI={
 };
 function ctypeMeta(){ return CTYPE_UI[(ph().contentType)||"intro"]||CTYPE_UI.intro; }
 var curExamples=CTYPE_UI.intro.examples;
+
+/* ===== 콘텐츠 캘린더 — AI가 한 달 게시 계획을 짜고, 항목→원클릭 제작(약국 SNS 운영) ===== */
+function loadCalendar(){ try{ var c=JSON.parse(localStorage.getItem("cm_calendar")||"null"); if(c&&Array.isArray(c.items)) return c; }catch(e){} return { generatedAt:"", items:[] }; }
+var calendar=loadCalendar();
+function saveCalendar(){ try{ localStorage.setItem("cm_calendar", JSON.stringify(calendar)); }catch(e){} }
+var calBusy=false, activeCalItem="";
+function calStatus(m){ var s=el("calStatus"); if(s) s.textContent=m||""; }
+var CAL_WD=["일","월","화","수","목","금","토"];
+var CTYPE_BADGE={ intro:{l:"소개",c:"#3f6191"}, health:{l:"건강정보",c:"#2f7d57"}, event:{l:"이벤트",c:"#b4794e"}, daily:{l:"일상",c:"#7d5ba6"} };
+function calSeason(m){ return (m>=3&&m<=5)?"봄":(m>=6&&m<=8)?"여름":(m>=9&&m<=11)?"가을":"겨울"; }
+function calIso(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function fmtCalDate(iso){ var d=new Date(iso+"T00:00:00"); return (d.getMonth()+1)+"/"+d.getDate()+" ("+CAL_WD[d.getDay()]+")"; }
+function isThisWeek(iso){ var d=new Date(iso+"T00:00:00"), now=new Date(); var diff=(d-now)/86400000; return diff>=-1 && diff<7; }
+function buildCalendarPrompt(){
+  var now=new Date(), m=now.getMonth()+1;
+  var who=brandKit.name? ("'"+brandKit.name+"'") : "동네 약국";
+  return "당신은 약국 인스타그램 콘텐츠 기획자입니다. "+who+"가 앞으로 한 달간 인스타에 올릴 게시물 10개를 기획하세요.\n\n[현재 시기]\n"+m+"월("+calSeason(m)+")\n\n[구성 비율]\n약국 소개 1~2개, 건강정보 4~5개(계절·생활 밀착), 이벤트·공지 1~2개, 일상·소식 1~2개를 자연스럽게 섞으세요. 같은 주제 반복 금지, 시기에 맞게.\n\n[규칙]\n의약품 효능 단정·과장 금지. 건강정보는 일반 상식 범위.\n\n[출력] 정확히 아래 형식으로 10개. 다른 머리말/설명 없이 항목만:\n@@@ITEM\nTYPE: (intro 또는 health 또는 event 또는 daily 중 하나)\nTITLE: (15자 내외 제목)\nBRIEF: (한 줄 설명 — 무엇을 담을지)\n";
+}
+function parseCalPlan(text){
+  var out=[], blocks=String(text||"").split(/@@@\s*ITEM/i);
+  blocks.forEach(function(b){
+    if(!/(TYPE|TITLE)\s*:/i.test(b)) return;
+    var type=cleanField((b.match(/TYPE\s*:\s*(.+)/i)||[])[1]||"").toLowerCase();
+    var title=cleanField((b.match(/TITLE\s*:\s*(.+)/i)||[])[1]||"");
+    var brief=cleanField((b.match(/BRIEF\s*:\s*([\s\S]*?)(?:\n\s*\n|$)/i)||[])[1]||"");
+    if(!/^(intro|health|event|daily)$/.test(type)) type=/소개/.test(type)?"intro":/건강/.test(type)?"health":(/이벤트|공지|할인/.test(type)?"event":"daily");
+    if(title) out.push({ type:type, title:title.slice(0,40), brief:brief.slice(0,80) });
+  });
+  return out.slice(0,12);
+}
+function generateCalendar(){
+  if(calBusy) return;
+  if(connected===false){ refreshConnUI(); calStatus("서버 연결을 확인하는 중이에요. 잠시 후 다시 시도해 주세요."); return; }
+  calBusy=true; var g=el("calGen"); if(g){ g.disabled=true; g.textContent="기획 중…"; }
+  calStatus("AI가 한 달 콘텐츠를 기획하고 있어요…");
+  var eng=currentEngine();
+  pharmacyFetch("/pharmacy/run",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({ provider:eng.provider, model:eng.model, prompt:buildCalendarPrompt() }) })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(!d||!d.ok||!(d.output||"").trim()) throw new Error((d&&d.error)||"기획 실패");
+      var plan=parseCalPlan(d.output); if(!plan.length) throw new Error("계획을 만들지 못했어요");
+      var now=new Date(), items=[], base=Date.now().toString(36);
+      plan.forEach(function(p,i){
+        var dt=new Date(now.getTime()); dt.setDate(now.getDate()+2+i*3);   // 이틀 뒤부터 3일 간격으로 한 달 분산
+        items.push({ id:"cal"+base+i, date:calIso(dt), type:p.type, title:p.title, brief:p.brief, status:"todo", jobId:"" });
+      });
+      calendar={ generatedAt:new Date().toISOString(), items:items }; saveCalendar(); renderCalendar();
+      calStatus("✓ 한 달 계획 "+items.length+"개 완성! 항목의 [만들기]를 누르면 그 주제로 바로 제작돼요.");
+    })
+    .catch(function(e){ calStatus("기획 실패: "+((e&&e.message)||e)); })
+    .then(function(){ calBusy=false; var b=el("calGen"); if(b){ b.disabled=false; b.textContent=calendar.items.length?"↻ 다시 짜기":"✨ 한 달 계획 짜기"; } });
+}
+function renderCalendar(){
+  var list=el("calList"); if(!list) return;
+  var clear=el("calClear"), gen=el("calGen");
+  if(!calendar.items.length){ list.innerHTML=""; if(clear) clear.hidden=true; if(gen&&!calBusy) gen.textContent="✨ 한 달 계획 짜기"; return; }
+  if(clear) clear.hidden=false; if(gen&&!calBusy) gen.textContent="↻ 다시 짜기";
+  var items=calendar.items.slice().sort(function(a,b){ return a.date<b.date?-1:(a.date>b.date?1:0); });
+  list.innerHTML="";
+  items.forEach(function(it){
+    var bd=CTYPE_BADGE[it.type]||CTYPE_BADGE.intro;
+    var row=document.createElement("div"); row.className="cal-item"+(it.status==="done"?" done":"")+(isThisWeek(it.date)?" tw":"");
+    row.innerHTML='<span class="ci-date">'+esc(fmtCalDate(it.date))+'</span>'+
+      '<span class="ci-badge" style="background:'+bd.c+'">'+bd.l+'</span>'+
+      '<div class="ci-main"><div class="ci-title">'+esc(it.title)+'</div><div class="ci-brief">'+esc(it.brief||"")+'</div></div>'+
+      (it.status==="done" ? '<span class="ci-done">✓ 완료</span>' : '<button class="btn pri sm" type="button" data-calmake="'+esc(it.id)+'">만들기</button>');
+    list.appendChild(row);
+  });
+}
+function openCalItem(id){
+  if(pharmBusy){ return; }
+  var it=null; for(var i=0;i<calendar.items.length;i++){ if(calendar.items[i].id===id){ it=calendar.items[i]; break; } }
+  if(!it) return;
+  state=freshState(); state.platform=PHARM_PLATFORM;
+  ph().contentType=it.type;
+  ph().intro=it.title + (it.brief? ("\n"+it.brief) : "");
+  pharmEditing=null; pharmUploading=0; bErr(null); bInputNote("");
+  activeCalItem=it.id;
+  openBuilderModal();
+}
+function clearCalendar(){
+  appConfirm("캘린더 비우기","짜놓은 한 달 계획을 모두 지울까요? 이미 만든 카드뉴스는 그대로 남아요.","비우기").then(function(ok){
+    if(!ok) return; calendar={ generatedAt:"", items:[] }; saveCalendar(); renderCalendar(); calStatus("");
+  });
+}
 // 디자인 옵션(상업용 카드 툴 참고) — 컬러 테마·글자 정렬·사진 농도·제목 서체
 var PHARM_PALETTES=[
   { id:"gold",    name:"골드",    accent:"#b08d4f" },
@@ -2059,6 +2182,10 @@ function startPharmacyRun(opts){
       } else {
         setBStatus(done ? "✓ 카드뉴스 "+ok+"장 완성! 카드별로 ✏️ 문구·🔄 사진을 고칠 수 있어요." : (ok+"/"+nCards+"장 완성 · 일부는 카드의 ✏️/🔄 로 다시 시도하세요."));
       }
+      if(ok>0 && activeCalItem){   // 캘린더에서 시작했으면 해당 항목 완료 처리
+        for(var ci=0;ci<calendar.items.length;ci++){ if(calendar.items[ci].id===activeCalItem){ calendar.items[ci].status="done"; calendar.items[ci].jobId=state.jobId; break; } }
+        saveCalendar(); renderCalendar(); activeCalItem="";
+      }
       saveLocal(); syncJob(); renderPharmaCards();
     })
     .catch(function(e){
@@ -2073,11 +2200,12 @@ function startPharmacyRun(opts){
 function startPharmacy(){
   if(pharmBusy) return;
   state=freshState(); state.platform=PHARM_PLATFORM;
-  pharmEditing=null; pharmUploading=0;
+  pharmEditing=null; pharmUploading=0; activeCalItem="";
   bErr(null); bInputNote("");
   openBuilderModal();
 }
 function openPharmacyJob(j){
+  activeCalItem="";
   state=freshState(); var st=j.state||{};
   state.jobId=j.id; state.platform=st.platform||PHARM_PLATFORM;
   if(typeof st.provider==="string"&&st.provider){ state.provider=st.provider; provSel=st.provider; renderProv(); }
@@ -2281,9 +2409,12 @@ function exportVideo(){
 function init(){
   applyThemeIcon();
   el("newCardBtn").addEventListener("click", startPharmacy);
-  el("bmClose").addEventListener("click", closeBuilderModal);
-  el("builderModal").addEventListener("click", function(e){ if(e.target===el("builderModal")) closeBuilderModal(); });
-  document.addEventListener("keydown", function(e){ if(e.key==="Escape" && el("builderModal").style.display==="flex") closeBuilderModal(); });
+  el("bmClose").addEventListener("click", function(){ activeCalItem=""; closeBuilderModal(); });
+  el("builderModal").addEventListener("click", function(e){ if(e.target===el("builderModal")){ activeCalItem=""; closeBuilderModal(); } });
+  document.addEventListener("keydown", function(e){ if(e.key==="Escape" && el("builderModal").style.display==="flex"){ activeCalItem=""; closeBuilderModal(); } });
+  el("calGen").addEventListener("click", generateCalendar);
+  el("calClear").addEventListener("click", clearCalendar);
+  el("calList").addEventListener("click", function(e){ var b=e.target.closest&&e.target.closest("[data-calmake]"); if(b) openCalItem(b.getAttribute("data-calmake")); });
   el("brandBtn").addEventListener("click", function(){ showHome(); });
   el("backBtn").addEventListener("click", function(){
     if(runFlow.busy){ appConfirm("만드는 중이에요","홈으로 나가도 생성은 계속 진행되지 않아요.\n지금까지 결과는 저장됩니다. 나갈까요?","나가기").then(function(ok){ if(ok) showHome(); }); }
@@ -2405,7 +2536,7 @@ function init(){
   el("logoutBtn").style.display="none";
   el("footNote").textContent="팜 스튜디오 · 약사를 위한 SNS 콘텐츠 스튜디오";
   try{ history.replaceState({v:"home"},"","#home"); }catch(e){}
-  checkConn(); loadJobs();
+  renderCalendar(); checkConn(); loadJobs();
 }
 init();
 })();
