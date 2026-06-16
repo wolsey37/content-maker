@@ -933,7 +933,7 @@ function freshState(){
     imageGen:{ prompts:"", runId:"", items:[], provider:"codex", imageModel:"", concurrency:2 },
     videoGen:{ cuts:"", runId:"", items:[], provider:"claude", engine:"higgsfield", videoModel:"seedance_1_5", concurrency:1 },
     // 약국 소개 카드뉴스 전용 — 자유 설명 + 업로드 사진 + 카드 정의(문구·배경사진·템플릿). 최종 PNG 는 imageGen.items 재사용.
-    pharmacy:{ intro:"", contentType:"intro", genMode:"standard", tone:"warm", templateId:"fullbleed", ratio:"4:5", palette:"gold", align:"left", overlay:"med", font:"sans", photoFix:false, photos:[], cards:[], caption:"", runId:"" } };
+    pharmacy:{ intro:"", contentType:"intro", genMode:"standard", tone:"warm", templateId:"fullbleed", ratio:"4:5", palette:"gold", align:"left", overlay:"med", font:"sans", photoFix:false, aiArt:"", photos:[], cards:[], caption:"", runId:"" } };
 }
 function setSteps(platform){
   var prev=(state&&state.steps)||{};
@@ -1864,14 +1864,22 @@ function addAiBackground(){
     }).then(function(){ aiBgBusy=false; var bb=el("bAiBg"); if(bb){ bb.disabled=false; bb.textContent="🎨 AI 배경 추가"; } renderPhotoStrip(); saveLocal(); });
   });
 }
-/* AI 이미지 전체 제작 — 카드마다 어울리는 AI 배경 생성(시리즈 일관 스타일) 후 그 위에 카드 문구를 합성 */
-function buildCardAiPrompt(card){
+/* AI 이미지 전체 제작 — 한 번의 생성에서 '공통 아트 디렉션'을 고정해 모든 카드를 같은 시리즈처럼 연결 */
+var AI_ART_DIRECTIONS=[
+  "Editorial photo series of the SAME cozy neighborhood pharmacy interior, identical art direction across every slide: warm sage-green walls, light oak wood shelving and counter, soft natural window light from the left, shallow depth of field, muted cream-and-green color grade, calm minimal styling",
+  "Editorial photo series of the SAME bright modern pharmacy, identical art direction across every slide: clean white and soft mint surfaces, gentle even daylight, glass and light-wood accents, airy minimal composition, consistent pastel-green color grade",
+  "Editorial photo series of the SAME warm wellness pharmacy, identical art direction across every slide: beige and olive-green tones, soft warm lamp light, small natural plants, wooden textures, cozy premium mood, consistent warm color grade",
+  "Editorial photo series of the SAME serene clinic-style pharmacy, identical art direction across every slide: soft blue-grey and white palette, clean diffused light, minimal shelves, calm trustworthy mood, consistent cool color grade"
+];
+function pickArtDir(){ return AI_ART_DIRECTIONS[Math.floor(Math.random()*AI_ART_DIRECTIONS.length)]; }
+function buildCardAiPrompt(card, artDir){
   var subj=((card&&card.headline)||"").replace(/\s+/g," ").trim().slice(0,40);
-  return "Premium Instagram card-news background for a neighborhood pharmacy, part of a cohesive series with a consistent style: clean minimal composition, soft natural light, calm trustworthy wellness mood, gentle sage-green and warm neutral palette, generous empty space for a text overlay. Subtle visual motif related to: "+(subj||"healthy daily life")+". No text, no letters, no numbers, no logos, no watermark, no human faces in focus. Photographic, high quality, 4:5 portrait.";
+  var art=artDir||AI_ART_DIRECTIONS[0];
+  return art+". This frame's gentle focus: "+(subj||"healthy daily life")+" — but keep the EXACT same place, camera style, lighting, palette and color grade as the rest of the series so all slides look connected. Generous empty space (especially the lower third) for a text overlay. No text, no letters, no numbers, no logos, no watermark, no human faces in focus. Photographic, high quality, 4:5 portrait, consistent cohesive series look.";
 }
-function genCardAiBg(card){   // 카드 1장의 AI 배경 → card.bgUrl (실패 시 빈 값 유지=브랜드 배경 폴백)
+function genCardAiBg(card, artDir){   // 카드 1장의 AI 배경 → card.bgUrl (실패 시 빈 값 유지=브랜드 배경 폴백)
   return pharmacyFetch("/pharmacy/image",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({ provider:"openai", prompt:buildCardAiPrompt(card), kind:"card", jobId:ensureJobId(), idx:"cardbg-"+(card.id||"x")+"-"+Date.now().toString(36) }) })
+    body:JSON.stringify({ provider:"openai", prompt:buildCardAiPrompt(card, artDir||ph().aiArt), kind:"card", jobId:ensureJobId(), idx:"cardbg-"+(card.id||"x")+"-"+Date.now().toString(36) }) })
     .then(function(r){ if(r.status===404||r.status===401||r.status===403) throw new Error("AI 이미지는 서버 업데이트(배포) 후 사용할 수 있어요."); return r.json(); })
     .then(function(d){ if(d&&d.ok&&d.url){ card.bgUrl=d.url; return true; } throw new Error((d&&d.error)||"AI 이미지 생성 실패"); })
     .catch(function(e){ return { error:(e&&e.message)||String(e) }; });
@@ -2320,10 +2328,11 @@ function startPharmacyRun(opts){
       var aiMode=((ph().genMode||"standard")==="ai");
       return ensureFonts().then(function(){
         if(!aiMode) return;
-        setBStatus(pfx+"②a 카드마다 AI 이미지를 그리고 있어요… (최대 1분)");
+        var artDir=pickArtDir(); ph().aiArt=artDir;   // 이 세트의 공통 아트 디렉션(연결성) — 모든 카드 동일 적용
+        setBStatus(pfx+"②a 같은 시리즈 스타일로 카드 이미지를 그리고 있어요… (최대 1분)");
         var doneN=0;
         return Promise.all(cards.map(function(card){
-          return genCardAiBg(card).then(function(){ if(stale()) return; doneN++; renderPharmaCards(); setBStatus(pfx+"②a AI 이미지 그리는 중… ("+doneN+"/"+cards.length+")"); });
+          return genCardAiBg(card, artDir).then(function(){ if(stale()) return; doneN++; renderPharmaCards(); setBStatus(pfx+"②a AI 이미지 그리는 중… ("+doneN+"/"+cards.length+")"); });
         }));
       }).then(function(){
         if(stale()) return 0;
@@ -2397,7 +2406,7 @@ function openPharmacyJob(j){
   if(typeof st.provider==="string"&&st.provider){ state.provider=st.provider; provSel=st.provider; renderProv(); }
   if(st.pharmacy&&typeof st.pharmacy==="object"){
     state.pharmacy={ intro:st.pharmacy.intro||"", contentType:st.pharmacy.contentType||"intro", genMode:st.pharmacy.genMode||"standard", tone:st.pharmacy.tone||"warm", templateId:st.pharmacy.templateId||"fullbleed", ratio:st.pharmacy.ratio||"4:5",
-      palette:st.pharmacy.palette||"gold", align:st.pharmacy.align||"left", overlay:st.pharmacy.overlay||"med", font:st.pharmacy.font||"sans", photoFix:!!st.pharmacy.photoFix,
+      palette:st.pharmacy.palette||"gold", align:st.pharmacy.align||"left", overlay:st.pharmacy.overlay||"med", font:st.pharmacy.font||"sans", photoFix:!!st.pharmacy.photoFix, aiArt:st.pharmacy.aiArt||"",
       photos:Array.isArray(st.pharmacy.photos)?st.pharmacy.photos:[], cards:Array.isArray(st.pharmacy.cards)?st.pharmacy.cards:[], caption:st.pharmacy.caption||"", runId:st.pharmacy.runId||"" };
   }
   if(st.imageGen&&typeof st.imageGen==="object"){ state.imageGen.runId=st.imageGen.runId||""; state.imageGen.items=Array.isArray(st.imageGen.items)?st.imageGen.items:[]; }
