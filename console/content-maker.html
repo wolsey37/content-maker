@@ -448,6 +448,13 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
 .pc-edit input,.pc-edit textarea,.pc-edit select{ width:100%; border:1px solid var(--brand-line); border-radius:8px; background:var(--input); color:var(--ink); font-family:inherit; font-size:12.5px; padding:7px 9px; outline:none; resize:vertical; }
 .pc-edit .pe-acts{ display:flex; gap:6px; justify-content:flex-end; }
 .pc-edit .pe-acts .btn{ font-size:11.5px; padding:6px 11px; border-radius:8px; }
+/* 카드 편집 팝업 */
+.ce-card{ width:min(440px,94vw); }
+.ce-body{ display:flex; flex-direction:column; gap:9px; margin:6px 0 18px; text-align:left; }
+.ce-body label{ font-size:11.5px; font-weight:700; color:var(--muted); }
+.ce-body input,.ce-body textarea,.ce-body select{ width:100%; box-sizing:border-box; border:1px solid var(--line); border-radius:9px; background:var(--input); color:var(--ink); font-family:inherit; font-size:13.5px; padding:9px 11px; outline:none; resize:vertical; }
+.ce-body input:focus,.ce-body textarea:focus{ border-color:var(--brand-line); box-shadow:0 0 0 3px var(--brand-soft); }
+.ce-body .ce-hint{ font-size:11.5px; color:var(--muted); line-height:1.5; }
 .pos-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:3px; width:84px; aspect-ratio:4/5; }
 .pos-grid .pg-cell{ border:1px solid var(--line); background:var(--chip); border-radius:4px; cursor:pointer; padding:0; }
 .pos-grid .pg-cell:hover{ border-color:var(--brand-line); }
@@ -697,6 +704,14 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
     <h3 id="cfTitle">확인</h3>
     <p id="cfMsg"></p>
     <div class="acts"><button class="btn ghost" id="cfNo" type="button">취소</button><button class="btn pri" id="cfYes" type="button">확인</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="cardEditModal">
+  <div class="modal-card ce-card">
+    <h3 id="ceTitle">카드 수정</h3>
+    <div class="ce-body" id="ceBody"></div>
+    <div class="acts"><button class="btn ghost" id="ceCancel" type="button">취소</button><button class="btn pri" id="ceSave" type="button">저장</button></div>
   </div>
 </div>
 
@@ -2313,36 +2328,16 @@ function renderPharmaCards(){
   cards.forEach(function(card,i){
     var it=items[i]||{};
     var d=document.createElement("div"); d.className="pcard";
-    if(pharmEditing===i){
-      var opts='<option value="-1">사진 없음 (브랜드 배경)</option>';
-      (ph().photos||[]).forEach(function(p,pi){ opts+='<option value="'+pi+'">'+(pi+1)+'번 사진</option>'; });
-      var fX=(card.focusX==null?0.5:card.focusX), fY=(card.focusY==null?0.5:card.focusY);
-      var posGrid='<div class="pos-grid" data-posgrid="'+i+'">';
-      [0,0.5,1].forEach(function(gy){ [0,0.5,1].forEach(function(gx){
-        var on=(Math.abs(gx-fX)<0.01 && Math.abs(gy-fY)<0.01)?" on":"";
-        posGrid+='<button type="button" class="pg-cell'+on+'" data-fx="'+gx+'" data-fy="'+gy+'"></button>';
-      }); });
-      posGrid+='</div>';
-      d.innerHTML='<div class="pc-edit"><label>제목</label><input type="text" class="pe-title" maxlength="40">'+
-        '<label>본문</label><textarea class="pe-body" rows="3" maxlength="120"></textarea>'+
-        '<label>배경 사진</label><select class="pe-photo">'+opts+'</select>'+
-        '<label>사진 위치</label>'+posGrid+
-        '<div class="pe-acts"><button class="btn ghost" type="button" data-pcancel="1">취소</button>'+
-        '<button class="btn pri" type="button" data-psave="'+i+'">저장·다시 합성</button></div></div>';
-      d.querySelector(".pe-title").value=card.headline||"";
-      d.querySelector(".pe-body").value=card.body||"";
-      d.querySelector(".pe-photo").value=String(card.photoIdx);
-    } else {
-      var inner;
-      var ar=' style="aspect-ratio:'+ratioCss()+'"';
-      if(it.url) inner='<img class="pc-img" crossorigin="anonymous"'+ar+' src="'+esc(mediaSrc(it.url))+'" alt="'+esc(card.role||"")+'">';
-      else if(it.error) inner='<div class="pc-ph"'+ar+'>⚠ 합성 실패<br><small>'+esc(String(it.error).slice(0,60))+'</small></div>';
-      else inner='<div class="pc-ph"'+ar+'><span class="spin"></span>'+(i+1)+'번 만드는 중…</div>';
-      d.innerHTML='<span class="pc-no">'+(i+1)+'</span>'+(card.role?'<span class="pc-role">'+esc(card.role)+'</span>':'')+inner+
-        '<div class="pc-ops"><button class="btn ghost" type="button" data-pedit="'+i+'">✏️ 문구</button>'+
-        '<button class="btn ghost" type="button" data-pswap="'+i+'">'+(((ph().genMode||"standard")==="ai"||card.bgUrl)?"🔄 AI 배경":"🔄 사진")+'</button>'+
-        (it.url?'<a class="btn ghost" href="'+esc(mediaSrc(it.url))+'" download="약국소개-'+(i+1)+'.png">⬇</a>':'')+'</div>';
-    }
+    var ai=isAiCard(card);
+    var inner;
+    var ar=' style="aspect-ratio:'+ratioCss()+'"';
+    if(it.url) inner='<img class="pc-img" crossorigin="anonymous"'+ar+' src="'+esc(mediaSrc(it.url))+'" alt="'+esc(card.role||"")+'">';
+    else if(it.error) inner='<div class="pc-ph"'+ar+'>⚠ 합성 실패<br><small>'+esc(String(it.error).slice(0,60))+'</small></div>';
+    else inner='<div class="pc-ph"'+ar+'><span class="spin"></span>'+(i+1)+'번 만드는 중…</div>';
+    d.innerHTML='<span class="pc-no">'+(i+1)+'</span>'+(card.role?'<span class="pc-role">'+esc(card.role)+'</span>':'')+inner+
+      '<div class="pc-ops"><button class="btn ghost" type="button" data-pedit="'+i+'">'+(ai?"✏️ 내용":"✏️ 문구")+'</button>'+
+      '<button class="btn ghost" type="button" data-pswap="'+i+'">'+(ai?"🔄 다시 그리기":"🔄 사진")+'</button>'+
+      (it.url?'<a class="btn ghost" href="'+esc(mediaSrc(it.url))+'" download="약국소개-'+(i+1)+'.png">⬇</a>':'')+'</div>';
     grid.appendChild(d);
   });
 }
@@ -2355,21 +2350,69 @@ function recomposeCard(i){
     .catch(function(e){ state.imageGen.items[i]={ error:(e&&e.message)||String(e) }; })
     .then(function(){ pharmBusy=false; saveLocal(); syncJob(); renderPharmaCards(); });
 }
+function isAiCard(card){ return !!(card && (card.aiText || card.bgUrl)) || ((ph().genMode||"standard")==="ai"); }
+function regenAiCard(i){   // 이 카드의 AI 이미지를 현재 내용(제목·포인트)으로 다시 생성
+  var card=ph().cards[i]; if(!card || pharmBusy) return;
+  pharmBusy=true; var old=state.imageGen.items[i]||{};
+  state.imageGen.items[i]={ pending:true }; renderPharmaCards();
+  genCardAiBg(card).then(function(){ return ensureFonts(); })
+    .then(function(){ return composeAndSave(card, i, old.key||"", (i+1)+"-r"+Math.random().toString(36).slice(2,5)); })
+    .then(function(item){ state.imageGen.items[i]=item; })
+    .catch(function(e){ state.imageGen.items[i]={ error:(e&&e.message)||String(e) }; })
+    .then(function(){ pharmBusy=false; saveLocal(); syncJob(); renderPharmaCards(); });
+}
 function swapPhoto(i){
   var card=ph().cards[i]; if(!card || pharmBusy) return;
-  if((ph().genMode||"standard")==="ai" || card.bgUrl){   // AI 모드: 이 카드의 AI 배경을 새로 생성
-    pharmBusy=true; var old=state.imageGen.items[i]||{};
-    state.imageGen.items[i]={ pending:true }; renderPharmaCards();
-    genCardAiBg(card).then(function(){ return ensureFonts(); })
-      .then(function(){ return composeAndSave(card, i, old.key||"", (i+1)+"-r"+Math.random().toString(36).slice(2,5)); })
-      .then(function(item){ state.imageGen.items[i]=item; })
-      .catch(function(e){ state.imageGen.items[i]={ error:(e&&e.message)||String(e) }; })
-      .then(function(){ pharmBusy=false; saveLocal(); syncJob(); renderPharmaCards(); });
-    return;
-  }
+  if(isAiCard(card)){ regenAiCard(i); return; }   // AI 카드: 같은 내용으로 이미지만 다시 생성
   var n=(ph().photos||[]).length; if(!n){ bErr("올린 사진이 없어요. [입력 수정]에서 사진을 추가하세요."); return; }
   card.photoIdx = (card.photoIdx>=n-1) ? -1 : card.photoIdx+1;
   recomposeCard(i);
+}
+/* ---- 카드 편집 팝업 — 인포그래픽은 내용(프롬프트)→재생성, 사진은 문구/사진→재합성 ---- */
+var ceIdx=-1;
+function openCardEdit(i){
+  var card=ph().cards[i]; if(!card || pharmBusy) return;
+  ceIdx=i; var ai=isAiCard(card), body=el("ceBody");
+  el("ceTitle").textContent=(i+1)+"번 카드 "+(ai?"내용 수정":"문구 수정");
+  if(ai){
+    var pts=String(card.body||"").split(/\s*;;\s*/).map(function(s){ return s.replace(/^[\-•·]\s*/,"").trim(); }).filter(Boolean);
+    body.innerHTML='<label>제목</label><input type="text" id="ceT" maxlength="40">'+
+      '<label>내용 (한 줄에 하나씩)</label><textarea id="ceC" rows="6" maxlength="600"></textarea>'+
+      '<p class="ce-hint">저장하면 이 내용(프롬프트)으로 AI가 카드 이미지를 다시 그려요. (이미지 1장 생성)</p>';
+    el("ceT").value=card.headline||""; el("ceC").value=pts.join("\n");
+  } else {
+    var opts='<option value="-1">사진 없음 (브랜드 배경)</option>';
+    (ph().photos||[]).forEach(function(p,pi){ opts+='<option value="'+pi+'">'+(pi+1)+'번 사진</option>'; });
+    var fX=(card.focusX==null?0.5:card.focusX), fY=(card.focusY==null?0.5:card.focusY), posGrid='<div class="pos-grid" id="cePos">';
+    [0,0.5,1].forEach(function(gy){ [0,0.5,1].forEach(function(gx){
+      var on=(Math.abs(gx-fX)<0.01 && Math.abs(gy-fY)<0.01)?" on":"";
+      posGrid+='<button type="button" class="pg-cell'+on+'" data-fx="'+gx+'" data-fy="'+gy+'"></button>';
+    }); }); posGrid+='</div>';
+    body.innerHTML='<label>제목</label><input type="text" id="ceT" maxlength="40">'+
+      '<label>본문</label><textarea id="ceC" rows="3" maxlength="120"></textarea>'+
+      '<label>배경 사진</label><select id="ceP">'+opts+'</select>'+
+      '<label>사진 위치</label>'+posGrid;
+    el("ceT").value=card.headline||""; el("ceC").value=card.body||""; el("ceP").value=String(card.photoIdx);
+  }
+  el("ceSave").textContent=ai?"저장·다시 그리기":"저장·다시 합성";
+  el("cardEditModal").style.display="flex"; try{ el("ceT").focus(); }catch(e){}
+}
+function closeCardEdit(){ el("cardEditModal").style.display="none"; ceIdx=-1; }
+function saveCardEdit(){
+  var i=ceIdx, card=ph().cards[i]; if(!card){ closeCardEdit(); return; }
+  var ai=isAiCard(card), title=(el("ceT").value||"").trim(), content=(el("ceC").value||"").trim();
+  card.headline=title;
+  if(ai){
+    var lines=content.split(/\n+/).map(function(s){ return s.replace(/^[\-•·]\s*/,"").trim(); }).filter(Boolean);
+    card.body = lines.length>1 ? lines.join(" ;; ") : (lines[0]||"");
+    closeCardEdit(); regenAiCard(i);
+  } else {
+    card.body=content;
+    var sel=el("ceP"); if(sel) card.photoIdx=parseInt(sel.value,10);
+    var on=el("cePos") && el("cePos").querySelector(".pg-cell.on");
+    if(on){ card.focusX=parseFloat(on.getAttribute("data-fx")); card.focusY=parseFloat(on.getAttribute("data-fy")); }
+    closeCardEdit(); recomposeCard(i);
+  }
 }
 
 /* ---- 생성 파이프라인 ---- */
@@ -2392,8 +2435,9 @@ function startPharmacyRun(opts){
   function stale(){ return ph().runId!==myRun; }
   var pfx=magic?"🪄 매직 — ":"";
   closeBuilderModal(); showBuilder(); el("bResult").hidden=false; bErr(null);   // 입력 팝업 닫고 결과 화면으로
+  el("bTitle").textContent=(ph().genMode==="ai")?"인포그래픽 카드뉴스":"내 사진 카드뉴스";
   el("bBadge").textContent="만드는 중"; el("bBadge").className="studio-badge run";
-  setBStatus(pfx+"① 약국 소개 문구를 만들고 있어요…"); el("bCards").innerHTML="";
+  setBStatus(pfx+"① 카드 문구를 만들고 있어요…"); el("bCards").innerHTML="";
   var eng=currentEngine();
   var pn=photos.length;
   var targetCount=pn>0 ? Math.min(8,pn) : 6;   // 사진이 있으면 사진 수 = 카드 수(1:1), 없으면 기본 6장
@@ -2500,6 +2544,7 @@ function openPharmacyJob(j){
   el("bCaptionPanel").hidden=true; el("bVideoPanel").hidden=true; syncCaptionUI();
   if((state.pharmacy.cards||[]).length>0){
     el("bBadge").textContent="완성"; el("bBadge").className="studio-badge done";
+    el("bTitle").textContent=(ph().genMode==="ai")?"인포그래픽 카드뉴스":"내 사진 카드뉴스";
     setBStatus("저장된 카드뉴스예요. 카드별로 ✏️·🔄 로 수정하거나 [입력 수정]에서 다시 만들 수 있어요.");
     el("bResult").hidden=false; renderPharmaCards(); showBuilder();
   } else {
@@ -2807,24 +2852,17 @@ function init(){
     ph().photos.splice(parseInt(b.getAttribute("data-pdel"),10),1); renderPhotoStrip(); saveLocal();
   });
   el("bCards").addEventListener("click", function(e){
-    var pg=e.target.closest&&e.target.closest(".pg-cell");
-    if(pg){
-      var grid=pg.closest("[data-posgrid]"), ci=parseInt(grid.getAttribute("data-posgrid"),10), card=ph().cards[ci];
-      if(card){ card.focusX=parseFloat(pg.getAttribute("data-fx")); card.focusY=parseFloat(pg.getAttribute("data-fy")); }
-      grid.querySelectorAll(".pg-cell").forEach(function(c){ c.classList.toggle("on", c===pg); });   // 입력칸 유지 위해 재렌더 없이 강조만
-      return;
-    }
-    var ed=e.target.closest&&e.target.closest("[data-pedit]"); if(ed){ if(!pharmBusy){ pharmEditing=parseInt(ed.getAttribute("data-pedit"),10); renderPharmaCards(); } return; }
-    var cc=e.target.closest&&e.target.closest("[data-pcancel]"); if(cc){ pharmEditing=null; renderPharmaCards(); return; }
-    var sv=e.target.closest&&e.target.closest("[data-psave]"); if(sv){
-      var i=parseInt(sv.getAttribute("data-psave"),10), box=sv.closest(".pc-edit"), card=ph().cards[i]; if(!card) return;
-      card.headline=(box.querySelector(".pe-title").value||"").trim();
-      card.body=(box.querySelector(".pe-body").value||"").trim();
-      card.photoIdx=parseInt(box.querySelector(".pe-photo").value,10);
-      pharmEditing=null; recomposeCard(i); return;
-    }
+    var ed=e.target.closest&&e.target.closest("[data-pedit]"); if(ed){ if(!pharmBusy) openCardEdit(parseInt(ed.getAttribute("data-pedit"),10)); return; }
     var sw=e.target.closest&&e.target.closest("[data-pswap]"); if(sw){ if(!pharmBusy) swapPhoto(parseInt(sw.getAttribute("data-pswap"),10)); return; }
     if(e.target.classList.contains("pc-img")){ openCardLightbox(e.target); }
+  });
+  /* 카드 편집 팝업 */
+  el("ceCancel").addEventListener("click", closeCardEdit);
+  el("ceSave").addEventListener("click", saveCardEdit);
+  el("cardEditModal").addEventListener("click", function(e){ if(e.target===el("cardEditModal")) closeCardEdit(); });
+  el("ceBody").addEventListener("click", function(e){
+    var pg=e.target.closest&&e.target.closest(".pg-cell"); if(!pg) return;
+    var grid=pg.closest(".pos-grid"); if(grid) grid.querySelectorAll(".pg-cell").forEach(function(c){ c.classList.toggle("on", c===pg); });
   });
   /* 로그인 없음 — 약국 카드뉴스는 공개 도구. 로그아웃 버튼 숨김. */
   el("logoutBtn").style.display="none";
