@@ -12,8 +12,8 @@ Parameters:
     Description: 생성 이미지 + 작업(JSON) 저장 S3 버킷(전역 유일).
   ProviderSecretName:
     Type: String
-    Default: prod/openai
-    Description: provider API 키(OPENAI_API_KEY) 시크릿. 스택 생성 후 값 입력.
+    Default: content-maker
+    Description: provider API 키(OPENAI_API_KEY·GEMINI_API_KEY 등) 시크릿 이름. 외부에서 생성·관리(스택은 참조만).
   JwtSecretArn:
     Type: String
     Description: 기존 JWT 시크릿(prod/connect) 전체 ARN. 읽기 권한만 부여(생성 X).
@@ -72,12 +72,7 @@ Resources:
             AllowedHeaders: ['*']
             MaxAge: 3000
 
-  ProviderSecret:
-    Type: AWS::SecretsManager::Secret
-    Properties:
-      Name: !Ref ProviderSecretName
-      Description: content-maker provider API 키 (OPENAI_API_KEY 등). 생성 후 값 입력.
-      SecretString: '{"OPENAI_API_KEY":""}'
+  # provider 키 시크릿(content-maker)은 외부에서 생성·관리한다(jwt-secret/prod-connect 와 동일 패턴). 스택은 참조만.
 
   ApiFunction:
     Type: AWS::Serverless::Function
@@ -102,7 +97,7 @@ Resources:
             - Effect: Allow
               Action: secretsmanager:GetSecretValue
               Resource:
-                - !Ref ProviderSecret    # provider 키
+                - !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProviderSecretName}-*'   # provider 키(content-maker, 외부 관리)
                 - !Ref JwtSecretArn      # 기존 prod/connect (jwt-secret)
       # CORS 는 lambda.mjs(corsHeaders + ALLOWED_ORIGINS origin 검증)가 전담한다.
       # Function URL 의 Cors 를 켜면 ACAO 헤더가 '중복'되어 브라우저 CORS 가 깨지므로 여기선 설정하지 않는다.
@@ -115,5 +110,5 @@ Outputs:
     Value: !GetAtt ApiFunctionUrl.FunctionUrl
   MediaBucket:
     Value: !Ref MediaBucket
-  ProviderSecretArn:
-    Value: !Ref ProviderSecret
+  ProviderSecretName:
+    Value: !Ref ProviderSecretName
