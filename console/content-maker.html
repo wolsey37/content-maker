@@ -323,7 +323,27 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
 .ci-brief{ font-size:11.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:1px; }
 .ci-done{ flex:none; font-size:12px; font-weight:800; color:var(--ok,#2f7d57); }
 .btn.sm{ padding:6px 13px; font-size:12px; }
-@media (max-width:560px){ .ci-brief{ display:none; } .cal-acts{ width:100%; } .cal-acts .btn.pri{ flex:1; } }
+/* 뷰 토글 */
+.cal-view{ display:flex; gap:4px; }
+.cal-view:empty{ display:none; }
+.cal-view button{ border:1px solid var(--line); background:var(--bg); color:var(--muted); border-radius:8px; width:34px; height:32px; font-size:14px; cursor:pointer; }
+.cal-view button.on{ border-color:var(--ink); background:var(--brand-soft); color:var(--ink); }
+/* 월 그리드 */
+.cal-grid-head{ display:flex; align-items:center; justify-content:center; gap:16px; margin:4px 0 12px; }
+.cal-grid-head .cgh-title{ font-weight:800; font-size:14.5px; color:var(--ink); min-width:104px; text-align:center; }
+.cal-nav{ border:1px solid var(--line); background:var(--bg); color:var(--ink); border-radius:8px; width:32px; height:32px; font-size:15px; cursor:pointer; }
+.cal-nav:hover{ border-color:var(--line-strong); }
+.cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:5px; }
+.cal-wd{ text-align:center; font-size:11px; font-weight:700; color:var(--muted); padding:3px 0; }
+.cal-wd.sun{ color:#c0564e; }
+.cal-cell{ min-height:78px; border:1px solid var(--line); border-radius:9px; background:var(--bg); padding:5px; display:flex; flex-direction:column; gap:3px; overflow:hidden; }
+.cal-cell.empty{ background:transparent; border-color:transparent; }
+.cal-cell.today{ border-color:var(--ink); box-shadow:0 0 0 1px var(--ink) inset; }
+.cal-cell .cd{ font-size:10.5px; font-weight:800; color:var(--ink-2); }
+.cal-cell.sun .cd{ color:#c0564e; }
+.cal-chip{ font-size:10px; font-weight:700; color:#fff; border:none; border-radius:5px; padding:3px 5px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.25; text-align:left; width:100%; box-sizing:border-box; }
+.cal-chip.done{ opacity:.5; }
+@media (max-width:560px){ .ci-brief{ display:none; } .cal-acts{ width:100%; } .cal-acts .btn.pri{ flex:1; } .cal-cell{ min-height:58px; padding:3px; } .cal-chip{ font-size:0; padding:5px 0; border-radius:3px; } .cal-cell .cd{ font-size:9.5px; } }
 /* 사진 스튜디오 도구 */
 .photo-tools{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:10px; }
 .pf-toggle{ display:flex; align-items:center; gap:7px; font-size:12.5px; font-weight:700; color:var(--ink-2); cursor:pointer; user-select:none; }
@@ -454,6 +474,7 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
         <h2 class="cal-title">📅 콘텐츠 캘린더</h2>
         <p class="cal-sub">한 달 게시 계획을 AI가 짜드려요. 항목을 누르면 그 주제로 바로 만들 수 있어요.</p>
       </div>
+      <div class="cal-view" id="calViewBox"></div>
       <div class="cal-acts">
         <button class="btn ghost" id="calClear" type="button" hidden>비우기</button>
         <button class="btn pri" id="calGen" type="button">✨ 한 달 계획 짜기</button>
@@ -1562,17 +1583,30 @@ function generateCalendar(){
         var dt=new Date(now.getTime()); dt.setDate(now.getDate()+2+i*3);   // 이틀 뒤부터 3일 간격으로 한 달 분산
         items.push({ id:"cal"+base+i, date:calIso(dt), type:p.type, title:p.title, brief:p.brief, status:"todo", jobId:"" });
       });
-      calendar={ generatedAt:new Date().toISOString(), items:items }; saveCalendar(); renderCalendar();
+      calendar={ generatedAt:new Date().toISOString(), items:items }; calYM=null; saveCalendar(); renderCalendar();
       calStatus("✓ 한 달 계획 "+items.length+"개 완성! 항목의 [만들기]를 누르면 그 주제로 바로 제작돼요.");
     })
     .catch(function(e){ calStatus("기획 실패: "+((e&&e.message)||e)); })
     .then(function(){ calBusy=false; var b=el("calGen"); if(b){ b.disabled=false; b.textContent=calendar.items.length?"↻ 다시 짜기":"✨ 한 달 계획 짜기"; } });
 }
+var calView=(function(){ try{ return localStorage.getItem("cm_cal_view")||"grid"; }catch(e){ return "grid"; } })();   // grid|list (기본 달력)
+var calYM=null;   // 현재 표시 월 {y,m}
+function curCalYM(){
+  if(calYM) return calYM;
+  if(calendar.items.length){ var e=calendar.items.slice().sort(function(a,b){ return a.date<b.date?-1:1; })[0]; var d=new Date(e.date+"T00:00:00"); calYM={ y:d.getFullYear(), m:d.getMonth() }; }
+  else { var n=new Date(); calYM={ y:n.getFullYear(), m:n.getMonth() }; }
+  return calYM;
+}
 function renderCalendar(){
   var list=el("calList"); if(!list) return;
-  var clear=el("calClear"), gen=el("calGen");
-  if(!calendar.items.length){ list.innerHTML=""; if(clear) clear.hidden=true; if(gen&&!calBusy) gen.textContent="✨ 한 달 계획 짜기"; return; }
+  var clear=el("calClear"), gen=el("calGen"), vb=el("calViewBox");
+  if(!calendar.items.length){ list.innerHTML=""; if(clear) clear.hidden=true; if(vb) vb.innerHTML=""; if(gen&&!calBusy) gen.textContent="✨ 한 달 계획 짜기"; return; }
   if(clear) clear.hidden=false; if(gen&&!calBusy) gen.textContent="↻ 다시 짜기";
+  if(vb) vb.innerHTML='<button type="button" data-cv="grid" class="'+(calView==="grid"?"on":"")+'" title="달력 보기">📅</button>'+
+                      '<button type="button" data-cv="list" class="'+(calView==="list"?"on":"")+'" title="목록 보기">📋</button>';
+  if(calView==="list") renderCalList(list); else renderCalGrid(list);
+}
+function renderCalList(list){
   var items=calendar.items.slice().sort(function(a,b){ return a.date<b.date?-1:(a.date>b.date?1:0); });
   list.innerHTML="";
   items.forEach(function(it){
@@ -1584,6 +1618,30 @@ function renderCalendar(){
       (it.status==="done" ? '<span class="ci-done">✓ 완료</span>' : '<button class="btn pri sm" type="button" data-calmake="'+esc(it.id)+'">만들기</button>');
     list.appendChild(row);
   });
+}
+function renderCalGrid(list){
+  var ym=curCalYM(), y=ym.y, m=ym.m;
+  var startWd=new Date(y,m,1).getDay(), dim=new Date(y,m+1,0).getDate();
+  var todayIso=calIso(new Date());
+  var byDate={}; calendar.items.forEach(function(it){ (byDate[it.date]=byDate[it.date]||[]).push(it); });
+  var h='<div class="cal-grid-head"><button class="cal-nav" type="button" data-calnav="-1" aria-label="이전 달">‹</button>'+
+    '<span class="cgh-title">'+y+'년 '+(m+1)+'월</span>'+
+    '<button class="cal-nav" type="button" data-calnav="1" aria-label="다음 달">›</button></div><div class="cal-grid">';
+  CAL_WD.forEach(function(w,i){ h+='<div class="cal-wd'+(i===0?" sun":"")+'">'+w+'</div>'; });
+  for(var b=0;b<startWd;b++) h+='<div class="cal-cell empty"></div>';
+  for(var d=1; d<=dim; d++){
+    var iso=y+"-"+String(m+1).padStart(2,"0")+"-"+String(d).padStart(2,"0"), wd=new Date(y,m,d).getDay();
+    h+='<div class="cal-cell'+(iso===todayIso?" today":"")+(wd===0?" sun":"")+'"><span class="cd">'+d+'</span>';
+    (byDate[iso]||[]).forEach(function(it){
+      var bd=CTYPE_BADGE[it.type]||CTYPE_BADGE.intro;
+      h+=(it.status==="done")
+        ? '<span class="cal-chip done" style="background:'+bd.c+'" title="✓ '+esc(it.title)+'">✓ '+esc(it.title)+'</span>'
+        : '<button class="cal-chip" type="button" style="background:'+bd.c+'" data-calmake="'+esc(it.id)+'" title="'+esc(it.title)+' — 만들기">'+esc(it.title)+'</button>';
+    });
+    h+='</div>';
+  }
+  h+='</div>';
+  list.innerHTML=h;
 }
 function openCalItem(id){
   if(pharmBusy){ return; }
@@ -2478,7 +2536,15 @@ function init(){
   document.addEventListener("keydown", function(e){ if(e.key==="Escape" && el("builderModal").style.display==="flex"){ activeCalItem=""; closeBuilderModal(); } });
   el("calGen").addEventListener("click", generateCalendar);
   el("calClear").addEventListener("click", clearCalendar);
-  el("calList").addEventListener("click", function(e){ var b=e.target.closest&&e.target.closest("[data-calmake]"); if(b) openCalItem(b.getAttribute("data-calmake")); });
+  el("calList").addEventListener("click", function(e){
+    var nav=e.target.closest&&e.target.closest("[data-calnav]");
+    if(nav){ var ym=curCalYM(), nm=ym.m+parseInt(nav.getAttribute("data-calnav"),10), ny=ym.y; if(nm<0){nm=11;ny--;} if(nm>11){nm=0;ny++;} calYM={y:ny,m:nm}; renderCalendar(); return; }
+    var b=e.target.closest&&e.target.closest("[data-calmake]"); if(b) openCalItem(b.getAttribute("data-calmake"));
+  });
+  el("calViewBox").addEventListener("click", function(e){
+    var b=e.target.closest&&e.target.closest("[data-cv]"); if(!b) return;
+    calView=b.getAttribute("data-cv"); try{ localStorage.setItem("cm_cal_view",calView); }catch(_){} renderCalendar();
+  });
   el("brandBtn").addEventListener("click", function(){ showHome(); });
   el("backBtn").addEventListener("click", function(){
     if(runFlow.busy){ appConfirm("만드는 중이에요","홈으로 나가도 생성은 계속 진행되지 않아요.\n지금까지 결과는 저장됩니다. 나갈까요?","나가기").then(function(ok){ if(ok) showHome(); }); }
