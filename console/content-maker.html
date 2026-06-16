@@ -536,11 +536,6 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
                 </div>
                 <div class="photo-tools">
                   <label class="pf-toggle"><input type="checkbox" id="bPhotoFix"> ✨ 사진 자동 보정 <small>밝기·생생함</small></label>
-                  <span class="sp"></span>
-                  <select class="ai-count" id="bAiBgCount" title="AI 배경 생성 장수">
-                    <option value="1">1장</option><option value="2" selected>2장</option><option value="3">3장</option><option value="4">4장</option>
-                  </select>
-                  <button class="btn ghost sm" id="bAiBg" type="button">🎨 AI 배경 추가</button>
                 </div>
                 <div class="photo-strip" id="bPhotoStrip"></div>
               </div>
@@ -2789,7 +2784,6 @@ function init(){
   el("bkLogo").addEventListener("click", function(){ el("bkLogoFile").click(); });
   el("bkLogoFile").addEventListener("change", function(){ onBrandLogoFile(this.files); this.value=""; });
   el("bPhotoFix").addEventListener("change", function(){ ph().photoFix=this.checked; saveLocal(); });
-  el("bAiBg").addEventListener("click", addAiBackground);
   el("bInfoKind").addEventListener("click", function(e){
     var b=e.target.closest&&e.target.closest("button[data-ik]"); if(!b) return;
     ph().infoKind=b.getAttribute("data-ik"); renderTypeUI();
