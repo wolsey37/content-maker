@@ -2573,6 +2573,8 @@ function runVideoGen(){
   if(!intro){ bInputNote("어떤 영상을 만들지 적어 주세요."); el("bIntro").focus(); return; }
   if(connected===false){ refreshConnUI(); bInputNote("서버 연결을 확인하는 중이에요. 잠시 후 다시 시도해 주세요."); return; }
   pharmBusy=true; pharmEditing=null;
+  // 출력 타입 분리: 직전 작업이 카드(인포그래픽/내 사진)면 영상은 새 작업으로(같은 jobId에 카드+영상 섞임 방지)
+  if((ph().cards||[]).length){ state.jobId=""; ph().cards=[]; ph().caption=""; if(state.imageGen) state.imageGen.items=[]; }
   ph().intro=intro; ph().videoUrl=""; state.platform=PHARM_PLATFORM; ensureJobId();
   ph().runId="v"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,6);
   var myRun=ph().runId; function stale(){ return ph().runId!==myRun; }
@@ -2621,6 +2623,8 @@ function startPharmacyRun(opts){
   if(!intro && !photos.length){ bInputNote("약국 설명을 적거나 사진을 한 장 이상 올려주세요."); el("bIntro").focus(); return; }
   if(connected===false){ refreshConnUI(); bInputNote("서버 연결을 확인하는 중이에요. 잠시 후 다시 시도해 주세요."); return; }
   pharmBusy=true; pharmEditing=null;
+  // 출력 타입 분리: 직전 작업이 '영상'이면 카드뉴스는 새 작업으로(같은 jobId에 영상+카드 섞임 방지)
+  if((ph().videoUrl||"").trim()){ state.jobId=""; ph().videoUrl=""; }
   ph().intro=intro; ph().tone=ph().tone||"warm"; ph().templateId=ph().templateId||"fullbleed";
   ph().caption=""; el("bCaptionPanel").hidden=true; syncCaptionUI();   // 새 생성 — 이전 캡션은 폐기
   state.platform=PHARM_PLATFORM; ensureJobId();
