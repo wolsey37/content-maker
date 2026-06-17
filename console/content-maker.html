@@ -997,7 +997,7 @@ function freshState(){
     imageGen:{ prompts:"", runId:"", items:[], provider:"codex", imageModel:"", concurrency:2 },
     videoGen:{ cuts:"", runId:"", items:[], provider:"claude", engine:"higgsfield", videoModel:"seedance_1_5", concurrency:1 },
     // 약국 소개 카드뉴스 전용 — 자유 설명 + 업로드 사진 + 카드 정의(문구·배경사진·템플릿). 최종 PNG 는 imageGen.items 재사용.
-    pharmacy:{ intro:"", contentType:"intro", infoKind:"", genMode:"standard", aiConcept:"", tone:"warm", audience:"", depth:"std", emoji:"some", templateId:"fullbleed", ratio:"4:5", palette:"gold", align:"left", overlay:"med", font:"sans", photoFix:false, aiArt:"", photos:[], cards:[], caption:"", videoUrl:"", runId:"" } };
+    pharmacy:{ intro:"", contentType:"intro", infoKind:"", genMode:"standard", aiConcept:"", tone:"warm", audience:"", depth:"std", emoji:"some", templateId:"fullbleed", ratio:"4:5", palette:"gold", align:"left", overlay:"med", font:"sans", photoFix:false, aiArt:"", photos:[], cards:[], caption:"", videoUrl:"", videoKey:"", runId:"" } };
 }
 function setSteps(platform){
   var prev=(state&&state.steps)||{};
@@ -2555,9 +2555,9 @@ function pollVideoOp(op, stale){
       pharmacyFetch("/pharmacy/video-status",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
         body:JSON.stringify({ op:op, jobId:ensureJobId(), runId:ph().runId, idx:"1" }) })
         .then(function(r){ return r.json(); }).then(function(d){
-          if(stale()){ resolve(""); return; }
+          if(stale()){ resolve({url:"",key:""}); return; }
           if(!d||!d.ok) return reject(new Error((d&&d.error)||"영상 폴링 실패"));
-          if(d.done){ resolve(d.url); return; }
+          if(d.done){ resolve({url:d.url, key:d.key||""}); return; }
           tries++; if(tries>=max) return reject(new Error("영상 생성이 너무 오래 걸려요(시간 초과)"));
           setBStatus("② AI(Gemini Veo)가 영상을 만들고 있어요… ("+(tries*10)+"초)");
           setTimeout(tick, 10000);
@@ -2598,10 +2598,11 @@ function runVideoGen(){
         if(!d||!d.ok||!d.op) throw new Error((d&&d.error)||"영상 시작 실패");
         return pollVideoOp(d.op, stale);
       });
-  }).then(function(url){
+  }).then(function(res){
     if(stale()) return;
+    var url=res&&res.url;
     if(!url){ pharmBusy=false; return; }
-    pharmBusy=false; ph().videoUrl=url;
+    pharmBusy=false; ph().videoUrl=url; ph().videoKey=(res&&res.key)||"";   // key 저장 → 재방문 시 서버가 presigned 재서명(만료 방지)
     el("bBadge").textContent="완성"; el("bBadge").className="studio-badge done";
     setBStatus("🎉 영상 완성! 아래에서 재생·저장하세요.");
     renderVideoResult(); saveLocal(); syncJob();
@@ -2740,7 +2741,7 @@ function openPharmacyJob(j){
   if(st.pharmacy&&typeof st.pharmacy==="object"){
     state.pharmacy={ intro:st.pharmacy.intro||"", contentType:st.pharmacy.contentType||"intro", infoKind:st.pharmacy.infoKind||"", genMode:st.pharmacy.genMode||"standard", aiConcept:st.pharmacy.aiConcept||"", tone:st.pharmacy.tone||"warm", audience:st.pharmacy.audience||"", depth:st.pharmacy.depth||"std", emoji:st.pharmacy.emoji||"some", templateId:st.pharmacy.templateId||"fullbleed", ratio:st.pharmacy.ratio||"4:5",
       palette:st.pharmacy.palette||"gold", align:st.pharmacy.align||"left", overlay:st.pharmacy.overlay||"med", font:st.pharmacy.font||"sans", photoFix:!!st.pharmacy.photoFix, aiArt:st.pharmacy.aiArt||"",
-      photos:Array.isArray(st.pharmacy.photos)?st.pharmacy.photos:[], cards:Array.isArray(st.pharmacy.cards)?st.pharmacy.cards:[], caption:st.pharmacy.caption||"", videoUrl:st.pharmacy.videoUrl||"", runId:st.pharmacy.runId||"" };
+      photos:Array.isArray(st.pharmacy.photos)?st.pharmacy.photos:[], cards:Array.isArray(st.pharmacy.cards)?st.pharmacy.cards:[], caption:st.pharmacy.caption||"", videoUrl:st.pharmacy.videoUrl||"", videoKey:st.pharmacy.videoKey||"", runId:st.pharmacy.runId||"" };
   }
   if(st.imageGen&&typeof st.imageGen==="object"){ state.imageGen.runId=st.imageGen.runId||""; state.imageGen.items=Array.isArray(st.imageGen.items)?st.imageGen.items:[]; }
   pharmBusy=false; pharmEditing=null; pharmUploading=0; bErr(null);

@@ -45,7 +45,7 @@ export function createCore(opts) {
   const J = (status, json) => ({ status, json });
 
   // 작업 JSON 안의 미디어 key 를 '읽을 때' fresh url 로 채운다(presigned 만료 방지).
-  async function resolveMediaUrls(state) {
+  async function resolveMediaUrls(state, mediaPrefix, jobId) {
     if (!state || typeof state !== "object") return;
     for (const g of ["imageGen", "videoGen"]) {
       const items = state[g] && Array.isArray(state[g].items) ? state[g].items : null;
@@ -55,6 +55,13 @@ export function createCore(opts) {
     // 약국 소개 빌더의 업로드 사진도 fresh url 로 갱신(재방문 시 presigned 만료로 재합성이 깨지지 않게).
     const photos = state.pharmacy && Array.isArray(state.pharmacy.photos) ? state.pharmacy.photos : null;
     if (photos) { for (const p of photos) { if (p && p.key) { try { p.url = await storage.urlFor(p.key); } catch (_) {} } } }
+    // Veo 영상(pharmacy.videoUrl)도 fresh url 로 갱신 — videoKey 우선, 없으면 jobId+runId 로 key 재구성(과거 작업 복구).
+    const pp = state.pharmacy;
+    if (pp && String(pp.videoUrl || "").trim() && mediaPrefix != null) {
+      const vkey = String(pp.videoKey || "").trim()
+        || (jobId && String(pp.runId || "").trim() ? `${mediaPrefix}content/${jobId}/video/${pp.runId}/1.mp4` : "");
+      if (vkey) { try { pp.videoUrl = await storage.urlFor(vkey); pp.videoKey = vkey; } catch (_) {} }
+    }
   }
   // 작업의 '목록용 경량 메타'(presign 없이) — 인덱스 저장·목록 표시에 공용. 전체 state 를 안 담아 작고 빠르다.
   function metaOfRaw(j) {
@@ -281,7 +288,7 @@ export function createCore(opts) {
     if (req.method === "GET" && id) {
       const j = await storage.getJson(prefix + id + ".json");
       if (!j) return J(404, { ok: false, error: "작업을 찾을 수 없습니다." });
-      await resolveMediaUrls(j.state);
+      await resolveMediaUrls(j.state, userPrefix(auth), id);
       return J(200, { ok: true, job: j });
     }
     if (req.method === "PUT" || req.method === "POST") {
