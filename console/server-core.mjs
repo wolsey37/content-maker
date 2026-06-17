@@ -64,9 +64,10 @@ export function createCore(opts) {
     }
   }
   // 작업의 '목록용 경량 메타'(presign 없이) — 인덱스 저장·목록 표시에 공용. 전체 state 를 안 담아 작고 빠르다.
-  function metaOfRaw(j) {
+  function metaOfRaw(j, mediaPrefix) {
     const meta = { id: j.id, title: j.title, platform: j.platform, createdAt: j.createdAt, updatedAt: j.updatedAt };
-    meta.genMode = (j.state && j.state.pharmacy && j.state.pharmacy.genMode) || "standard";   // 목록 배지(내 사진/인포그래픽)용
+    const pp = (j.state && j.state.pharmacy) || {};
+    meta.genMode = pp.genMode || "standard";   // 목록 배지(내 사진/인포그래픽)용
     const imgItems = j.state && j.state.imageGen && Array.isArray(j.state.imageGen.items) ? j.state.imageGen.items : [];
     const vidItems = j.state && j.state.videoGen && Array.isArray(j.state.videoGen.items) ? j.state.videoGen.items : [];
     const firstImg = imgItems.find((it) => it && (it.key || it.url));   // 실패/진행중 슬롯(key·url 없음)은 건너뛰고 완료분을 썸네일로
@@ -75,6 +76,11 @@ export function createCore(opts) {
     if (thumb) {
       meta.thumbnailKey = thumb.key || null;
       meta.thumbnailUrl = thumb.key ? null : (thumb.imageUrl || thumb.url || null);   // key 있으면 읽을 때 presign, 없으면(로컬) 안정 URL 그대로
+    } else if (String(pp.videoUrl || "").trim()) {
+      // Veo 영상 작업 — 영상 자체를 썸네일로(videoKey 우선, 없으면 jobId+runId 로 재구성). 클라이언트가 <video> 첫 프레임 표시.
+      const vkey = String(pp.videoKey || "").trim()
+        || (mediaPrefix != null && j.id && String(pp.runId || "").trim() ? `${mediaPrefix}content/${j.id}/video/${pp.runId}/1.mp4` : "");
+      if (vkey) { meta.thumbnailKey = vkey; meta.thumbVideo = true; }
     }
     return meta;
   }
@@ -270,10 +276,12 @@ export function createCore(opts) {
         const jid = e.key.slice(prefix.length).replace(/\.json$/, "");
         try {
           let meta = await storage.getJson(idxPrefix + jid + ".json");   // 경량 인덱스 우선(작고 빠름)
-          if (!meta || !meta.id) {                                       // 인덱스 없음(레거시/유실) → 전체를 읽어 계산하고 인덱스 백필(다음부터 빠름)
+          // 인덱스 없음(레거시/유실), 또는 영상인데 썸네일 미보유(구 인덱스) → 전체를 읽어 재계산·백필
+          const needsRebuild = !meta || !meta.id || (meta.genMode === "video" && !meta.thumbnailKey && !meta.thumbnailUrl);
+          if (needsRebuild) {
             const j = await storage.getJson(e.key);
-            if (!j || !j.id) return null;
-            meta = metaOfRaw(j);
+            if (!j || !j.id) return (meta && meta.id) ? await withThumbUrl(meta) : null;
+            meta = metaOfRaw(j, userPrefix(auth));
             try { await storage.putJson(idxPrefix + jid + ".json", meta); } catch (_) {}
           }
           return await withThumbUrl(meta);
@@ -309,7 +317,7 @@ export function createCore(opts) {
       }
       const job = { id: jid, title, platform, createdAt: (existing && existing.createdAt) || now, updatedAt: now, state };
       await storage.putJson(prefix + jid + ".json", job);
-      try { await storage.putJson(idxPrefix + jid + ".json", metaOfRaw(job)); } catch (_) {}   // 목록용 경량 인덱스 동시 갱신
+      try { await storage.putJson(idxPrefix + jid + ".json", metaOfRaw(job, userPrefix(auth))); } catch (_) {}   // 목록용 경량 인덱스 동시 갱신
       return J(200, { ok: true, id: jid, createdAt: job.createdAt, updatedAt: now });
     }
     if (req.method === "DELETE" && id) {

@@ -131,8 +131,10 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
 .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:18px; }
 .jcard{ background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); overflow:hidden; cursor:pointer; transition:transform .15s var(--ease), box-shadow .15s; position:relative; }
 .jcard:hover{ transform:translateY(-3px); box-shadow:var(--sh-2); }
-.jcard .thumb{ aspect-ratio:4/5; background:linear-gradient(150deg,var(--brand-soft),var(--gold-soft)); display:flex; align-items:center; justify-content:center; font-size:34px; overflow:hidden; }
+.jcard .thumb{ position:relative; aspect-ratio:4/5; background:linear-gradient(150deg,var(--brand-soft),var(--gold-soft)); display:flex; align-items:center; justify-content:center; font-size:34px; overflow:hidden; }
 .jcard .thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+.jcard .thumb video{ width:100%; height:100%; object-fit:cover; display:block; background:#0d0f0c; }
+.jcard .thumb .vthumb-play{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:40px; height:40px; border-radius:50%; background:rgba(20,24,18,.5); color:#fff; font-size:15px; display:flex; align-items:center; justify-content:center; pointer-events:none; backdrop-filter:blur(2px); }
 .jcard .meta{ padding:10px 12px 12px; }
 .jcard .t{ font-size:13px; font-weight:600; line-height:1.45; max-height:2.9em; overflow:hidden; }
 .jcard .d{ font-size:11px; color:var(--muted); margin-top:4px; display:flex; gap:6px; align-items:center; }
@@ -1181,7 +1183,12 @@ function loadJobs(){
       if(!jobs.length) emp.innerHTML='<div class="big">🌿</div>아직 만든 카드뉴스가 없어요.<br><b>+ 새 카드뉴스 만들기</b>로 첫 카드뉴스를 만들어 보세요.';
       jobs.forEach(function(j){
         var c=document.createElement("div"); c.className="jcard";
-        var thumb=j.thumbnailUrl?('<img crossorigin="anonymous" src="'+esc(mediaSrc(j.thumbnailUrl))+'" alt="" loading="lazy">'):"🌿";
+        var thumb;
+        if(j.thumbnailUrl && j.thumbVideo){   // 영상 — 첫 프레임을 썸네일로 + ▶ 오버레이
+          thumb='<video src="'+esc(mediaSrc(j.thumbnailUrl))+'#t=0.1" muted playsinline preload="metadata"></video><span class="vthumb-play">▶</span>';
+        } else if(j.thumbnailUrl){
+          thumb='<img crossorigin="anonymous" src="'+esc(mediaSrc(j.thumbnailUrl))+'" alt="" loading="lazy">';
+        } else { thumb="🌿"; }
         c.innerHTML='<div class="thumb">'+thumb+'</div>'+
           '<div class="meta"><div class="t">'+esc(j.title||"제목 없음")+'</div>'+
           '<div class="d"><span class="badge">'+(j.genMode==="ai"?"인포그래픽":(j.genMode==="video"?"영상":"내 사진"))+'</span><span>'+fmtDate(j.updatedAt)+'</span></div></div>'+
