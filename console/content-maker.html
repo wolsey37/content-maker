@@ -136,9 +136,13 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
 .jcard .thumb video{ width:100%; height:100%; object-fit:cover; display:block; background:#0d0f0c; }
 .jcard .thumb .vthumb-play{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:40px; height:40px; border-radius:50%; background:rgba(20,24,18,.5); color:#fff; font-size:15px; display:flex; align-items:center; justify-content:center; pointer-events:none; backdrop-filter:blur(2px); }
 .jcard .meta{ padding:10px 12px 12px; }
-.jcard .t{ font-size:13px; font-weight:600; line-height:1.45; max-height:2.9em; overflow:hidden; }
+.jcard .t{ font-size:13px; font-weight:600; line-height:1.45; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .jcard .d{ font-size:11px; color:var(--muted); margin-top:4px; display:flex; gap:6px; align-items:center; }
 .jcard .badge{ font-size:10px; font-weight:700; color:var(--brand-d); background:var(--brand-soft); padding:2px 7px; border-radius:999px; }
+/* 유형별 배지 색상 — 내 사진(초록) · 인포그래픽(파랑) · 영상(보라) */
+.jcard .badge-standard{ color:#2f7d32; background:rgba(76,175,80,.16); }
+.jcard .badge-ai{ color:#1d6fd6; background:rgba(33,118,214,.15); }
+.jcard .badge-video{ color:#8a4ae0; background:rgba(138,74,224,.16); }
 .jcard .del{ position:absolute; top:8px; right:8px; width:26px; height:26px; border-radius:50%; border:none; background:rgba(20,24,18,.45); color:#fff; font-size:12px; cursor:pointer; opacity:0; transition:opacity .12s; }
 .jcard:hover .del{ opacity:1; }
 .empty{ text-align:center; color:var(--muted); padding:48px 0; font-size:13.5px; }
@@ -1189,9 +1193,11 @@ function loadJobs(){
         } else if(j.thumbnailUrl){
           thumb='<img crossorigin="anonymous" src="'+esc(mediaSrc(j.thumbnailUrl))+'" alt="" loading="lazy">';
         } else { thumb="🌿"; }
+        var gm=(j.genMode==="ai"?"ai":(j.genMode==="video"?"video":"standard"));
+        var gmLabel=(gm==="ai"?"인포그래픽":(gm==="video"?"영상":"내 사진"));
         c.innerHTML='<div class="thumb">'+thumb+'</div>'+
           '<div class="meta"><div class="t">'+esc(j.title||"제목 없음")+'</div>'+
-          '<div class="d"><span class="badge">'+(j.genMode==="ai"?"인포그래픽":(j.genMode==="video"?"영상":"내 사진"))+'</span><span>'+fmtDate(j.updatedAt)+'</span></div></div>'+
+          '<div class="d"><span class="badge badge-'+gm+'">'+gmLabel+'</span><span>'+fmtDate(j.updatedAt)+'</span></div></div>'+
           '<button class="del" type="button" title="삭제" aria-label="삭제">✕</button>';
         c.addEventListener("click", function(e){
           if(e.target && e.target.classList.contains("del")){ deleteJob(j); return; }
