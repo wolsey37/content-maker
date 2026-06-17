@@ -5,9 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>팜 스튜디오 — 약사를 위한 SNS 콘텐츠 스튜디오</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2316171a'/%3E%3Cpath d='M16 8v16M8 16h16' stroke='%23b08d4f' stroke-width='3.4' stroke-linecap='round'/%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600;700;900&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <script>(function(){try{var p=localStorage.getItem('cp_theme_set')==='1';var t=p?localStorage.getItem('cp_theme'):(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light');}catch(e){}})();</script>
 <style>
 /* ============================================================================
@@ -25,7 +24,7 @@
   --hover:#f0efed; --chip:#eeedeb; --input:#ffffff; --bar:rgba(250,250,249,.86);
   --sh-1:0 1px 2px rgba(20,20,22,.06); --sh-2:0 8px 28px rgba(20,20,22,.12); --sh-3:0 24px 64px rgba(20,20,22,.22);
   --r1:10px; --r2:14px; --r3:22px;
-  --serif:'Noto Serif KR','Apple SD Gothic Neo',serif;
+  --serif:'Pretendard','Pretendard Variable','Apple SD Gothic Neo',sans-serif;   /* 깔끔한 모던 산세리프로 통일(헤딩/라벨도 동일 폰트, 굵기로만 강조) */
   --ease:cubic-bezier(.4,0,.2,1);
 }
 html[data-theme="dark"]{
@@ -41,7 +40,7 @@ html[data-theme="dark"]{
 @media (prefers-reduced-motion: reduce){ *{ animation-duration:.001ms!important; transition-duration:.001ms!important; } }
 *{box-sizing:border-box;} html,body{margin:0;padding:0;}
 body{
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif;
+  font-family:'Pretendard','Pretendard Variable',-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
   background:var(--bg); color:var(--ink); font-size:14px; line-height:1.6; -webkit-font-smoothing:antialiased;
 }
 button{ font-family:inherit; }
@@ -154,7 +153,10 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
 .studio-top .back:hover{ background:var(--hover); }
 .studio-title{ font-family:var(--serif); font-weight:700; font-size:19px; letter-spacing:-.01em; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .studio-badge{ font-size:11px; font-weight:700; padding:4px 11px; border-radius:999px; background:var(--gold-soft); color:var(--gold); flex:none; }
-.studio-badge.run{ background:var(--brand-soft); color:var(--brand-d); }
+.studio-badge.run{ background:#b08d4f; color:#fff; font-weight:800; box-shadow:0 0 0 0 rgba(176,141,79,.55); animation:badgePulse 1.1s ease-in-out infinite; }
+.studio-badge.run::before{ content:""; display:inline-block; width:7px; height:7px; border-radius:50%; background:#fff; margin-right:6px; vertical-align:middle; animation:badgeBlink 1s steps(1) infinite; }
+@keyframes badgePulse{ 0%{ box-shadow:0 0 0 0 rgba(176,141,79,.55); } 70%{ box-shadow:0 0 0 8px rgba(176,141,79,0); } 100%{ box-shadow:0 0 0 0 rgba(176,141,79,0); } }
+@keyframes badgeBlink{ 0%,50%{ opacity:1; } 51%,100%{ opacity:.25; } }
 .studio-badge.done{ background:var(--ok-soft); color:var(--ok); }
 .studio-badge.err{ background:var(--err-soft); color:var(--err); }
 .studio{ display:grid; grid-template-columns:248px 1fr; gap:22px; align-items:start; }
@@ -377,7 +379,9 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
 .bi-types button:hover{ border-color:var(--line-strong); color:var(--ink); }
 .bi-types button.on{ border-color:var(--ink); background:var(--brand-soft); color:var(--ink); font-weight:800; box-shadow:0 1px 5px rgba(0,0,0,.12); }
 @media (max-width:560px){ .bi-types{ grid-template-columns:repeat(2,1fr); } }
-.bi-info-kinds{ margin-top:2px; margin-bottom:2px; }
+.bi-info-kinds{ display:flex; flex-wrap:wrap; gap:7px; }
+.bi-info-kinds button{ font-size:12px; color:var(--ink-2); background:var(--bg); border:1px solid var(--line); border-radius:999px; padding:6px 11px; cursor:pointer; transition:all .12s; white-space:nowrap; }
+.bi-info-kinds button:hover{ border-color:var(--brand); color:var(--brand-d); }
 .bi-info-kinds button.on{ border-color:var(--ink); background:var(--brand-soft); color:var(--ink); font-weight:700; }
 /* 브랜드 키트 */
 .bk-name{ width:100%; box-sizing:border-box; border:1px solid var(--line); border-radius:11px; background:var(--input); color:var(--ink); font:inherit; font-size:13px; font-weight:600; padding:10px 12px; outline:none; }
@@ -398,6 +402,7 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
 /* 옵션 그룹 구분선 */
 .bi-divider{ height:1px; background:var(--line-soft); margin:2px 0; border:0; }
 .bi-go{ width:100%; margin-top:2px; }
+.bi-note:empty,.conn-help:empty{ display:none; }   /* 비어 있을 때 flex gap 으로 생기는 버튼 아래 빈 여백 제거 */
 .magic-go{ background:linear-gradient(135deg,#caa15c,#9c7536); border:none; color:#1a1206; font-weight:800; box-shadow:0 6px 20px rgba(176,141,79,.35); }
 .magic-go:hover:not(:disabled){ filter:brightness(1.05); }
 .magic-go:disabled{ opacity:.5; }
@@ -504,9 +509,9 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
 <main class="view" id="viewHome">
   <section class="home-hero list-hero">
     <div class="kicker">Pharm Studio</div>
-    <h1>내 약국 카드뉴스</h1>
-    <p class="sub">약국 소개 카드뉴스를 만들고 한곳에서 관리하세요.</p>
-    <button class="btn pri lg" id="newCardBtn" type="button">+ 새 카드뉴스 만들기</button>
+    <h1>내 약국 콘텐츠</h1>
+    <p class="sub">카드뉴스·인포그래픽·영상을 만들고 한곳에서 관리하세요.</p>
+    <button class="btn pri lg" id="newCardBtn" type="button">+ 새 콘텐츠 만들기</button>
   </section>
 
   <section class="cal" id="calSection">
@@ -535,7 +540,7 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
       <input type="search" id="jobSearch" placeholder="🔎 검색" aria-label="검색">
     </div>
     <div class="grid" id="jobsGrid"></div>
-    <div class="empty" id="jobsEmpty" hidden><div class="big">🌿</div>아직 만든 카드뉴스가 없어요.<br><b>+ 새 카드뉴스 만들기</b>로 첫 카드뉴스를 만들어 보세요.</div>
+    <div class="empty" id="jobsEmpty" hidden><div class="big">🌿</div>아직 만든 콘텐츠가 없어요.<br><b>+ 새 콘텐츠 만들기</b>로 첫 콘텐츠를 만들어 보세요.</div>
   </section>
   <p class="footer" id="footNote">팜 스튜디오 · 약사를 위한 SNS 콘텐츠 스튜디오</p>
 </main>
@@ -544,7 +549,7 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
 <div class="overlay builder-overlay" id="builderModal">
   <div class="builder-modal-card">
     <div class="bm-head">
-      <h2 id="bmTitle">약국 소개 카드뉴스 만들기</h2>
+      <h2 id="bmTitle">새 콘텐츠 만들기</h2>
       <button class="icon-b" id="bmClose" type="button" title="닫기" aria-label="닫기">✕</button>
     </div>
     <div class="bm-body">
@@ -553,7 +558,6 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
           <div class="bi-main">
             <span class="bi-label">무엇을 만들까요?</span>
             <div class="bi-types" id="bType"></div>
-            <div class="bi-examples bi-info-kinds" id="bInfoKind" style="display:none;"></div>
             <label class="bi-label" id="bIntroLabel" for="bIntro">우리 약국을 소개해 주세요</label>
             <p class="bi-hint" id="bIntroHint">위치·운영시간·강점·인사말 등 편하게 적어 주세요. AI가 카드별 문구로 정리해 드려요.</p>
             <textarea id="bIntro" rows="8" maxlength="2000" placeholder=""></textarea>
@@ -563,7 +567,7 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
               <div class="opt-seg gen-mode" id="bGenMode" hidden></div>
               <div id="bPhotoArea">
                 <div class="bi-photos-head">
-                  <span class="bi-label">약국 사진 <span class="bi-opt">2~6장 권장</span></span>
+                  <span class="bi-label" id="bPhotoLabel">약국 사진 <span class="bi-opt" id="bPhotoLabelOpt">2~6장 권장</span></span>
                   <span class="bi-hint" id="bPhotoHint">외관·내부·약사님·상담공간 등 — 사진이 카드 배경이 됩니다</span>
                 </div>
                 <div class="dropzone" id="bDrop">
@@ -580,6 +584,10 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
             </div>
           </div>
           <aside class="bi-side">
+            <div class="bi-field" id="bConceptField" style="display:none;">
+              <span class="bi-label">컨셉 <span class="bi-opt">인포그래픽 스타일</span></span>
+              <div class="bi-info-kinds" id="bInfoKind"></div>
+            </div>
             <div class="bi-field">
               <span class="bi-label">템플릿</span>
               <div class="tpl-pick" id="bTpl"></div>
@@ -602,16 +610,6 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
             </div>
             <hr class="bi-divider">
             <div class="bi-field">
-              <span class="bi-label">🎨 브랜드 키트 <span class="bi-opt">모든 카드 자동 적용</span></span>
-              <input type="text" class="bk-name" id="bkName" maxlength="20" placeholder="약국명 (예: 행복한약국)" spellcheck="false">
-              <div class="bk-row">
-                <button class="bk-logo" id="bkLogo" type="button" title="로고 올리기">＋<small>로고</small></button>
-              </div>
-              <label class="bk-show"><input type="checkbox" id="bkShow"> 카드에 로고·약국명 표시</label>
-              <input type="file" id="bkLogoFile" accept="image/*" hidden>
-            </div>
-            <hr class="bi-divider">
-            <div class="bi-field">
               <span class="bi-label">톤 <span class="bi-opt">문구 말투</span></span>
               <div class="tone-seg" id="bTone"></div>
             </div>
@@ -623,17 +621,13 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
               <span class="bi-label">정보량 <span class="bi-opt">간결 ↔ 풍성</span></span>
               <div class="opt-seg" id="bDepth"></div>
             </div>
-            <div class="bi-field" id="bEmojiField">
-              <span class="bi-label">이모지 <span class="bi-opt">캡션에 적용</span></span>
-              <div class="opt-seg" id="bEmoji"></div>
-            </div>
             <div class="bi-field">
               <span class="bi-label">AI 엔진</span>
               <select class="bi-select" id="bEngine" title="문구를 생성할 AI"></select>
             </div>
             <button class="btn pri lg bi-go magic-go" id="bMagic" type="button" hidden>🪄 한 번에 다 만들기</button>
             <label class="magic-opt" hidden><input type="checkbox" id="bMagicVideo" checked> 캡션·영상까지 한 번에 만들기</label>
-            <button class="btn pri lg bi-go" id="bGenerate" type="button">✨ 카드뉴스 만들기</button>
+            <button class="btn pri lg bi-go" id="bGenerate" type="button">✨ 콘텐츠 만들기</button>
             <p class="bi-note" id="bInputNote"></p>
             <div class="conn-help" id="connHelp"></div>
           </aside>
@@ -681,7 +675,7 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
 <main class="view" id="viewBuilder" hidden>
   <div class="studio-top">
     <button class="back" id="bBack" type="button" title="홈으로" aria-label="홈으로">←</button>
-    <div class="studio-title" id="bTitle">약국 소개 카드뉴스</div>
+    <div class="studio-title" id="bTitle">새 콘텐츠</div>
     <span class="studio-badge" id="bBadge">준비</span>
   </div>
 
@@ -1065,7 +1059,7 @@ function refreshConnUI(){
   var gb=el("bGenerate"); if(gb) gb.disabled=(connected===false)||pharmBusy||(pharmUploading>0);
   var mg=el("bMagic"); if(mg) mg.disabled=(connected===false)||pharmBusy||(pharmUploading>0);
   if(help){
-    if(connected===false){ help.classList.add("show"); help.innerHTML="⚠ 카드뉴스 서버에 연결할 수 없어요. 잠시 후 상단 <b>연결 상태</b>를 눌러 다시 시도해 주세요."; }
+    if(connected===false){ help.classList.add("show"); help.innerHTML="⚠ 콘텐츠 서버에 연결할 수 없어요. 잠시 후 상단 <b>연결 상태</b>를 눌러 다시 시도해 주세요."; }
     else help.classList.remove("show");
   }
 }
@@ -1184,7 +1178,7 @@ function loadJobs(){
       var grid=el("jobsGrid"); grid.innerHTML="";
       el("jobCnt").textContent=jobs.length?(jobs.length+"개"):"";
       var emp=el("jobsEmpty"); emp.hidden=jobs.length>0;
-      if(!jobs.length) emp.innerHTML='<div class="big">🌿</div>아직 만든 카드뉴스가 없어요.<br><b>+ 새 카드뉴스 만들기</b>로 첫 카드뉴스를 만들어 보세요.';
+      if(!jobs.length) emp.innerHTML='<div class="big">🌿</div>아직 만든 콘텐츠가 없어요.<br><b>+ 새 콘텐츠 만들기</b>로 첫 콘텐츠를 만들어 보세요.';
       jobs.forEach(function(j){
         var c=document.createElement("div"); c.className="jcard";
         var thumb;
@@ -1212,7 +1206,7 @@ function loadJobs(){
     });
 }
 function deleteJob(j){
-  appConfirm("카드뉴스 삭제","\""+(j.title||"제목 없음")+"\"\n카드뉴스와 올린 사진을 모두 삭제합니다.","삭제").then(function(ok){
+  appConfirm("콘텐츠 삭제","\""+(j.title||"제목 없음")+"\"\n콘텐츠와 올린 사진을 모두 삭제합니다.","삭제").then(function(ok){
     if(!ok) return;
     pharmacyFetch("/pharmacy/jobs/"+encodeURIComponent(j.id),{ method:"DELETE" }).then(function(){ loadJobs(); }).catch(function(){});
   });
@@ -1581,11 +1575,8 @@ function ratioCss(){ var r=ratioDef(); return r.w+"/"+r.h; }
 var PHARM_PLATFORM="약국 소개 카드뉴스";
 var BUILDER_TEMPLATES=[
   { id:"fullbleed", name:"풀블리드 (사진 가득)" },
-  { id:"split",     name:"분할 (사진+여백)" },
-  { id:"frame",     name:"프레임 (아이보리)" },
   { id:"band",      name:"밴드 (하단 띠)" },
-  { id:"card",      name:"플로팅 카드" },
-  { id:"minimal",   name:"미니멀 (원형)" }
+  { id:"card",      name:"플로팅 카드" }
 ];
 var PHARM_TONES=[ {k:"warm",l:"따뜻한"}, {k:"pro",l:"전문적인"}, {k:"friendly",l:"친근한"} ];
 // 약사님이 막막하지 않게 — 클릭하면 '항목별'로 설명칸을 채우는 예시(○○ 부분만 우리 약국 정보로 바꾸면 됨)
@@ -1673,8 +1664,7 @@ function fmtCalDate(iso){ var d=new Date(iso+"T00:00:00"); return (d.getMonth()+
 function isThisWeek(iso){ var d=new Date(iso+"T00:00:00"), now=new Date(); var diff=(d-now)/86400000; return diff>=-1 && diff<7; }
 function buildCalendarPrompt(){
   var now=new Date(), m=now.getMonth()+1;
-  var who=brandKit.name? ("'"+brandKit.name+"'") : "동네 약국";
-  return "당신은 약국 인스타그램 콘텐츠 기획자입니다. "+who+"가 앞으로 한 달간 인스타에 올릴 게시물 10개를 기획하세요.\n\n[현재 시기]\n"+m+"월("+calSeason(m)+")\n\n[구성 비율]\n약국 소개 1~2개, 건강정보 4~5개(계절·생활 밀착), 이벤트·공지 1~2개, 일상·소식 1~2개를 자연스럽게 섞으세요. 같은 주제 반복 금지, 시기에 맞게.\n\n[규칙]\n의약품 효능 단정·과장 금지. 건강정보는 일반 상식 범위.\n\n[출력] 정확히 아래 형식으로 10개. 다른 머리말/설명 없이 항목만:\n@@@ITEM\nTYPE: (intro 또는 health 또는 event 또는 daily 중 하나)\nTITLE: (15자 내외 제목)\nBRIEF: (한 줄 설명 — 무엇을 담을지)\n";
+  return "당신은 동네 약국 인스타그램 콘텐츠 기획자입니다. 약국이 앞으로 한 달간 인스타에 올릴 게시물 10개를 기획하세요.\n\n[현재 시기]\n"+m+"월("+calSeason(m)+")\n\n[구성 비율]\n약국 소개 1~2개, 건강정보 4~5개(계절·생활 밀착), 이벤트·공지 1~2개, 일상·소식 1~2개를 자연스럽게 섞으세요. 같은 주제 반복 금지, 시기에 맞게.\n\n[규칙]\n- 제목에 특정 약국 이름(상호)을 넣지 말고, 누구나 쓸 수 있는 일반적인 주제 제목으로 작성하세요.\n- 의약품 효능 단정·과장 금지. 건강정보는 일반 상식 범위.\n\n[출력] 정확히 아래 형식으로 10개. 다른 머리말/설명 없이 항목만:\n@@@ITEM\nTYPE: (intro 또는 health 또는 event 또는 daily 중 하나)\nTITLE: (15자 내외 제목, 약국 이름 없이)\nBRIEF: (한 줄 설명 — 무엇을 담을지)\n";
 }
 function parseCalPlan(text){
   var out=[], blocks=String(text||"").split(/@@@\s*ITEM/i);
@@ -1779,7 +1769,7 @@ function openCalItem(id){
   openBuilderModal();
 }
 function clearCalendar(){
-  appConfirm("캘린더 비우기","짜놓은 한 달 계획을 모두 지울까요? 이미 만든 카드뉴스는 그대로 남아요.","비우기").then(function(ok){
+  appConfirm("캘린더 비우기","짜놓은 한 달 계획을 모두 지울까요? 이미 만든 콘텐츠는 그대로 남아요.","비우기").then(function(ok){
     if(!ok) return; calendar={ generatedAt:"", items:[] }; saveCalendar(); renderCalendar(); calStatus("");
   });
 }
@@ -1887,7 +1877,6 @@ function renderToneSeg(){
 function renderVoiceSegs(){
   renderOptSeg("bAudience", PHARM_AUDIENCES, function(){ return ph().audience||""; }, function(k){ ph().audience=k; });
   renderOptSeg("bDepth", PHARM_DEPTHS, function(){ return ph().depth||"std"; }, function(k){ ph().depth=k; });
-  renderOptSeg("bEmoji", PHARM_EMOJIS, function(){ return ph().emoji||"some"; }, function(k){ ph().emoji=k; });
 }
 // 옵션 세그먼트 공용 렌더 (글자 정렬·사진 농도·서체)
 function renderOptSeg(boxId, items, getCur, setCur){
@@ -1934,6 +1923,8 @@ function applyGenMode(){
   var note=el("bAiNote"); if(note) note.hidden=!ai;
   var vnote=el("bVideoNote"); if(vnote) vnote.hidden=!video;
   var phHead=el("bPhotoHint"); if(phHead) phHead.textContent=video?"참조 사진(선택) — 올리면 그 사진을 바탕으로 영상을 만들어요":"외관·내부·약사님·상담공간 등 — 사진이 카드 배경이 됩니다";
+  var phLab=el("bPhotoLabel"); var phOpt=el("bPhotoLabelOpt");
+  if(phLab && phOpt){ phLab.childNodes[0].nodeValue=video?"참조 사진 ":"약국 사진 "; phOpt.textContent=video?"선택 · 최대 3장":"2~6장 권장"; }
   var standard=(g==="standard");
   // 캔버스 디자인 옵션(템플릿·서체·정렬)·브랜드 키트: 내 사진(캔버스 합성)에만 적용 → AI/영상에선 숨김
   ["bTpl","bFont","bAlign"].forEach(function(id){ var c=el(id); if(c){ var f=c.closest&&c.closest(".bi-field"); if(f) f.style.display=standard?"":"none"; } });
@@ -1941,9 +1932,24 @@ function applyGenMode(){
   var rt=el("bRatio"); if(rt){ var rf=rt.closest&&rt.closest(".bi-field"); if(rf) rf.style.display=video?"none":""; }       // 영상은 9:16 고정 → 비율 숨김
   var eng=el("bEngine"); if(eng){ var ef=eng.closest&&eng.closest(".bi-field"); if(ef) ef.style.display=video?"none":""; }   // 영상은 Gemini 고정
   // 글 스타일(보이스: 대상·정보량·이모지)·톤 — 문구 생성에만 의미 → 영상에선 숨김
-  ["bAudienceField","bDepthField","bEmojiField"].forEach(function(id){ var f=el(id); if(f) f.style.display=video?"none":""; });
+  ["bAudienceField","bDepthField"].forEach(function(id){ var f=el(id); if(f) f.style.display=video?"none":""; });
+  var cf=el("bConceptField"); if(cf) cf.style.display=ai?"":"none";   // 컨셉은 인포그래픽에서만
   var tn=el("bTone"); if(tn){ var tf=tn.closest&&tn.closest(".bi-field"); if(tf) tf.style.display=video?"none":""; }
-  updatePhotoDependentOpts(); updateGenBtn();
+  updatePhotoDependentOpts(); tidyDividers(); updateGenBtn();
+}
+// 빈 구분선 접기 — 위/아래 그룹 모두에 보이는 필드가 있을 때만 구분선 노출(섹션이 숨겨지면 댕그러니 남는 선 제거)
+function tidyDividers(){
+  var first=document.querySelector("#builderModal .bi-divider"); if(!first) return;
+  var kids=[].slice.call(first.parentNode.children);
+  var isDiv=function(n){ return n.classList && n.classList.contains("bi-divider"); };
+  var isVisField=function(n){ return n.classList && n.classList.contains("bi-field") && n.style.display!=="none"; };
+  kids.forEach(function(node,i){
+    if(!isDiv(node)) return;
+    var after=false, before=false, j;
+    for(j=i+1;j<kids.length && !isDiv(kids[j]);j++){ if(isVisField(kids[j])){ after=true; break; } }
+    for(j=i-1;j>=0 && !isDiv(kids[j]);j--){ if(isVisField(kids[j])){ before=true; break; } }
+    node.style.display=(after&&before)?"":"none";
+  });
 }
 // 사진 농도/자동 보정은 배경이 있을 때만 노출 — 무사진 standard 모드에선 숨김
 function updatePhotoDependentOpts(){
@@ -2064,7 +2070,7 @@ function renderPhotoStrip(){
       '</div>';
     box.appendChild(d);
   });
-  updatePhotoDependentOpts();
+  updatePhotoDependentOpts(); updateGenBtn();
 }
 function movePhoto(i, delta){
   var a=ph().photos, j=i+delta;
@@ -2074,8 +2080,14 @@ function movePhoto(i, delta){
 }
 function updateGenBtn(){
   var dis=(pharmUploading>0)||pharmBusy;
-  var b=el("bGenerate"); if(b){ b.disabled=dis; b.textContent=pharmUploading>0?"사진 올리는 중…":((ph().genMode==="video")?"🎬 영상 만들기":"✨ 카드뉴스 만들기"); }
-  var m=el("bMagic"); if(m){ m.disabled=dis||(connected===false); m.textContent=pharmUploading>0?"사진 올리는 중…":"🪄 한 번에 다 만들기"; }
+  // 입력이 있어야 활성화 — 내 사진: 설명 또는 사진 / 인포그래픽·영상: 주제 텍스트 필수
+  var introEl=el("bIntro"); var intro=(introEl&&introEl.value||"").trim();
+  var hasPhoto=(ph().photos||[]).some(function(p){ return p && (p.url || p.pending); });
+  var hasInput=(ph().genMode==="standard") ? (!!intro || hasPhoto) : !!intro;
+  var gmNow=ph().genMode||"standard";
+  var genLabel=(gmNow==="video")?"🎬 영상 만들기":(gmNow==="ai")?"✨ 인포그래픽 만들기":"✨ 카드뉴스 만들기";
+  var b=el("bGenerate"); if(b){ b.disabled=dis||!hasInput; b.textContent=pharmUploading>0?"사진 올리는 중…":genLabel; }
+  var m=el("bMagic"); if(m){ m.disabled=dis||(connected===false)||!hasInput; m.textContent=pharmUploading>0?"사진 올리는 중…":"🪄 한 번에 다 만들기"; }
 }
 /* 무엇을 만들까요? = 출력 형태(내 사진 / 인포그래픽). genMode 와 직결. */
 var PHARM_FORMATS=[ {k:"standard",l:"📷 내 사진"}, {k:"ai",l:"📊 인포그래픽"}, {k:"video",l:"🎬 영상"} ];
@@ -2106,13 +2118,11 @@ function renderTypeUI(){
       seg.appendChild(b);
     });
   }
-  // 인포그래픽일 때만 '컨셉' 칩 노출(자동/미니멀/따뜻/신뢰/컬러풀)
+  // 컨셉 칩(자동/미니멀/따뜻/신뢰/컬러풀) — 오른쪽 패널 bConceptField, 인포그래픽일 때만 노출(applyGenMode)
   var ik=el("bInfoKind");
   if(ik){
-    if(g==="ai"){
-      ik.style.display=""; ik.innerHTML='<span class="bx-label">컨셉</span>';
-      PHARM_CONCEPTS.forEach(function(c){ var b=document.createElement("button"); b.type="button"; b.className=((ph().aiConcept||"")===c.k?"on":""); b.setAttribute("data-ik",c.k); b.textContent=c.l; ik.appendChild(b); });
-    } else { ik.style.display="none"; ik.innerHTML=""; }
+    ik.innerHTML="";
+    PHARM_CONCEPTS.forEach(function(c){ var b=document.createElement("button"); b.type="button"; b.className=((ph().aiConcept||"")===c.k?"on":""); b.setAttribute("data-ik",c.k); b.textContent=c.l; ik.appendChild(b); });
   }
   var lab=el("bIntroLabel"); if(lab) lab.textContent=meta.label;
   var hint=el("bIntroHint"); if(hint) hint.textContent=meta.hint;
@@ -2147,8 +2157,8 @@ function onPhotoFiles(files){
   var arr=[].slice.call(files||[]).filter(function(f){ return /^image\//.test(f.type); });
   if(!arr.length) return;
   bInputNote("");
-  var max=8, room=max-(ph().photos.length);
-  if(room<=0){ bInputNote("사진은 최대 "+max+"장까지 올릴 수 있어요."); return; }
+  var max=(ph().genMode==="video")?3:8, room=max-(ph().photos.length);   // 영상 참조 사진은 Veo 3.1 한도 3장
+  if(room<=0){ bInputNote(ph().genMode==="video"?"참조 사진은 최대 3장까지예요. 하나 지우고 추가하세요.":("사진은 최대 "+max+"장까지 올릴 수 있어요.")); return; }
   arr.slice(0,room).forEach(function(f){
     var slot={ pending:true }; ph().photos.push(slot); renderPhotoStrip();
     pharmUploading++; updateGenBtn();
@@ -2405,6 +2415,7 @@ function composeCard(card, img, tplId, logoImg){
   return cv;
   // ===== 브랜드 마크(우상단 칩) — 로고+약국명. 어떤 배경에서도 읽히도록 반투명 칩 위에 흰 글씨 =====
   function brandMark(){
+    return;   // 브랜드 키트 기능 제거 — 카드에 약국명/로고 칩을 그리지 않음
     if(!brandKit || !brandKit.show) return;
     var name=(brandKit.name||"").trim();
     var hasLogo=!!logoImg;
@@ -2446,6 +2457,17 @@ function composeAndSave(card, i, replaceKey, idxStr){
 }
 
 /* ---- 결과 그리드 + 카드별 편집 ---- */
+// 생성 시작 직후 — 카드 문구가 나오기 전까지 보여줄 스켈레톤 로딩 카드(빈 화면 방지)
+function renderLoadingCards(n){
+  var grid=el("bCards"); if(!grid) return; grid.innerHTML=""; grid.hidden=false;
+  var vr=el("bVideoResult"); if(vr) vr.hidden=true;
+  var ar=' style="aspect-ratio:'+ratioCss()+'"';
+  for(var i=0;i<n;i++){
+    var d=document.createElement("div"); d.className="pcard";
+    d.innerHTML='<span class="pc-no">'+(i+1)+'</span><div class="pc-ph"'+ar+'><span class="spin"></span>'+(i+1)+'번 준비 중…</div>';
+    grid.appendChild(d);
+  }
+}
 function renderPharmaCards(){
   var grid=el("bCards"); if(!grid) return; grid.innerHTML="";
   var vr=el("bVideoResult"); if(vr) vr.hidden=true; grid.hidden=false;   // 카드 흐름 — 영상 결과 숨김
@@ -2655,6 +2677,7 @@ function startPharmacyRun(opts){
   var eng=currentEngine();
   var pn=photos.length;
   var targetCount=pn>0 ? Math.min(8,pn) : 6;   // 사진이 있으면 사진 수 = 카드 수(1:1), 없으면 기본 6장
+  renderLoadingCards(targetCount);   // 생성 시작 즉시 스켈레톤 로딩 카드 노출(빈 화면 방지)
   var nCards=0;
   pharmacyFetch("/pharmacy/run",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
     body:JSON.stringify({ provider:eng.provider, model:eng.model, prompt:((ph().genMode==="ai") ? buildTypePrompt("health", intro, pn, ph().tone, targetCount) : buildPhotoCopyPrompt(intro, pn, ph().tone, targetCount)) }) })
@@ -2719,7 +2742,7 @@ function startPharmacyRun(opts){
         setBStatus("🎉 완성! 카드 "+ok+"장"+(extra.length?" + "+extra.join("·"):"")+" 준비됐어요. ✍️ 캡션 복사 / 카드별 ✏️·🔄 수정도 가능해요.");
         if(opts.withCaption&&ph().caption){ el("bCaptionPanel").hidden=false; syncCaptionUI(); }   // 캡션 바로 펼쳐 보여주기
       } else {
-        setBStatus(done ? "✓ 카드뉴스 "+ok+"장 완성! 카드별로 ✏️ 문구·🔄 사진을 고칠 수 있어요." : (ok+"/"+nCards+"장 완성 · 일부는 카드의 ✏️/🔄 로 다시 시도하세요."));
+        setBStatus(done ? "✓ 콘텐츠 "+ok+"장 완성! 카드별로 ✏️ 문구·🔄 사진을 고칠 수 있어요." : (ok+"/"+nCards+"장 완성 · 일부는 카드의 ✏️/🔄 로 다시 시도하세요."));
       }
       if(ok>0 && activeCalItem){   // 캘린더에서 시작했으면 해당 항목 완료 처리
         for(var ci=0;ci<calendar.items.length;ci++){ if(calendar.items[ci].id===activeCalItem){ calendar.items[ci].status="done"; calendar.items[ci].jobId=state.jobId; break; } }
@@ -2767,7 +2790,7 @@ function openPharmacyJob(j){
   } else if((state.pharmacy.cards||[]).length>0){
     el("bBadge").textContent="완성"; el("bBadge").className="studio-badge done";
     el("bTitle").textContent=(ph().genMode==="ai")?"인포그래픽 카드뉴스":"내 사진 카드뉴스";
-    setBStatus("저장된 카드뉴스예요. 카드별로 ✏️·🔄 로 수정하거나 🔁 피드백 수정 / [입력 수정]에서 다시 만들 수 있어요.");
+    setBStatus("저장된 콘텐츠예요. 카드별로 ✏️·🔄 로 수정하거나 🔁 피드백 수정 / [입력 수정]에서 다시 만들 수 있어요.");
     el("bFeedbackBtn").hidden=false;
     el("bResult").hidden=false; renderPharmaCards(); showBuilder();
   } else {
@@ -2824,7 +2847,7 @@ function generateCaptionCore(){
 function generateCaption(){
   if(capBusy) return;
   var intro=(ph().intro||"").trim(), cards=ph().cards||[];
-  if(!intro && !cards.length){ capStatus("먼저 카드뉴스를 만들어 주세요."); return; }
+  if(!intro && !cards.length){ capStatus("먼저 콘텐츠를 만들어 주세요."); return; }
   if(connected===false){ refreshConnUI(); capStatus("서버 연결을 확인하는 중이에요. 잠시 후 다시 시도해 주세요."); return; }
   capBusy=true; var mk=el("capMake"); if(mk){ mk.disabled=true; mk.textContent="만드는 중…"; }
   capStatus("캡션을 쓰고 있어요…");
@@ -2853,7 +2876,7 @@ function downloadAllPharma(){
   chain.then(function(){
     var cap=(ph().caption||"").trim();
     if(cap){ files.push({ name:"캡션-해시태그.txt", data:new TextEncoder().encode(cap) }); }
-    downloadBlob("약국소개-카드뉴스.zip", makeZip(files));
+    downloadBlob("약국-콘텐츠.zip", makeZip(files));
   })
     .catch(function(e){ bErr("전체 저장 실패: "+((e&&e.message)||e)); })
     .then(function(){ if(btn){ btn.disabled=false; btn.textContent="⬇ 전체 저장(ZIP)"; } });
@@ -3054,12 +3077,8 @@ function init(){
   function runFeedback(){ if(pharmBusy) return; var t=el("bFeedbackText"); var fb=(t&&t.value||"").trim(); if(!fb){ if(t) t.focus(); return; } el("bFeedbackBar").hidden=true; startPharmacyRun({ feedback:fb }); }
   el("bFeedbackGo").addEventListener("click", runFeedback);
   el("bFeedbackText").addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); runFeedback(); } });
-  el("bIntro").addEventListener("input", function(){ ph().intro=el("bIntro").value; });
+  el("bIntro").addEventListener("input", function(){ ph().intro=el("bIntro").value; updateGenBtn(); });
   el("bEngine").addEventListener("change", function(){ pharmEngineSel=this.value; try{ localStorage.setItem("cp_pharm_engine",pharmEngineSel); }catch(e){} });
-  el("bkName").addEventListener("input", function(){ brandKit.name=this.value; saveBrandKit(); });
-  el("bkShow").addEventListener("change", function(){ brandKit.show=this.checked; _brandLogoSrc=null; saveBrandKit(); });
-  el("bkLogo").addEventListener("click", function(){ el("bkLogoFile").click(); });
-  el("bkLogoFile").addEventListener("change", function(){ onBrandLogoFile(this.files); this.value=""; });
   el("bPhotoFix").addEventListener("change", function(){ ph().photoFix=this.checked; saveLocal(); });
   el("bInfoKind").addEventListener("click", function(e){
     var b=e.target.closest&&e.target.closest("button[data-ik]"); if(!b) return;
