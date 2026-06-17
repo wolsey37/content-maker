@@ -276,8 +276,8 @@ export function createCore(opts) {
         const jid = e.key.slice(prefix.length).replace(/\.json$/, "");
         try {
           let meta = await storage.getJson(idxPrefix + jid + ".json");   // 경량 인덱스 우선(작고 빠름)
-          // 인덱스 없음(레거시/유실), 또는 영상인데 썸네일 미보유(구 인덱스) → 전체를 읽어 재계산·백필
-          const needsRebuild = !meta || !meta.id || (meta.genMode === "video" && !meta.thumbnailKey && !meta.thumbnailUrl);
+          // 인덱스 없음(레거시/유실), genMode 누락(구 인덱스 — 배지 오표시), 또는 영상인데 썸네일 미보유 → 전체를 읽어 재계산·백필
+          const needsRebuild = !meta || !meta.id || !meta.genMode || (meta.genMode === "video" && !meta.thumbnailKey && !meta.thumbnailUrl);
           if (needsRebuild) {
             const j = await storage.getJson(e.key);
             if (!j || !j.id) return (meta && meta.id) ? await withThumbUrl(meta) : null;
