@@ -441,6 +441,17 @@ html[data-theme="dark"] .btn.pri{ color:#0e1611; }
 .caption-bar textarea{ width:100%; box-sizing:border-box; resize:vertical; min-height:148px; border:1px solid var(--line); border-radius:var(--r1); background:var(--bg); color:var(--ink); padding:13px 15px; font:inherit; font-size:14px; line-height:1.62; }
 .caption-bar textarea:focus{ outline:none; border-color:#b08d4f; }
 .caption-bar .cap-act{ display:flex; align-items:center; gap:10px; }
+/* 🔁 피드백 재생성 바 — caption-bar 와 동일 골격 */
+.fb-bar{ background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:14px 16px; margin-bottom:18px; display:flex; flex-direction:column; gap:11px; }
+.fb-bar .cap-head{ display:flex; align-items:center; gap:10px; }
+.fb-bar .cap-t{ font-size:13px; font-weight:800; color:var(--ink); }
+.fb-bar .cap-status{ font-size:12px; color:var(--muted); margin-left:auto; }
+.fb-chips{ display:flex; flex-wrap:wrap; gap:7px; }
+.fb-chips button{ border:1px solid var(--line); background:var(--chip); color:var(--ink-2); font-size:12.5px; font-weight:600; border-radius:999px; padding:6px 12px; cursor:pointer; transition:color .12s, background .12s, border-color .12s; }
+.fb-chips button:hover{ color:var(--ink); border-color:#b08d4f; }
+.fb-bar .cap-act{ display:flex; align-items:center; gap:10px; }
+.fb-input{ flex:1; min-width:0; box-sizing:border-box; border:1px solid var(--line); border-radius:var(--r1); background:var(--bg); color:var(--ink); padding:11px 14px; font:inherit; font-size:14px; }
+.fb-input:focus{ outline:none; border-color:#b08d4f; }
 .br-bar .br-status{ font-size:13px; color:var(--ink-2); }
 .br-bar .sp{ flex:1; }
 .cards-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:18px; }
@@ -598,6 +609,18 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
               <span class="bi-label">톤 <span class="bi-opt">문구 말투</span></span>
               <div class="tone-seg" id="bTone"></div>
             </div>
+            <div class="bi-field" id="bAudienceField">
+              <span class="bi-label">대상 독자 <span class="bi-opt">눈높이 맞춤</span></span>
+              <div class="opt-seg" id="bAudience"></div>
+            </div>
+            <div class="bi-field" id="bDepthField">
+              <span class="bi-label">정보량 <span class="bi-opt">간결 ↔ 풍성</span></span>
+              <div class="opt-seg" id="bDepth"></div>
+            </div>
+            <div class="bi-field" id="bEmojiField">
+              <span class="bi-label">이모지 <span class="bi-opt">캡션에 적용</span></span>
+              <div class="opt-seg" id="bEmoji"></div>
+            </div>
             <div class="bi-field">
               <span class="bi-label">AI 엔진</span>
               <select class="bi-select" id="bEngine" title="문구를 생성할 AI"></select>
@@ -663,9 +686,24 @@ html[data-theme="dark"] .pcard .pc-role{ background:rgba(20,30,22,.8); }
       <span class="br-status" id="bStatus"></span>
       <span class="sp"></span>
       <button class="btn ghost" id="bEditInputs" type="button">← 입력 수정</button>
+      <button class="btn ghost" id="bFeedbackBtn" type="button" hidden>🔁 피드백 수정</button>
       <button class="btn ghost" id="bCaptionBtn" type="button" hidden>✍️ 캡션</button>
       <button class="btn ghost" id="bVideoBtn" type="button" hidden>🎬 영상</button>
       <button class="btn ghost" id="bDownloadAll" type="button">⬇ 전체 저장(ZIP)</button>
+    </div>
+    <div class="fb-bar" id="bFeedbackBar" hidden>
+      <div class="cap-head"><span class="cap-t">🔁 이렇게 고쳐줘</span><span class="cap-status">자연어로 지시하면 전체를 다시 만들어요</span></div>
+      <div class="fb-chips" id="fbChips">
+        <button type="button" data-fb="문구를 더 짧고 간결하게">더 짧게</button>
+        <button type="button" data-fb="더 전문적이고 신뢰감 있는 말투로">더 전문적으로</button>
+        <button type="button" data-fb="더 따뜻하고 친근한 말투로">더 친근하게</button>
+        <button type="button" data-fb="어르신도 이해하기 쉬운 쉬운 말로">어르신 눈높이</button>
+        <button type="button" data-fb="핵심 정보를 더 알차고 구체적으로">더 알차게</button>
+      </div>
+      <div class="cap-act">
+        <input type="text" id="bFeedbackText" class="fb-input" spellcheck="false" placeholder="예) 가격 얘기는 빼고 생활습관 위주로, 표지 문구를 더 강하게">
+        <button class="btn pri" id="bFeedbackGo" type="button">🔁 다시 만들기</button>
+      </div>
     </div>
     <div class="caption-bar" id="bCaptionPanel" hidden>
       <div class="cap-head"><span class="cap-t">✍️ 인스타그램 캡션 · 해시태그</span><span class="cap-status" id="capStatus"></span></div>
@@ -959,7 +997,7 @@ function freshState(){
     imageGen:{ prompts:"", runId:"", items:[], provider:"codex", imageModel:"", concurrency:2 },
     videoGen:{ cuts:"", runId:"", items:[], provider:"claude", engine:"higgsfield", videoModel:"seedance_1_5", concurrency:1 },
     // 약국 소개 카드뉴스 전용 — 자유 설명 + 업로드 사진 + 카드 정의(문구·배경사진·템플릿). 최종 PNG 는 imageGen.items 재사용.
-    pharmacy:{ intro:"", contentType:"intro", infoKind:"", genMode:"standard", aiConcept:"", tone:"warm", templateId:"fullbleed", ratio:"4:5", palette:"gold", align:"left", overlay:"med", font:"sans", photoFix:false, aiArt:"", photos:[], cards:[], caption:"", videoUrl:"", runId:"" } };
+    pharmacy:{ intro:"", contentType:"intro", infoKind:"", genMode:"standard", aiConcept:"", tone:"warm", audience:"", depth:"std", emoji:"some", templateId:"fullbleed", ratio:"4:5", palette:"gold", align:"left", overlay:"med", font:"sans", photoFix:false, aiArt:"", photos:[], cards:[], caption:"", videoUrl:"", runId:"" } };
 }
 function setSteps(platform){
   var prev=(state&&state.steps)||{};
@@ -1551,6 +1589,19 @@ var PHARM_CAPTION_EXAMPLES=[
   "환절기, 감기 조심하세요 🍂\n일교차가 클 땐 따뜻한 물 자주 드시고 손 자주 씻는 게 기본이에요.\n상비약이 필요하거나 증상이 헷갈리면 약국에서 편하게 물어보세요.\n○○약국이 우리 동네 건강을 함께 챙기겠습니다.\n\n#○○약국 #환절기건강 #감기조심 #건강정보 #동네약국 #복약상담 #면역력 #건강관리팁 #약사추천 #○○동"
 ];
 var PHARM_TONE_DESC={ warm:"따뜻하고 정감 있는", pro:"전문적이고 신뢰감 있는", friendly:"밝고 친근한" };
+/* ===== 글 스타일(보이스) — 대상 독자 · 정보량 · 이모지(캡션). 모든 문구 생성 프롬프트에 주입 ===== */
+var PHARM_AUDIENCES=[ {k:"",l:"누구나"}, {k:"senior",l:"어르신"}, {k:"worker",l:"직장인"}, {k:"parent",l:"육아맘"}, {k:"young",l:"청년"} ];
+var PHARM_AUD_DESC={ senior:"어르신(시니어)", worker:"바쁜 직장인", parent:"아이 키우는 부모", young:"2030 청년" };
+var PHARM_AUD_GUIDE={
+  senior:"쉬운 일상어로 천천히, 어려운 의학용어는 풀어서. 글씨로 읽어도 또렷하게 이해되도록 한 문장에 하나씩.",
+  worker:"바쁜 사람이 빠르게 핵심만 얻도록 간결·실용적으로. 출퇴근·사무직 생활 맥락을 살짝 반영.",
+  parent:"아이와 가족 건강 관점에서 안심되는 말투로. 보호자가 챙겨야 할 포인트 중심.",
+  young:"트렌디하고 군더더기 없이 간결하게. 직관적이고 감각적인 표현."
+};
+var PHARM_DEPTHS=[ {k:"lite",l:"간결"}, {k:"std",l:"표준"}, {k:"rich",l:"풍성"} ];
+var PHARM_DEPTH_GUIDE={ lite:"문장을 더 짧고 군더더기 없이, 핵심만 추려서.", std:"", rich:"정보를 더 알차고 구체적으로 — 포인트·예시를 풍부하게 담되 카드당 분량 한도는 지키세요." };
+var PHARM_EMOJIS=[ {k:"none",l:"없음"}, {k:"some",l:"적당히"}, {k:"lots",l:"많이"} ];
+var PHARM_EMOJI_GUIDE={ none:"이모지를 쓰지 마세요.", some:"이모지는 1~4개만 적절히.", lots:"이모지를 문장마다 자연스럽게 넉넉히(6~12개) 사용하되 과하지 않게." };
 /* ===== 콘텐츠 타입 — 약국 소개를 넘어 건강정보·이벤트·일상까지(약국 SNS 운영 엔진) ===== */
 var PHARM_CTYPES=[ {k:"intro",l:"🏠 약국 소개"}, {k:"health",l:"🩺 건강 정보"}, {k:"event",l:"📣 이벤트·공지"}, {k:"daily",l:"📅 일상·소식"} ];
 var CTYPE_UI={
@@ -1818,6 +1869,12 @@ function renderToneSeg(){
     box.appendChild(b);
   });
 }
+// 글 스타일(보이스) — 대상 독자 · 정보량 · 이모지
+function renderVoiceSegs(){
+  renderOptSeg("bAudience", PHARM_AUDIENCES, function(){ return ph().audience||""; }, function(k){ ph().audience=k; });
+  renderOptSeg("bDepth", PHARM_DEPTHS, function(){ return ph().depth||"std"; }, function(k){ ph().depth=k; });
+  renderOptSeg("bEmoji", PHARM_EMOJIS, function(){ return ph().emoji||"some"; }, function(k){ ph().emoji=k; });
+}
 // 옵션 세그먼트 공용 렌더 (글자 정렬·사진 농도·서체)
 function renderOptSeg(boxId, items, getCur, setCur){
   var box=el(boxId); if(!box) return; box.innerHTML="";
@@ -1869,6 +1926,9 @@ function applyGenMode(){
   var bk=el("bkName"); if(bk){ var bkf=bk.closest&&bk.closest(".bi-field"); if(bkf) bkf.style.display=standard?"":"none"; }   // 브랜드 키트(로고·약국명 칩)는 내 사진만
   var rt=el("bRatio"); if(rt){ var rf=rt.closest&&rt.closest(".bi-field"); if(rf) rf.style.display=video?"none":""; }       // 영상은 9:16 고정 → 비율 숨김
   var eng=el("bEngine"); if(eng){ var ef=eng.closest&&eng.closest(".bi-field"); if(ef) ef.style.display=video?"none":""; }   // 영상은 Gemini 고정
+  // 글 스타일(보이스: 대상·정보량·이모지)·톤 — 문구 생성에만 의미 → 영상에선 숨김
+  ["bAudienceField","bDepthField","bEmojiField"].forEach(function(id){ var f=el(id); if(f) f.style.display=video?"none":""; });
+  var tn=el("bTone"); if(tn){ var tf=tn.closest&&tn.closest(".bi-field"); if(tf) tf.style.display=video?"none":""; }
   updatePhotoDependentOpts(); updateGenBtn();
 }
 // 사진 농도/자동 보정은 배경이 있을 때만 노출 — 무사진 standard 모드에선 숨김
@@ -2051,7 +2111,7 @@ function renderTypeUI(){
   }
   applyGenMode();
 }
-function renderBuilderInput(){ el("bIntro").value=ph().intro||""; renderTypeUI(); renderTplPick(); renderToneSeg(); renderDesignOpts(); renderPhotoStrip(); updateGenBtn(); }
+function renderBuilderInput(){ el("bIntro").value=ph().intro||""; renderTypeUI(); renderTplPick(); renderToneSeg(); renderVoiceSegs(); renderDesignOpts(); renderPhotoStrip(); updateGenBtn(); }
 
 /* ---- 사진 업로드(클라 다운스케일 후 /upload) ---- */
 function downscaleImage(file, maxDim, quality){
@@ -2090,19 +2150,31 @@ function onPhotoFiles(files){
 }
 
 /* ---- AI 문구 ---- */
+/* ===== 보이스(대상·정보량) + 피드백 주입 — 모든 문구 프롬프트 공통 ===== */
+var GEN_FEEDBACK="";   // B1: 자연어 피드백 재생성 시에만 채워짐(런 종료 후 비움)
+function voiceTail(){   // 톤 줄 뒤에 붙일 '대상/정보량' 한 줄
+  var s="";
+  var aud=PHARM_AUD_DESC[ph().audience||""]; if(aud) s+=" · 대상 독자: "+aud;
+  var ag=PHARM_AUD_GUIDE[ph().audience||""]; if(ag) s+="("+ag+")";
+  var dg=PHARM_DEPTH_GUIDE[ph().depth||"std"]; if(dg) s+=" · 정보량: "+dg;
+  return s;
+}
+function feedbackBlock(){   // [출력 형식] 직전에 끼울 강한 추가 지시
+  return GEN_FEEDBACK ? ("\n\n[중요 — 사용자 추가 요청]\n이전 결과를 바탕으로 다음 요청을 반드시 반영해 다시 작성하세요: "+GEN_FEEDBACK) : "";
+}
 function buildTypePrompt(type, text, nPhotos, tone, count){
   var toneD=PHARM_TONE_DESC[tone]||"따뜻하고 친근한";
   var n=count||6;
   var photoLine=nPhotos>0
     ? "약사님이 올린 실제 사진 "+nPhotos+"장이 카드 1장당 1장씩 배경으로 깔립니다. 그래서 카드도 정확히 "+n+"장 만드세요. 사진 위에 얹을 짧고 또렷한 문구를 써주세요."
     : "사진 없이 브랜드 배경으로 만듭니다. 카드는 "+n+"장 만드세요.";
-  var fmt="\n\n[톤]\n"+toneD+" 말투\n\n[작성 규칙]\n- 각 카드: 제목(16자 이내, 큰 글씨) + 본문(2줄·45자 이내)\n- 적힌 사실만 사용하고 지어내지 마세요. 정보가 없으면 일반적인 내용으로 자연스럽게 채우세요.\n- 의약품 광고 심의에 어긋나는 효능 단정·과장, 특정 제품 단정 추천을 하지 마세요.\n- 이모지·해시태그·따옴표 없이 문구만.\n\n[출력 형식] 정확히 아래 형식으로 "+n+"개만 반복. 다른 설명/머리말 없이 카드만 출력:\n@@@CARD\nROLE: (역할)\nTITLE: (제목)\nBODY: (본문)\n";
+  var fmt="\n\n[톤·대상]\n"+toneD+" 말투"+voiceTail()+"\n\n[작성 규칙]\n- 각 카드: 제목(16자 이내, 큰 글씨) + 본문(2줄·45자 이내)\n- 적힌 사실만 사용하고 지어내지 마세요. 정보가 없으면 일반적인 내용으로 자연스럽게 채우세요.\n- 의약품 광고 심의에 어긋나는 효능 단정·과장, 특정 제품 단정 추천을 하지 마세요.\n- 이모지·해시태그·따옴표 없이 문구만."+feedbackBlock()+"\n\n[출력 형식] 정확히 아래 형식으로 "+n+"개만 반복. 다른 설명/머리말 없이 카드만 출력:\n@@@CARD\nROLE: (역할)\nTITLE: (제목)\nBODY: (본문)\n";
   if(type==="health"){
     var ik=ph().infoKind||"", kindGuide="";
     for(var ki=0;ki<PHARM_INFO_KINDS.length;ki++){ if(PHARM_INFO_KINDS[ki].k===ik){ kindGuide=PHARM_INFO_KINDS[ki].guide||""; break; } }
     var infoLine = kindGuide ? ("\n\n[정보 유형]\n"+kindGuide) : "";
     // 빽빽한 정보 카드 — 표지/마무리 외 본문 카드는 핵심 포인트 3~5개로 촘촘히(포인트는 ' ;; ' 로 구분)
-    var fmtH="\n\n[톤]\n"+toneD+" 말투\n\n[작성 규칙]\n- 표지(첫 장)·마무리(마지막 장)는 제목 + 한 줄 본문.\n- 가운데 '정보 카드'들은 제목(16자 이내) + 핵심 포인트 3~5개로 빽빽하게 채우세요. 비교·항목·단계·증상별·주의 등 한 주제를 촘촘히 정리.\n- 각 포인트는 짧고 구체적으로(22자 이내). 적힌 사실·일반 상식만, 효능 단정·과장·특정 제품 단정 추천 금지.\n- 이모지·해시태그·따옴표 금지.\n\n[출력 형식] 정확히 아래 형식으로 "+n+"개만 반복. 정보 카드의 BODY 포인트는 ' ;; ' 로 구분(줄바꿈 금지). 표지·마무리 BODY 는 한 줄. 다른 머리말 없이:\n@@@CARD\nROLE: (역할)\nTITLE: (제목)\nBODY: 포인트1 ;; 포인트2 ;; 포인트3 ;; 포인트4\n";
+    var fmtH="\n\n[톤·대상]\n"+toneD+" 말투"+voiceTail()+"\n\n[작성 규칙]\n- 표지(첫 장)·마무리(마지막 장)는 제목 + 한 줄 본문.\n- 가운데 '정보 카드'들은 제목(16자 이내) + 핵심 포인트 3~5개로 빽빽하게 채우세요. 비교·항목·단계·증상별·주의 등 한 주제를 촘촘히 정리.\n- 각 포인트는 짧고 구체적으로(22자 이내). 적힌 사실·일반 상식만, 효능 단정·과장·특정 제품 단정 추천 금지.\n- 이모지·해시태그·따옴표 금지."+feedbackBlock()+"\n\n[출력 형식] 정확히 아래 형식으로 "+n+"개만 반복. 정보 카드의 BODY 포인트는 ' ;; ' 로 구분(줄바꿈 금지). 표지·마무리 BODY 는 한 줄. 다른 머리말 없이:\n@@@CARD\nROLE: (역할)\nTITLE: (제목)\nBODY: 포인트1 ;; 포인트2 ;; 포인트3 ;; 포인트4\n";
     return "당신은 약국 인스타그램을 운영하는 약사의 건강정보 카드뉴스 카피라이터입니다. 아래 주제로 '정보가 알찬(빽빽한)' 건강정보 카드뉴스 "+n+"장을 작성하세요.\n\n[주제]\n"+(text||"(주제가 비어 있음 — 환절기 건강관리로 자연스럽게 작성)")+infoLine+"\n\n[배경 사진]\n"+photoLine+"\n\n[카드 구성]\n- 정확히 "+n+"장. 첫 장은 표지(주제를 한눈에), 마지막 장은 마무리(증상이 지속되면 가까운 약국·의사와 상담을 권유).\n- 가운데 장들은 항목·비교·단계·증상별 등으로 한 주제를 포인트 여러 개(3~5개)로 촘촘히 담으세요.\n- 일반적인 건강 상식 범위로만 작성하고, 의학적 진단·처방을 대신하지 않습니다."+fmtH;
   }
   if(type==="event"){
@@ -2120,7 +2192,7 @@ function buildPhotoCopyPrompt(text, nPhotos, tone, count){
   var photoLine=nPhotos>0
     ? "약사님이 올린 사진 "+nPhotos+"장이 카드 1장당 1장씩 배경으로 깔립니다. 그래서 카드도 정확히 "+n+"장. 사진 위에 얹을 짧고 또렷한 문구를 써주세요."
     : "사진 없이 브랜드 배경으로 만듭니다. 카드는 "+n+"장.";
-  return "당신은 약국 인스타그램 카드뉴스 카피라이터입니다. 아래 주제로 약국 카드뉴스 "+n+"장의 문구를 작성하세요.\n\n[주제]\n"+(text||"(주제가 비어 있음 — 동네 약국의 따뜻한 소개로 자연스럽게)")+"\n\n[배경 사진]\n"+photoLine+"\n\n[카드 구성]\n- 정확히 "+n+"장. 첫 장은 표지(주제를 한눈에), 마지막 장은 마무리(방문 환영·문의).\n- 가운데 장들은 핵심을 한 장에 하나씩 자연스럽게 담으세요.\n\n[작성 규칙]\n- 각 카드: 제목(16자 이내, 큰 글씨) + 본문(2줄·45자 이내)\n- 적힌 사실만 사용하고 지어내지 마세요. 의약품 효능 단정·과장, 특정 제품 단정 추천 금지.\n- 이모지·해시태그·따옴표 없이 문구만.\n\n[출력 형식] 정확히 아래 형식으로 "+n+"개만 반복. 다른 머리말 없이:\n@@@CARD\nROLE: (역할)\nTITLE: (제목)\nBODY: (본문)\n";
+  return "당신은 약국 인스타그램 카드뉴스 카피라이터입니다. 아래 주제로 약국 카드뉴스 "+n+"장의 문구를 작성하세요.\n\n[주제]\n"+(text||"(주제가 비어 있음 — 동네 약국의 따뜻한 소개로 자연스럽게)")+"\n\n[배경 사진]\n"+photoLine+"\n\n[카드 구성]\n- 정확히 "+n+"장. 첫 장은 표지(주제를 한눈에), 마지막 장은 마무리(방문 환영·문의).\n- 가운데 장들은 핵심을 한 장에 하나씩 자연스럽게 담으세요.\n\n[톤·대상]\n"+toneD+" 말투"+voiceTail()+"\n\n[작성 규칙]\n- 각 카드: 제목(16자 이내, 큰 글씨) + 본문(2줄·45자 이내)\n- 적힌 사실만 사용하고 지어내지 마세요. 의약품 효능 단정·과장, 특정 제품 단정 추천 금지.\n- 이모지·해시태그·따옴표 없이 문구만."+feedbackBlock()+"\n\n[출력 형식] 정확히 아래 형식으로 "+n+"개만 반복. 다른 머리말 없이:\n@@@CARD\nROLE: (역할)\nTITLE: (제목)\nBODY: (본문)\n";
 }
 function cleanField(s){ return String(s||"").replace(/^["'“”\s]+|["'“”\s]+$/g,"").replace(/\s*\n\s*/g," ").trim(); }
 function parseCardPlan(text){
@@ -2505,6 +2577,7 @@ function runVideoGen(){
   var myRun=ph().runId; function stale(){ return ph().runId!==myRun; }
   var refPhotos=(ph().photos||[]).filter(function(p){ return p&&p.url; }).slice(0,3);   // Veo 3.1 참조 이미지 최대 3장
   closeBuilderModal(); showBuilder(); el("bResult").hidden=false; bErr(null);
+  el("bFeedbackBtn").hidden=true; el("bFeedbackBar").hidden=true;   // 영상엔 문구 피드백 없음
   el("bTitle").textContent="AI 영상"; el("bBadge").textContent="만드는 중"; el("bBadge").className="studio-badge run";
   el("bCards").innerHTML=""; el("bCards").hidden=true;
   el("bVideoResult").hidden=false; el("bVideoResult").innerHTML='<div class="vr-ph"><span class="spin"></span>AI가 영상을 만들고 있어요…<small>1~2분 정도 걸려요. 창을 닫지 말아 주세요.</small></div>';
@@ -2539,9 +2612,10 @@ function runVideoGen(){
 function startPharmacyRun(opts){
   opts=opts||{}; var magic=!!opts.magic;
   if(pharmBusy) return;
+  GEN_FEEDBACK=(opts.feedback||"").trim();   // B1: 피드백 재생성이면 프롬프트에 추가 지시 주입
   if((ph().genMode||"standard")==="video"){ runVideoGen(); return; }   // 영상 유형은 별도 흐름
   if(pharmUploading>0){ bInputNote("사진 업로드가 끝난 뒤 눌러주세요."); return; }
-  var intro=(el("bIntro").value||"").trim();
+  var intro=(el("bIntro").value||"").trim() || (ph().intro||"").trim();   // 결과 화면 피드백 재생성 시 입력칸이 비어도 이전 주제 사용
   var photos=ph().photos.filter(function(p){ return p&&p.url; });
   if(!intro && !photos.length){ bInputNote("약국 설명을 적거나 사진을 한 장 이상 올려주세요."); el("bIntro").focus(); return; }
   if(connected===false){ refreshConnUI(); bInputNote("서버 연결을 확인하는 중이에요. 잠시 후 다시 시도해 주세요."); return; }
@@ -2554,6 +2628,7 @@ function startPharmacyRun(opts){
   function stale(){ return ph().runId!==myRun; }
   var pfx=magic?"🪄 매직 — ":"";
   closeBuilderModal(); showBuilder(); el("bResult").hidden=false; bErr(null);   // 입력 팝업 닫고 결과 화면으로
+  el("bFeedbackBtn").hidden=true; el("bFeedbackBar").hidden=true;   // 생성 중엔 숨김 — 완성 후 다시 노출
   el("bTitle").textContent=(ph().genMode==="ai")?"인포그래픽 카드뉴스":"내 사진 카드뉴스";
   el("bBadge").textContent="만드는 중"; el("bBadge").className="studio-badge run";
   el("bVideoResult").hidden=true; el("bCards").hidden=false;
@@ -2631,10 +2706,13 @@ function startPharmacyRun(opts){
         for(var ci=0;ci<calendar.items.length;ci++){ if(calendar.items[ci].id===activeCalItem){ calendar.items[ci].status="done"; calendar.items[ci].jobId=state.jobId; break; } }
         saveCalendar(); renderCalendar(); activeCalItem="";
       }
+      GEN_FEEDBACK="";
+      var fbBtn=el("bFeedbackBtn"); if(fbBtn) fbBtn.hidden=!(ok>0);   // 카드가 나오면 🔁 피드백 수정 노출
       saveLocal(); syncJob(); renderPharmaCards();
     })
     .catch(function(e){
       if(stale()) return;
+      GEN_FEEDBACK="";
       pharmBusy=false; el("bBadge").textContent="중단됨"; el("bBadge").className="studio-badge err";
       bErr("만들기에 실패했어요: "+((e&&e.message)||e)+" · [입력 수정]에서 다시 시도해 주세요."); setBStatus("");
     });
@@ -2655,13 +2733,13 @@ function openPharmacyJob(j){
   state.jobId=j.id; state.platform=st.platform||PHARM_PLATFORM;
   if(typeof st.provider==="string"&&st.provider){ state.provider=st.provider; provSel=st.provider; renderProv(); }
   if(st.pharmacy&&typeof st.pharmacy==="object"){
-    state.pharmacy={ intro:st.pharmacy.intro||"", contentType:st.pharmacy.contentType||"intro", infoKind:st.pharmacy.infoKind||"", genMode:st.pharmacy.genMode||"standard", aiConcept:st.pharmacy.aiConcept||"", tone:st.pharmacy.tone||"warm", templateId:st.pharmacy.templateId||"fullbleed", ratio:st.pharmacy.ratio||"4:5",
+    state.pharmacy={ intro:st.pharmacy.intro||"", contentType:st.pharmacy.contentType||"intro", infoKind:st.pharmacy.infoKind||"", genMode:st.pharmacy.genMode||"standard", aiConcept:st.pharmacy.aiConcept||"", tone:st.pharmacy.tone||"warm", audience:st.pharmacy.audience||"", depth:st.pharmacy.depth||"std", emoji:st.pharmacy.emoji||"some", templateId:st.pharmacy.templateId||"fullbleed", ratio:st.pharmacy.ratio||"4:5",
       palette:st.pharmacy.palette||"gold", align:st.pharmacy.align||"left", overlay:st.pharmacy.overlay||"med", font:st.pharmacy.font||"sans", photoFix:!!st.pharmacy.photoFix, aiArt:st.pharmacy.aiArt||"",
       photos:Array.isArray(st.pharmacy.photos)?st.pharmacy.photos:[], cards:Array.isArray(st.pharmacy.cards)?st.pharmacy.cards:[], caption:st.pharmacy.caption||"", videoUrl:st.pharmacy.videoUrl||"", runId:st.pharmacy.runId||"" };
   }
   if(st.imageGen&&typeof st.imageGen==="object"){ state.imageGen.runId=st.imageGen.runId||""; state.imageGen.items=Array.isArray(st.imageGen.items)?st.imageGen.items:[]; }
   pharmBusy=false; pharmEditing=null; pharmUploading=0; bErr(null);
-  el("bCaptionPanel").hidden=true; el("bVideoPanel").hidden=true; syncCaptionUI();
+  el("bCaptionPanel").hidden=true; el("bVideoPanel").hidden=true; el("bFeedbackBar").hidden=true; el("bFeedbackBtn").hidden=true; syncCaptionUI();
   if(ph().genMode==="video" && ph().videoUrl){   // 영상 작업
     el("bBadge").textContent="완성"; el("bBadge").className="studio-badge done";
     el("bTitle").textContent="AI 영상";
@@ -2670,7 +2748,8 @@ function openPharmacyJob(j){
   } else if((state.pharmacy.cards||[]).length>0){
     el("bBadge").textContent="완성"; el("bBadge").className="studio-badge done";
     el("bTitle").textContent=(ph().genMode==="ai")?"인포그래픽 카드뉴스":"내 사진 카드뉴스";
-    setBStatus("저장된 카드뉴스예요. 카드별로 ✏️·🔄 로 수정하거나 [입력 수정]에서 다시 만들 수 있어요.");
+    setBStatus("저장된 카드뉴스예요. 카드별로 ✏️·🔄 로 수정하거나 🔁 피드백 수정 / [입력 수정]에서 다시 만들 수 있어요.");
+    el("bFeedbackBtn").hidden=false;
     el("bResult").hidden=false; renderPharmaCards(); showBuilder();
   } else {
     showHome(); openBuilderModal();   // 결과가 없으면 입력 팝업으로
@@ -2706,7 +2785,8 @@ function buildCaptionPrompt(intro, tone, cards, type){
   var kind=kindMap[type||"intro"]||"약국 소개";
   var ctaMap={ intro:"방문·문의를 부드럽게 유도", health:"증상이 지속되면 약국·전문가 상담을 권유", event:"참여·방문·문의를 유도", daily:"감사·방문 인사로 마무리" };
   var cta=ctaMap[type||"intro"]||"방문·문의를 부드럽게 유도";
-  return "당신은 약국 인스타그램 운영을 돕는 카피라이터입니다. 아래는 '"+kind+"' 카드뉴스 내용입니다. 인스타그램 게시물에 바로 붙여 넣을 캡션과 해시태그를 작성하세요.\n\n[내용]\n"+(intro||"(비어 있음 — 자연스럽게 작성)")+cardLine+"\n\n[톤]\n"+toneD+" 말투\n\n[작성 규칙]\n- 캡션: 첫 줄은 시선을 끄는 후킹 한 문장, 이어서 2~4줄로 핵심을 전하고, 마지막 줄은 "+cta+"(CTA).\n- 자연스럽고 읽기 쉬운 구어체. 이모지는 1~4개만 적절히 사용.\n- 적힌 사실만 사용하고 지어내지 마세요. 의약품 광고 심의에 어긋나는 효능 단정·과장 표현 금지.\n- 해시태그: 약국·지역·건강·생활 관련 10~14개를 한 줄에 공백으로 구분해 작성(각 태그 앞에 #).\n\n[출력 형식] 다른 머리말/설명 없이 아래만 출력:\n(캡션 본문)\n\n(빈 줄)\n(해시태그 한 줄)";
+  var emojiRule=PHARM_EMOJI_GUIDE[ph().emoji||"some"]||"이모지는 1~4개만 적절히.";
+  return "당신은 약국 인스타그램 운영을 돕는 카피라이터입니다. 아래는 '"+kind+"' 카드뉴스 내용입니다. 인스타그램 게시물에 바로 붙여 넣을 캡션과 해시태그를 작성하세요.\n\n[내용]\n"+(intro||"(비어 있음 — 자연스럽게 작성)")+cardLine+"\n\n[톤·대상]\n"+toneD+" 말투"+voiceTail()+"\n\n[작성 규칙]\n- 캡션: 첫 줄은 시선을 끄는 후킹 한 문장, 이어서 2~4줄로 핵심을 전하고, 마지막 줄은 "+cta+"(CTA).\n- 자연스럽고 읽기 쉬운 구어체. "+emojiRule+"\n- 적힌 사실만 사용하고 지어내지 마세요. 의약품 광고 심의에 어긋나는 효능 단정·과장 표현 금지.\n- 해시태그: 약국·지역·건강·생활 관련 10~14개를 한 줄에 공백으로 구분해 작성(각 태그 앞에 #)."+feedbackBlock()+"\n\n[출력 형식] 다른 머리말/설명 없이 아래만 출력:\n(캡션 본문)\n\n(빈 줄)\n(해시태그 한 줄)";
 }
 function capStatus(m){ var s=el("capStatus"); if(s) s.textContent=m||""; }
 function syncCaptionUI(){ var t=el("capText"); if(t) t.value=ph().caption||""; }
@@ -2949,6 +3029,12 @@ function init(){
   el("bGenerate").addEventListener("click", generatePharmacyCards);
   el("bMagic").addEventListener("click", magicGenerate);
   el("bDownloadAll").addEventListener("click", downloadAllPharma);
+  // 🔁 B1 피드백 재생성
+  el("bFeedbackBtn").addEventListener("click", function(){ var p=el("bFeedbackBar"); var show=p.hidden; p.hidden=!show; if(show){ el("bCaptionPanel").hidden=true; el("bVideoPanel").hidden=true; var t=el("bFeedbackText"); if(t) t.focus(); } });
+  el("fbChips").addEventListener("click", function(e){ var b=e.target.closest("button[data-fb]"); if(!b) return; var t=el("bFeedbackText"); if(t){ t.value=b.getAttribute("data-fb"); t.focus(); } });
+  function runFeedback(){ if(pharmBusy) return; var t=el("bFeedbackText"); var fb=(t&&t.value||"").trim(); if(!fb){ if(t) t.focus(); return; } el("bFeedbackBar").hidden=true; startPharmacyRun({ feedback:fb }); }
+  el("bFeedbackGo").addEventListener("click", runFeedback);
+  el("bFeedbackText").addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); runFeedback(); } });
   el("bIntro").addEventListener("input", function(){ ph().intro=el("bIntro").value; });
   el("bEngine").addEventListener("change", function(){ pharmEngineSel=this.value; try{ localStorage.setItem("cp_pharm_engine",pharmEngineSel); }catch(e){} });
   el("bkName").addEventListener("input", function(){ brandKit.name=this.value; saveBrandKit(); });
