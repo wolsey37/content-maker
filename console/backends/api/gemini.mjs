@@ -46,7 +46,7 @@ export function makeGeminiProvider(secrets, env) {
   env = env || process.env;
   const textModel = env.GEMINI_TEXT_MODEL || "gemini-2.5-flash";   // 최신 기본값
   const imageModel = env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";   // 나노바나나(이미지 생성·편집)
-  const videoModel = env.GEMINI_VIDEO_MODEL || "veo-3.1-fast-generate-preview";   // Veo(영상) 3.1 Fast
+  const videoModel = env.GEMINI_VIDEO_MODEL || "veo-3.1-generate-preview";   // Veo(영상) 3.1 표준 — 고품질
   const VID_TIMEOUT_MS = Number(env.GEMINI_VIDEO_HTTP_TIMEOUT_MS) || 60000;
   const IMG_TIMEOUT_MS = Number(env.GEMINI_IMAGE_HTTP_TIMEOUT_MS) || 280000;
   // 이미지 생성(나노바나나) — generateContent, inlineData 이미지 반환. 참조 이미지(image) 옵션.
@@ -77,11 +77,12 @@ export function makeGeminiProvider(secrets, env) {
     try {
       const inst = { prompt: String(prompt || "") };
       let useModel = (model || "").trim() || videoModel;
+      // 화질 보장: 어떤 경로로 Fast 가 들어와도(프론트/기본값/구버전 작업) 항상 표준(고품질)으로 강제.
+      // 참조 0~1장도 Fast 가 아니라 표준을 쓰도록 ref 개수와 무관하게 먼저 변환한다(referenceImages 는 애초에 Fast 미지원).
+      if (/fast/i.test(useModel)) useModel = "veo-3.1-generate-preview";
       // 참조 이미지: 2장 이상이면 Veo 3.1 referenceImages(asset, 최대 3장, inlineData 포맷), 1장이면 첫 프레임(image-to-video).
       const refs = (Array.isArray(images) ? images : []).filter((im) => im && im.b64).slice(0, 3);
       if (refs.length >= 2) {
-        // referenceImages 는 Fast 미지원 → 표준(veo-3.1-generate-preview)으로 전환.
-        if (/fast/i.test(useModel)) useModel = "veo-3.1-generate-preview";
         inst.referenceImages = refs.map((im) => ({ image: { bytesBase64Encoded: im.b64, mimeType: im.mime || "image/jpeg" }, referenceType: "asset" }));
       } else {
         const one = refs[0] || (image && image.b64 ? image : null);

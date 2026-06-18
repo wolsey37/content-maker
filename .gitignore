@@ -25,3 +25,7 @@ console/lambda.zip
 .aws-sam/
 console/samconfig.toml
 console/dist/
+
+# Cloudflare Wrangler 배포 캐시
+.wrangler/
+console/.wrangler/

@@ -11,18 +11,19 @@
 const PHARMACY_API_BASE = 'https://api.store.friendly-pharmacist.com';
 
 // content-maker Pages 배포 도메인(프로덕션 + 이 프로젝트의 프리뷰만).
+// 프로덕션 도메인은 content-maker-2m2.pages.dev (Cloudflare 가 프로젝트명에 붙인 서브도메인).
 const ALLOWED_ORIGINS = [
   'http://localhost:8788',
   'http://127.0.0.1:8788',
-  'https://content-maker.pages.dev',
+  'https://content-maker-2m2.pages.dev',
 ];
 
 function corsOrigin(request) {
   const origin = request.headers.get('origin') || '';
   if (ALLOWED_ORIGINS.includes(origin)) return origin;
-  // 이 프로젝트(content-maker)의 Pages 프리뷰 도메인만 — '*.pages.dev' 전체를 열면
+  // 이 프로젝트(content-maker-2m2)의 Pages 프리뷰 도메인만 — '*.pages.dev' 전체를 열면
   // 누구나 자기 Pages 사이트에서 이 프록시를 어드민 API CORS 우회 통로로 쓸 수 있다.
-  if (/^https:\/\/[a-z0-9-]+\.content-maker\.pages\.dev$/.test(origin)) return origin;
+  if (/^https:\/\/[a-z0-9-]+\.content-maker-2m2\.pages\.dev$/.test(origin)) return origin;
   return ALLOWED_ORIGINS[0];
 }
 function corsHeaders(request) {

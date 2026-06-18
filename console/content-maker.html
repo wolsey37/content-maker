@@ -2584,7 +2584,7 @@ function renderVideoResult(){
 }
 function pollVideoOp(op, stale){
   return new Promise(function(resolve, reject){
-    var tries=0, max=48;   // 약 8분(10초 간격) — Veo 3.1 Fast
+    var tries=0, max=66;   // 약 11분(10초 간격) — Veo 3.1 표준(고품질)은 생성이 더 걸림
     function tick(){
       if(stale()){ resolve(""); return; }
       pharmacyFetch("/pharmacy/video-status",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
@@ -2627,7 +2627,7 @@ function runVideoGen(){
     if(stale()) return;
     setBStatus("② AI(Gemini Veo)가 영상을 만들고 있어요… (1~2분)");
     return pharmacyFetch("/pharmacy/video",{ method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({ prompt:buildVideoPrompt(intro), aspect:"9:16", image:(refList[0]||""), images:refList, model:"veo-3.1-fast-generate-preview", jobId:ensureJobId(), runId:ph().runId, idx:"1" }) })
+      body:JSON.stringify({ prompt:buildVideoPrompt(intro), aspect:"9:16", image:(refList[0]||""), images:refList, model:"veo-3.1-generate-preview", jobId:ensureJobId(), runId:ph().runId, idx:"1" }) })
       .then(function(r){ return r.json(); }).then(function(d){
         if(stale()) return;
         if(!d||!d.ok||!d.op) throw new Error((d&&d.error)||"영상 시작 실패");
@@ -3087,7 +3087,7 @@ function init(){
   el("bExamples").addEventListener("click", function(e){
     var b=e.target.closest&&e.target.closest("button[data-ex]"); if(!b) return;
     var item=curExamples[parseInt(b.getAttribute("data-ex"),10)]; if(!item) return;
-    var ex=item.v||""; var ta=el("bIntro"); ta.value=ex; ph().intro=ex; ta.focus(); bInputNote("예시를 채웠어요. 내용에 맞게 자유롭게 고쳐 주세요.");
+    var ex=item.v||""; var ta=el("bIntro"); ta.value=ex; ph().intro=ex; ta.focus(); updateGenBtn(); bInputNote("예시를 채웠어요. 내용에 맞게 자유롭게 고쳐 주세요.");   // .value 직접 세팅은 input 이벤트가 안 떠 버튼 활성화가 안 됨 → 명시 호출
   });
   var dz=el("bDrop"), fi=el("bFile");
   dz.addEventListener("click", function(){ fi.click(); });
